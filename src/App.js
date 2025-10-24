@@ -2709,41 +2709,532 @@ export default function CoordinationGeometryAnalyzer() {
             const totalAvailableGeometries = Object.values(REFERENCE_GEOMETRIES).reduce((sum, geoms) => sum + Object.keys(geoms).length, 0);
             const cnGeometries = currentCoordAtoms.length > 0 ? Object.keys(REFERENCE_GEOMETRIES[currentCoordAtoms.length] || {}).length : 0;
 
-            const html = `
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Coordination Geometry Report: ${currentFileName}</title>
+                        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Q-Shape Report: ${currentFileName}</title>
 <style>
 @media print {
-  body { margin: 0; padding: 20px; }
-  .no-print { display: none; }
-  @page { size: A4; margin: 15mm; }
+  body { margin: 0; padding: 20px; background: white !important; }
+  .no-print { display: none; }
+  @page { size: A4; margin: 15mm; }
 }
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.6;color:#333;max-width:900px;margin:2rem auto;padding:0 1rem}
-header{border-bottom:2px solid #0056b3;margin-bottom:2rem;padding-bottom:1rem;text-align:center}
-h1,h2{color:#0056b3}h2{border-bottom:1px solid #ccc;padding-bottom:.5rem;margin-top:2.5rem}
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;background-color:#f0f6ff;padding:1rem;border-radius:8px;border:1px solid #b3d1ff;margin-bottom:1.5rem}
-.summary-item strong{display:block;color:#004085;font-size:.9em;margin-bottom:.25rem}
-.summary-item span{font-size:1.2em;font-weight:700}
-table{width:100%;border-collapse:collapse;margin-top:1rem}
-th,td{padding:.75rem;text-align:left;border:1px solid #ddd}
-th{background-color:#e9ecef}tbody tr:nth-child(odd){background-color:#f8f9fa}
-.best-result{background-color:#d4edda!important;font-weight:700}
-img{max-width:100%;border:1px solid #ccc;border-radius:8px;margin-top:1rem}
-footer{margin-top:3rem;text-align:center;font-size:.8em;color:#888}
-.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}
-.metric-box{background:#f8f9fa;padding:1rem;border-radius:6px;border-left:3px solid #0056b3}
-.metric-label{font-size:0.85em;color:#666;margin-bottom:0.25rem}
-.metric-value{font-size:1.1em;font-weight:700;color:#0056b3}
-.warning-box{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:1rem;margin:1rem 0}
-.quality-score{font-size:2em;font-weight:800;text-align:center;padding:1rem;border-radius:8px;margin:1rem 0}
-.info-box{background:#e7f3ff;border:1px solid #0056b3;border-radius:8px;padding:1rem;margin:1rem 0}
-.download-btn{background:#0056b3;color:white;border:none;padding:1rem 2rem;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin:1rem 0;display:inline-block}
-.download-btn:hover{background:#004494}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  color: #1e293b;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  min-height: 100vh;
+}
+
+header {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-bottom: 3px solid #4f46e5;
+  margin-bottom: 2rem;
+}
+
+h1 {
+  margin: 0;
+  color: #312e81;
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+header p {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  font-size: 1rem;
+}
+
+header p:first-of-type {
+  margin-top: 1rem;
+}
+
+header p strong {
+  color: #1e293b;
+}
+
+h2 {
+  color: #312e81;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 2.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+h3 {
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 1.5rem 0 1rem;
+}
+
+.info-box {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 2px solid #93c5fd;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.info-box h3 {
+  margin-top: 0;
+  color: #1e40af;
+}
+
+.info-box p {
+  margin: 0.5rem 0;
+  color: #475569;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.summary-item {
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  border-left: 3px solid #4f46e5;
+}
+
+.summary-item strong {
+  display: block;
+  color: #64748b;
+  font-size: 0.85em;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summary-item span {
+  font-size: 1.25em;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.quality-score {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 2rem;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.metric-box {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #4f46e5;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.2s;
+}
+
+.metric-box:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.metric-label {
+  font-size: 0.85em;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  font-size: 1.5em;
+  font-weight: 700;
+  color: #312e81;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+th, td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+th {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+tbody tr {
+  transition: background 0.2s;
+}
+
+tbody tr:hover {
+  background: #f8fafc;
+}
+
+tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+tbody tr:nth-child(even):hover {
+  background: #f1f5f9;
+}
+
+.best-result {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important;
+  font-weight: 700;
+  border-left: 4px solid #10b981;
+}
+
+.best-result:hover {
+  background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%) !important;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  margin: 1rem 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  display: block;
+}
+
+.warning-box {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.warning-box h3 {
+  margin-top: 0;
+  color: #92400e;
+}
+
+.warning-box ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+  color: #78350f;
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 1rem 0;
+  display: inline-block;
+  box-shadow: 0 4px 6px rgba(79, 70, 229, 0.4);
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(79, 70, 229, 0.5);
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e2e8f0;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9em;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+footer p {
+  margin: 0.5rem 0;
+}
+
+footer strong {
+  color: #1e293b;
+}
+
+.university-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.university-section img {
+  width: 60px;
+  height: 60px;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+}
+
+.university-info {
+  text-align: left;
+}
+
+.university-info p {
+  margin: 0.25rem 0;
+}
+
+@media print {
+  .quality-score,
+  .metric-box {
+    break-inside: avoid;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}
 </style>
-</head><body>
-<div class="no-print" style="text-align:center;margin-bottom:1rem">
-  <button class="download-btn" onclick="window.print()">📄 Download as PDF</button>
+</head>
+<body>
+<div class="no-print" style="text-align: center; margin-bottom: 2rem;">
+  <button class="download-btn" onclick="window.print()">📄 Download as PDF</button>
 </div>
-<header><h1>🔬 Q-Shape Coordination Geometry Analysis Report</h1><p><strong>File:</strong> ${currentFileName}.xyz</p><p><strong>Generated on:</strong> ${date}</p><p><strong>Analysis Mode:</strong> ${currentAnalysisMode === 'intensive' ? 'Intensive (High Precision) with Kabsch Alignment' : 'Standard with Improved Kabsch Alignment'}</p></header><main><div class="info-box"><h3 style="margin-top:0">📐 SHAPE 2.1 Complete Coverage</h3><p>This analysis uses the <strong>complete SHAPE 2.1 reference geometry library</strong> with ${totalAvailableGeometries} geometries across all coordination numbers (CN=2-12).</p><p>For CN=${currentCoordAtoms.length}, ${cnGeometries} reference geometries were analyzed.</p></div><h2>📊 Analysis Summary</h2><div class="summary-grid"><div class="summary-item"><strong>Metal Center</strong><span>${metal.element} (#${selectedMetal+1})</span></div><div class="summary-item"><strong>Coordination Number</strong><span>${currentCoordAtoms.length}</span></div><div class="summary-item"><strong>Coordination Radius</strong><span>${currentCoordRadius.toFixed(3)} Å</span></div><div class="summary-item"><strong>Best Match Geometry</strong><span style="color:${interpretation.color};">${name}</span></div><div class="summary-item"><strong>CShM Value</strong><span style="color:${interpretation.color};">${shapeMeasure.toFixed(4)}</span></div><div class="summary-item"><strong>Interpretation</strong><span style="color:${interpretation.color};">${interpretation.text}</span></div></div>${currentQualityMetrics ? `<h2>🎯 Quality Metrics</h2><div class="quality-score" style="background:linear-gradient(135deg, ${currentQualityMetrics.overallQualityScore > 80 ? '#d1fae5' : currentQualityMetrics.overallQualityScore > 60 ? '#fef3c7' : '#fee2e2'}, transparent);color:${currentQualityMetrics.overallQualityScore > 80 ? '#059669' : currentQualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626'}">Overall Quality Score: ${currentQualityMetrics.overallQualityScore.toFixed(1)}/100</div><div class="metrics-grid"><div class="metric-box"><div class="metric-label">Angular Distortion Index</div><div class="metric-value">${currentQualityMetrics.angularDistortionIndex.toFixed(3)}°</div><div style="font-size:0.8em;color:#666;margin-top:0.5rem">Lower is better (ideal = 0)</div></div><div class="metric-box"><div class="metric-label">Bond Length Uniformity</div><div class="metric-value">${currentQualityMetrics.bondLengthUniformityIndex.toFixed(1)}%</div><div style="font-size:0.8em;color:#666;margin-top:0.5rem">Higher is better (ideal = 100)</div></div><div class="metric-box"><div class="metric-label">Shape Deviation Parameter</div><div class="metric-value">${currentQualityMetrics.shapeDeviationParameter.toFixed(4)}</div><div style="font-size:0.8em;color:#666;margin-top:0.5rem">Normalized distortion measure</div></div><div class="metric-box"><div class="metric-label">RMSD</div><div class="metric-value">${currentQualityMetrics.rmsd.toFixed(4)} Å</div><div style="font-size:0.8em;color:#666;margin-top:0.5rem">Root mean square deviation</div></div></div>` : ''}${currentAdditionalMetrics ? `<h2>📈 Bond Statistics</h2><div class="metrics-grid"><div class="metric-box"><div class="metric-label">Mean Bond Length</div><div class="metric-value">${currentAdditionalMetrics.meanBondLength.toFixed(4)} Å</div></div><div class="metric-box"><div class="metric-label">Std Dev Bond Length</div><div class="metric-value">${currentAdditionalMetrics.stdDevBondLength.toFixed(4)} Å</div></div><div class="metric-box"><div class="metric-label">Bond Length Range</div><div class="metric-value">${currentAdditionalMetrics.minBondLength.toFixed(3)} - ${currentAdditionalMetrics.maxBondLength.toFixed(3)} Å</div></div><div class="metric-box"><div class="metric-label">Mean L-M-L Angle</div><div class="metric-value">${currentAdditionalMetrics.angleStats.mean.toFixed(2)}° ± ${currentAdditionalMetrics.angleStats.stdDev.toFixed(2)}°</div></div><div class="metric-box"><div class="metric-label">Angle Range</div><div class="metric-value">${currentAdditionalMetrics.angleStats.min.toFixed(1)}° - ${currentAdditionalMetrics.angleStats.max.toFixed(1)}°</div></div><div class="metric-box"><div class="metric-label">Number of L-M-L Angles</div><div class="metric-value">${currentAdditionalMetrics.angleStats.count}</div></div></div>` : ''}<h2>🎨 3D Visualization Snapshot</h2><img src="${imgData}" alt="3D rendering of the molecule"><h2>📋 Geometry Analysis Results</h2><table><thead><tr><th>#</th><th>Geometry</th><th>CShM</th><th>Interpretation</th><th>Confidence</th></tr></thead><tbody>${currentGeometryResults.map((r,i)=>`<tr class="${i===0?'best-result':''}"><td>${i+1}</td><td>${r.name}</td><td>${r.shapeMeasure.toFixed(4)}</td><td>${interpretShapeMeasure(r.shapeMeasure).text}</td><td>${interpretShapeMeasure(r.shapeMeasure).confidence}%</td></tr>`).join('')}</tbody></table><h2>🔗 Coordinating Atoms</h2><table><thead><tr><th>#</th><th>Element</th><th>Distance (Å)</th><th>Coordinates (x, y, z)</th></tr></thead><tbody>${currentCoordAtoms.map((c,i)=>`<tr><td>${i+1}</td><td>${c.atom.element}</td><td>${c.distance.toFixed(4)}</td><td>${c.atom.x.toFixed(4)}, ${c.atom.y.toFixed(4)}, ${c.atom.z.toFixed(4)}</td></tr>`).join('')}</tbody></table>${currentWarnings.length > 0 ? `<div class="warning-box"><h3 style="margin-top:0">⚠️ Warnings</h3><ul>${currentWarnings.map(w => `<li>${w}</li>`).join('')}</ul></div>` : ''}</main><footer><p>Report generated by <strong>Q-Shape (Quantitative Shape Analyzer)</strong></p><p>Complete SHAPE 2.1 coverage with ${totalAvailableGeometries} reference geometries • Improved Kabsch alignment with Jacobi SVD • Optimized Hungarian algorithm</p><p>For citation: Llunell, M.; Casanova, D.; Cirera, J.; Alemany, P.; Alvarez, S. SHAPE, version 2.1; Universitat de Barcelona: Barcelona, Spain, 2013.</p><div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ccc;"><img src="https://raw.githubusercontent.com/HenriqueCSJ/NomenclaturaQuimica/refs/heads/main/UFRRJ.png" alt="UFRRJ Logo" style="width: 50px; height: 50px;"><div style="text-align: center;"><p style="margin: 0; font-weight: bold; color: #333;">Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p><p style="margin: 0;">Departamento de Química Fundamental</p><p style="margin: 0;">Prof. Dr. Henrique C. S. Junior</p></div></div></footer></body></html>`;
+
+<header>
+  <h1>🔬 Q-Shape (Quantitative Shape Analyzer)</h1>
+  <p><strong>Coordination Geometry Analysis Report</strong></p>
+  <p><strong>File:</strong> ${currentFileName}.xyz</p>
+  <p><strong>Generated on:</strong> ${date}</p>
+  <p><strong>Analysis Mode:</strong> ${currentAnalysisMode === 'intensive' ? 'Intensive (High Precision) with Kabsch Alignment' : 'Standard with Improved Kabsch Alignment'}</p>
+  <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.</p>
+</header>
+
+<main>
+  <div class="info-box">
+    <h3>📐 SHAPE 2.1 Complete Coverage</h3>
+    <p>This analysis uses the <strong>complete SHAPE 2.1 reference geometry library</strong> with ${totalAvailableGeometries} geometries across all coordination numbers (CN=2-12).</p>
+    <p>For CN=${currentCoordAtoms.length}, ${cnGeometries} reference geometries were analyzed.</p>
+  </div>
+
+  <h2>📊 Analysis Summary</h2>
+  <div class="summary-grid">
+    <div class="summary-item">
+      <strong>Metal Center</strong>
+      <span>${metal.element} (#${selectedMetal+1})</span>
+    </div>
+    <div class="summary-item">
+      <strong>Coordination Number</strong>
+      <span>${currentCoordAtoms.length}</span>
+    </div>
+    <div class="summary-item">
+      <strong>Coordination Radius</strong>
+      <span>${currentCoordRadius.toFixed(3)} Å</span>
+    </div>
+    <div class="summary-item">
+      <strong>Best Match Geometry</strong>
+      <span style="color:${interpretation.color};">${name}</span>
+    </div>
+    <div class="summary-item">
+      <strong>CShM Value</strong>
+      <span style="color:${interpretation.color};">${shapeMeasure.toFixed(4)}</span>
+    </div>
+    <div class="summary-item">
+      <strong>Interpretation</strong>
+      <span style="color:${interpretation.color};">${interpretation.text}</span>
+    </div>
+  </div>
+
+  ${currentQualityMetrics ? `
+  <h2>🎯 Quality Metrics</h2>
+  <div class="quality-score" style="background: linear-gradient(135deg, ${currentQualityMetrics.overallQualityScore > 80 ? '#d1fae5' : currentQualityMetrics.overallQualityScore > 60 ? '#fef3c7' : '#fee2e2'}, transparent); color: ${currentQualityMetrics.overallQualityScore > 80 ? '#059669' : currentQualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626'};">
+    Overall Quality Score: ${currentQualityMetrics.overallQualityScore.toFixed(1)}/100
+  </div>
+  <div class="metrics-grid">
+    <div class="metric-box">
+      <div class="metric-label">Angular Distortion Index</div>
+      <div class="metric-value">${currentQualityMetrics.angularDistortionIndex.toFixed(3)}°</div>
+      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Lower is better (ideal = 0)</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Bond Length Uniformity</div>
+      <div class="metric-value">${currentQualityMetrics.bondLengthUniformityIndex.toFixed(1)}%</div>
+      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Higher is better (ideal = 100)</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Shape Deviation Parameter</div>
+      <div class="metric-value">${currentQualityMetrics.shapeDeviationParameter.toFixed(4)}</div>
+      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Normalized distortion measure</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">RMSD</div>
+      <div class="metric-value">${currentQualityMetrics.rmsd.toFixed(4)} Å</div>
+      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Root mean square deviation</div>
+    </div>
+  </div>
+  ` : ''}
+
+  ${currentAdditionalMetrics ? `
+  <h2>📈 Bond Statistics</h2>
+  <div class="metrics-grid">
+    <div class="metric-box">
+      <div class="metric-label">Mean Bond Length</div>
+      <div class="metric-value">${currentAdditionalMetrics.meanBondLength.toFixed(4)} Å</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Std Dev Bond Length</div>
+      <div class="metric-value">${currentAdditionalMetrics.stdDevBondLength.toFixed(4)} Å</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Bond Length Range</div>
+      <div class="metric-value">${currentAdditionalMetrics.minBondLength.toFixed(3)} - ${currentAdditionalMetrics.maxBondLength.toFixed(3)} Å</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Mean L-M-L Angle</div>
+      <div class="metric-value">${currentAdditionalMetrics.angleStats.mean.toFixed(2)}° ± ${currentAdditionalMetrics.angleStats.stdDev.toFixed(2)}°</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Angle Range</div>
+      <div class="metric-value">${currentAdditionalMetrics.angleStats.min.toFixed(1)}° - ${currentAdditionalMetrics.angleStats.max.toFixed(1)}°</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">Number of L-M-L Angles</div>
+      <div class="metric-value">${currentAdditionalMetrics.angleStats.count}</div>
+    </div>
+  </div>
+  ` : ''}
+
+  <h2>🎨 3D Visualization Snapshot</h2>
+  <img src="${imgData}" alt="3D rendering of the coordination complex">
+
+  <h2>📋 Geometry Analysis Results</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Geometry</th>
+        <th>CShM</th>
+        <th>Interpretation</th>
+        <th>Confidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${currentGeometryResults.map((r, i) => `
+      <tr class="${i === 0 ? 'best-result' : ''}">
+        <td>${i + 1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td style="font-family: monospace; font-weight: 600;">${r.shapeMeasure.toFixed(4)}</td>
+        <td style="color: ${interpretShapeMeasure(r.shapeMeasure).color}; font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).text}</td>
+        <td style="font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).confidence}%</td>
+      </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <h2>🔗 Coordinating Atoms</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Element</th>
+        <th>Distance (Å)</th>
+        <th>Coordinates (x, y, z)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${currentCoordAtoms.map((c, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${c.atom.element}</strong></td>
+        <td style="font-family: monospace;">${c.distance.toFixed(4)}</td>
+        <td style="font-family: monospace; font-size: 0.9em;">${c.atom.x.toFixed(4)}, ${c.atom.y.toFixed(4)}, ${c.atom.z.toFixed(4)}</td>
+      </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  ${currentWarnings.length > 0 ? `
+  <div class="warning-box">
+    <h3>⚠️ Warnings</h3>
+    <ul>
+      ${currentWarnings.map(w => `<li>${w}</li>`).join('')}
+    </ul>
+  </div>
+  ` : ''}
+</main>
+
+<footer>
+  <p>Report generated by <strong>Q-Shape (Quantitative Shape Analyzer)</strong></p>
+  <p style="margin-top: 1rem;">Complete SHAPE 2.1 coverage with ${totalAvailableGeometries} reference geometries • Improved Kabsch alignment with Jacobi SVD • Optimized Hungarian algorithm</p>
+  <p style="margin-top: 1rem; font-size: 0.85em;">For citation: Llunell, M.; Casanova, D.; Cirera, J.; Alemany, P.; Alvarez, S. SHAPE, version 2.1; Universitat de Barcelona: Barcelona, Spain, 2013.</p>
+
+  <div class="university-section">
+    <img src="https://raw.githubusercontent.com/HenriqueCSJ/NomenclaturaQuimica/refs/heads/main/UFRRJ.png" alt="UFRRJ Logo">
+    <div class="university-info">
+      <p style="font-weight: bold; color: #1e293b;">Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
+      <p>Departamento de Química Fundamental</p>
+      <p>Prof. Dr. Henrique C. S. Junior</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>`;;
             
             const reportWindow = window.open("", "_blank");
             if (reportWindow) {
