@@ -3257,7 +3257,7 @@ footer strong {
     <div style={{ 
         padding: '1.5rem', 
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', 
-        maxWidth: 1800, 
+        maxWidth: 1400, 
         margin: '0 auto', 
         background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
         minHeight: '100vh'
@@ -3981,6 +3981,20 @@ footer strong {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+
+        /* Responsive layout fixes */
+        @media (max-width: 1200px) {
+          .visualization-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .controls-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
         }
       `}</style>
     </div>
