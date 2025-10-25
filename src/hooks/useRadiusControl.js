@@ -65,6 +65,7 @@ export function useRadiusControl({
             try {
                 const radius = detectOptimalRadius(atoms[selectedMetal], atoms);
                 setCoordRadius(radius);
+                // Call callbacks without including them in dependencies to avoid infinite loops
                 if (onRadiusChange) {
                     onRadiusChange(radius, true); // true = auto-detected
                 }
@@ -75,7 +76,8 @@ export function useRadiusControl({
                 }
             }
         }
-    }, [selectedMetal, atoms, autoRadius, onRadiusChange, onWarning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMetal, atoms, autoRadius]);
 
     // Handle text input change
     const handleRadiusInputChange = useCallback((e) => {
@@ -89,7 +91,8 @@ export function useRadiusControl({
                 onRadiusChange(parsed, false); // false = manual
             }
         }
-    }, [onRadiusChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Handle step size change
     const handleRadiusStepChange = useCallback((e) => {
@@ -104,7 +107,8 @@ export function useRadiusControl({
         if (onRadiusChange) {
             onRadiusChange(newVal, false);
         }
-    }, [coordRadius, radiusStep, onRadiusChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [coordRadius, radiusStep]);
 
     // Decrement radius by step (minimum 1.5)
     const decrementRadius = useCallback(() => {
@@ -114,7 +118,8 @@ export function useRadiusControl({
         if (onRadiusChange) {
             onRadiusChange(newVal, false);
         }
-    }, [coordRadius, radiusStep, onRadiusChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [coordRadius, radiusStep]);
 
     // Find optimal radius for target coordination number (v1.1.0)
     const handleFindRadiusForCN = useCallback(() => {
@@ -192,7 +197,8 @@ export function useRadiusControl({
                 onWarning(`Error finding radius: ${error.message}`);
             }
         }
-    }, [targetCNInput, selectedMetal, atoms, onRadiusChange, onWarning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [targetCNInput, selectedMetal, atoms]);
 
     // Manual radius setter (for external control)
     const updateRadius = useCallback((newRadius, isAuto = false) => {
@@ -201,7 +207,8 @@ export function useRadiusControl({
         if (onRadiusChange) {
             onRadiusChange(newRadius, isAuto);
         }
-    }, [onRadiusChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return {
         // State
