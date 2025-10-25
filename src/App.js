@@ -2095,7 +2095,12 @@ export default function CoordinationGeometryAnalyzer() {
     const [qualityMetrics, setQualityMetrics] = useState(null);
     const [error, setError] = useState(null);
     const [warnings, setWarnings] = useState([]);
-    
+
+    // New features for v1.1.0
+    const [radiusInput, setRadiusInput] = useState("3.000");
+    const [radiusStep, setRadiusStep] = useState(0.05);
+    const [targetCNInput, setTargetCNInput] = useState("");
+
     const canvasRef = useRef(null);
     const rendererRef = useRef(null);
     const sceneRef = useRef(null);
@@ -2269,6 +2274,77 @@ export default function CoordinationGeometryAnalyzer() {
         reader.readAsText(file);
     }, [parseXYZ, validateXYZ]);
 
+    // New handlers for v1.1.0 features
+    const handleRadiusInputChange = (e) => {
+        const val = e.target.value;
+        setRadiusInput(val);
+        const parsed = parseFloat(val);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            setCoordRadius(parsed);
+            setAutoRadius(false);
+        }
+    };
+
+    const handleRadiusStepChange = (e) => {
+        setRadiusStep(parseFloat(e.target.value));
+    };
+
+    const handleFindRadiusForCN = () => {
+        const cn = parseInt(targetCNInput, 10);
+        if (!Number.isFinite(cn) || cn < 2 || cn > 24) {
+            setWarnings(prev => [...prev, "Please enter a valid Coordination Number (2-24)"]);
+            return;
+        }
+
+        if (selectedMetal == null || !atoms.length) {
+            setWarnings(prev => [...prev, "Please load a file and select a metal center first"]);
+            return;
+        }
+
+        try {
+            const metal = atoms[selectedMetal];
+            const center = new THREE.Vector3(metal.x, metal.y, metal.z);
+
+            const allNeighbors = atoms
+                .map((atom, idx) => {
+                    if (idx === selectedMetal) return null;
+                    const pos = new THREE.Vector3(atom.x, atom.y, atom.z);
+                    const distance = pos.distanceTo(center);
+                    if (!isFinite(distance)) return null;
+                    return { atom, idx, distance, vec: pos.sub(center) };
+                })
+                .filter((x) => x && x.distance > 0.1)
+                .sort((a, b) => a.distance - b.distance);
+
+            if (allNeighbors.length < cn) {
+                setWarnings(prev => [...prev, `Not enough neighbors for CN=${cn}. Found only ${allNeighbors.length}.`]);
+                return;
+            }
+
+            const lastIncluded = allNeighbors[cn - 1];
+            let optimalRadius;
+            let gapInfo = "";
+
+            if (allNeighbors.length > cn) {
+                const firstExcluded = allNeighbors[cn];
+                optimalRadius = (lastIncluded.distance + firstExcluded.distance) / 2.0;
+                const gap = firstExcluded.distance - lastIncluded.distance;
+                gapInfo = ` (Gap to next atom: ${gap.toFixed(3)} Å)`;
+            } else {
+                optimalRadius = lastIncluded.distance + 0.4;
+                gapInfo = " (Last available atom)";
+            }
+
+            setCoordRadius(optimalRadius);
+            setAutoRadius(false);
+            setWarnings(prev => [...prev, `✅ Set radius to ${optimalRadius.toFixed(3)} Å for CN=${cn}${gapInfo}`]);
+
+        } catch (error) {
+            console.error("Error in handleFindRadiusForCN:", error);
+            setWarnings(prev => [...prev, `Error finding radius: ${error.message}`]);
+        }
+    };
+
     useEffect(() => {
         if (selectedMetal != null && atoms.length > 0 && autoRadius) {
             try {
@@ -2280,6 +2356,13 @@ export default function CoordinationGeometryAnalyzer() {
             }
         }
     }, [selectedMetal, autoRadius, atoms]);
+
+    // Sync radiusInput string with coordRadius number (v1.1.0)
+    useEffect(() => {
+        if (isFinite(coordRadius)) {
+            setRadiusInput(coordRadius.toFixed(3));
+        }
+    }, [coordRadius]);
 
     useEffect(() => {
         if (selectedMetal == null || atoms.length === 0) return;
@@ -3277,7 +3360,24 @@ footer strong {
       
       {warnings.length > 0 && (
         <div className="alert alert-warning">
-          <strong>⚠️ Warnings:</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+            <strong>⚠️ Warnings:</strong>
+            <button
+              onClick={() => setWarnings([])}
+              style={{
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '0.25rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Clear
+            </button>
+          </div>
           <ul>
             {warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
@@ -3325,30 +3425,142 @@ footer strong {
                 📏 Coordination Radius: {coordRadius.toFixed(2)} Å
               </label>
               <label className="checkbox-label">
-                <input 
-                  type="checkbox" 
-                  checked={autoRadius} 
+                <input
+                  type="checkbox"
+                  checked={autoRadius}
                   onChange={(e) => setAutoRadius(e.target.checked)}
                   style={{ cursor: 'pointer' }}
-                /> 
+                />
                 Auto
               </label>
             </div>
-            <input 
-              type="range" 
-              min="1.5" 
-              max="6.0" 
-              step="0.05" 
-              value={coordRadius} 
-              onChange={(e) => { 
-                setCoordRadius(parseFloat(e.target.value)); 
-                setAutoRadius(false); 
-              }} 
-              style={{ 
+
+            {/* Precise Radius Control - v1.1.0 */}
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <input
+                  type="text"
+                  value={radiusInput}
+                  onChange={handleRadiusInputChange}
+                  disabled={autoRadius}
+                  placeholder="3.000"
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem',
+                    fontFamily: 'monospace'
+                  }}
+                />
+                <select
+                  value={radiusStep}
+                  onChange={handleRadiusStepChange}
+                  disabled={autoRadius}
+                  className="select-input"
+                  style={{ width: 'auto', padding: '0.5rem' }}
+                >
+                  <option value={0.50}>±0.50 Å</option>
+                  <option value={0.10}>±0.10 Å</option>
+                  <option value={0.05}>±0.05 Å</option>
+                  <option value={0.01}>±0.01 Å</option>
+                </select>
+                <button
+                  onClick={() => {
+                    const newVal = coordRadius + radiusStep;
+                    setCoordRadius(newVal);
+                    setAutoRadius(false);
+                  }}
+                  disabled={autoRadius}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    background: autoRadius ? '#e2e8f0' : '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: autoRadius ? 'not-allowed' : 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => {
+                    const newVal = Math.max(1.5, coordRadius - radiusStep);
+                    setCoordRadius(newVal);
+                    setAutoRadius(false);
+                  }}
+                  disabled={autoRadius}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    background: autoRadius ? '#e2e8f0' : '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: autoRadius ? 'not-allowed' : 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  −
+                </button>
+              </div>
+            </div>
+
+            <input
+              type="range"
+              min="1.5"
+              max="6.0"
+              step="0.05"
+              value={coordRadius}
+              onChange={(e) => {
+                setCoordRadius(parseFloat(e.target.value));
+                setAutoRadius(false);
+              }}
+              style={{
                 width: '100%',
                 accentColor: '#4f46e5'
-              }} 
+              }}
             />
+          </div>
+
+          {/* Find Radius by CN - v1.1.0 */}
+          <div className="card">
+            <label className="control-label">
+              🎯 Find Radius by Coordination Number
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+              <input
+                type="text"
+                value={targetCNInput}
+                onChange={(e) => setTargetCNInput(e.target.value)}
+                placeholder="Target CN (2-24)"
+                style={{
+                  flex: 1,
+                  padding: '0.5rem',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '0.95rem'
+                }}
+              />
+              <button
+                onClick={handleFindRadiusForCN}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Find Radius
+              </button>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>
+              Automatically finds optimal radius for target CN using gap detection
+            </div>
           </div>
         </div>
 
