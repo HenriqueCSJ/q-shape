@@ -259,9 +259,8 @@ export function useShapeAnalysis({
         return () => {
             isCancelled = true;
             timeouts.forEach(timeout => clearTimeout(timeout));
-            // Reset loading state if this effect is being cleaned up
-            setIsLoading(false);
-            setProgress(null);
+            // Don't reset loading state here - let the next effect run handle it
+            // Otherwise we interrupt analysis when coordAtoms changes slightly
         };
 
     }, [coordAtoms, analysisParams, getCacheKey, onWarning, onError]);
