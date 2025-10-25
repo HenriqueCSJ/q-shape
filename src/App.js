@@ -1,579 +1,109 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import './App.css';
 
 // Constants
-import { ATOMIC_DATA, ALL_METALS } from './constants/atomicData';
+import { ALL_METALS } from './constants/atomicData';
 import { REFERENCE_GEOMETRIES } from './constants/referenceGeometries';
 
-// Services
-import calculateShapeMeasure from './services/shapeAnalysis/shapeCalculator';
-import { calculateAdditionalMetrics, calculateQualityMetrics } from './services/shapeAnalysis/qualityMetrics';
-import { detectOptimalRadius } from './services/coordination/radiusDetector';
-import { detectMetalCenter } from './services/coordination/metalDetector';
-import { getCoordinatingAtoms } from './services/coordination/sphereDetector';
-
 // Utilities
-import { parseXYZ, validateXYZ } from './utils/fileParser';
 import { interpretShapeMeasure } from './utils/geometry';
+
+// Custom Hooks
+import useFileUpload from './hooks/useFileUpload';
+import useRadiusControl from './hooks/useRadiusControl';
+import useCoordination from './hooks/useCoordination';
+import useShapeAnalysis from './hooks/useShapeAnalysis';
+import { useThreeScene } from './hooks/useThreeScene';
 
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
-    const [atoms, setAtoms] = useState([]);
+    // UI State (managed locally)
     const [selectedMetal, setSelectedMetal] = useState(null);
-    const [coordRadius, setCoordRadius] = useState(3.0);
-    const [autoRadius, setAutoRadius] = useState(true);
-    const [coordAtoms, setCoordAtoms] = useState([]);
-    const [geometryResults, setGeometryResults] = useState([]);
-    const [bestGeometry, setBestGeometry] = useState(null);
-    const [fileName, setFileName] = useState("");
+    const [analysisParams, setAnalysisParams] = useState({ mode: 'default', key: 0 });
     const [autoRotate, setAutoRotate] = useState(false);
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
-    const [analysisParams, setAnalysisParams] = useState({ mode: 'default', key: 0 });
-    const [progress, setProgress] = useState(null);
-    const [additionalMetrics, setAdditionalMetrics] = useState(null);
-    const [qualityMetrics, setQualityMetrics] = useState(null);
-    const [error, setError] = useState(null);
     const [warnings, setWarnings] = useState([]);
 
-    // New features for v1.1.0
-    const [radiusInput, setRadiusInput] = useState("3.000");
-    const [radiusStep, setRadiusStep] = useState(0.05);
-    const [targetCNInput, setTargetCNInput] = useState("");
-
+    // Refs
     const canvasRef = useRef(null);
-    const rendererRef = useRef(null);
-    const sceneRef = useRef(null);
-    const cameraRef = useRef(null);
-    const controlsRef = useRef(null);
-    const resultsCache = useRef(new Map());
 
-    const getCacheKey = useCallback((metalIdx, radius, atomsData, mode) => {
-        if (metalIdx == null || !atomsData || atomsData.length === 0) return null;
-        try {
-            return `${mode}-${metalIdx}-${radius.toFixed(3)}-${atomsData.map(a => `${a.element}${a.x.toFixed(3)}${a.y.toFixed(3)}${a.z.toFixed(3)}`).join('-')}`;
-        } catch (error) {
-            console.error("Error generating cache key:", error);
-            return null;
-        }
-    }, []);
+    // File Upload Hook
+    const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
 
-
-    const handleFileUpload = useCallback((e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        
-        setError(null);
-        setWarnings([]);
-        setFileName(file.name.replace(/\.xyz$/i, ""));
-        
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const content = String(ev.target?.result || "");
-                const validation = validateXYZ(content);
-                
-                if (!validation.valid) {
-                    throw new Error(validation.error);
-                }
-                
-                if (validation.warnings && validation.warnings.length > 0) {
-                    setWarnings(validation.warnings);
-                }
-                
-                const parsedAtoms = parseXYZ(content);
-                setAtoms(parsedAtoms);
-                
-                const metalIdx = detectMetalCenter(parsedAtoms);
-                setSelectedMetal(metalIdx);
-                
-                if (metalIdx != null) {
-                    const radius = detectOptimalRadius(parsedAtoms[metalIdx], parsedAtoms);
-                    setCoordRadius(radius);
-                    setAutoRadius(true);
-                }
-                
-                setAnalysisParams({ mode: 'default', key: Date.now() });
-                resultsCache.current.clear();
-                
-            } catch (err) {
-                console.error("File upload error:", err);
-                setError(err.message);
+    // Radius Control Hook (v1.1.0)
+    const {
+        coordRadius,
+        autoRadius,
+        radiusInput,
+        radiusStep,
+        targetCNInput,
+        handleRadiusInputChange,
+        handleRadiusStepChange,
+        handleFindRadiusForCN,
+        incrementRadius,
+        decrementRadius,
+        setCoordRadius,
+        setAutoRadius,
+        setTargetCNInput
+    } = useRadiusControl({
+        atoms,
+        selectedMetal,
+        onRadiusChange: (radius, isAuto) => {
+            // Trigger re-analysis when radius changes manually
+            if (!isAuto) {
+                setAnalysisParams(prev => ({ ...prev, key: Date.now() }));
             }
-        };
-        
-        reader.onerror = () => {
-            const errorMsg = "Failed to read file - please check file permissions and try again";
-            setError(errorMsg);
-        };
-        
-        reader.readAsText(file);
-    }, []);
+        },
+        onWarning: (msg) => setWarnings(prev => [...prev, msg])
+    });
 
-    // New handlers for v1.1.0 features
-    const handleRadiusInputChange = (e) => {
-        const val = e.target.value;
-        setRadiusInput(val);
-        const parsed = parseFloat(val);
-        if (Number.isFinite(parsed) && parsed > 0) {
-            setCoordRadius(parsed);
-            setAutoRadius(false);
-        }
-    };
+    // Coordination Hook
+    const { coordAtoms } = useCoordination({
+        atoms,
+        selectedMetal,
+        coordRadius
+    });
 
-    const handleRadiusStepChange = (e) => {
-        setRadiusStep(parseFloat(e.target.value));
-    };
+    // Shape Analysis Hook
+    const {
+        geometryResults,
+        bestGeometry,
+        additionalMetrics,
+        qualityMetrics,
+        isLoading,
+        progress
+    } = useShapeAnalysis({
+        coordAtoms,
+        analysisParams,
+        onWarning: (msg) => setWarnings(prev => [...prev, msg]),
+        onError: (msg) => setWarnings(prev => [...prev, `Error: ${msg}`])
+    });
 
-    const handleFindRadiusForCN = () => {
-        const cn = parseInt(targetCNInput, 10);
-        if (!Number.isFinite(cn) || cn < 2 || cn > 24) {
-            setWarnings(prev => [...prev, "Please enter a valid Coordination Number (2-24)"]);
-            return;
-        }
+    // Three.js Scene Hook
+    const { sceneRef, rendererRef, cameraRef } = useThreeScene({
+        canvasRef,
+        atoms,
+        selectedMetal,
+        coordAtoms,
+        bestGeometry,
+        autoRotate,
+        showIdeal,
+        showLabels
+    });
 
-        if (selectedMetal == null || !atoms.length) {
-            setWarnings(prev => [...prev, "Please load a file and select a metal center first"]);
-            return;
-        }
-
-        try {
-            const metal = atoms[selectedMetal];
-            const center = new THREE.Vector3(metal.x, metal.y, metal.z);
-
-            const allNeighbors = atoms
-                .map((atom, idx) => {
-                    if (idx === selectedMetal) return null;
-                    const pos = new THREE.Vector3(atom.x, atom.y, atom.z);
-                    const distance = pos.distanceTo(center);
-                    if (!isFinite(distance)) return null;
-                    return { atom, idx, distance, vec: pos.sub(center) };
-                })
-                .filter((x) => x && x.distance > 0.1)
-                .sort((a, b) => a.distance - b.distance);
-
-            if (allNeighbors.length < cn) {
-                setWarnings(prev => [...prev, `Not enough neighbors for CN=${cn}. Found only ${allNeighbors.length}.`]);
-                return;
-            }
-
-            const lastIncluded = allNeighbors[cn - 1];
-            let optimalRadius;
-            let gapInfo = "";
-
-            if (allNeighbors.length > cn) {
-                const firstExcluded = allNeighbors[cn];
-                optimalRadius = (lastIncluded.distance + firstExcluded.distance) / 2.0;
-                const gap = firstExcluded.distance - lastIncluded.distance;
-                gapInfo = ` (Gap to next atom: ${gap.toFixed(3)} Å)`;
-            } else {
-                optimalRadius = lastIncluded.distance + 0.4;
-                gapInfo = " (Last available atom)";
-            }
-
-            setCoordRadius(optimalRadius);
-            setAutoRadius(false);
-            setWarnings(prev => [...prev, `✅ Set radius to ${optimalRadius.toFixed(3)} Å for CN=${cn}${gapInfo}`]);
-
-        } catch (error) {
-            console.error("Error in handleFindRadiusForCN:", error);
-            setWarnings(prev => [...prev, `Error finding radius: ${error.message}`]);
-        }
-    };
-
+    // Sync upload metadata with state (set metal center and radius after upload)
     useEffect(() => {
-        if (selectedMetal != null && atoms.length > 0 && autoRadius) {
-            try {
-                const radius = detectOptimalRadius(atoms[selectedMetal], atoms);
-                setCoordRadius(radius);
-            } catch (error) {
-                console.error("Error auto-detecting radius:", error);
-                setWarnings(prev => [...prev, "Failed to auto-detect radius, using manual value"]);
+        if (uploadMetadata) {
+            if (uploadMetadata.detectedMetalIndex != null) {
+                setSelectedMetal(uploadMetadata.detectedMetalIndex);
             }
-        }
-    }, [selectedMetal, autoRadius, atoms]);
-
-    // Sync radiusInput string with coordRadius number (v1.1.0)
-    useEffect(() => {
-        if (isFinite(coordRadius)) {
-            setRadiusInput(coordRadius.toFixed(3));
-        }
-    }, [coordRadius]);
-
-    useEffect(() => {
-        if (selectedMetal == null || atoms.length === 0) return;
-        
-        const cacheKey = getCacheKey(selectedMetal, coordRadius, atoms, analysisParams.mode);
-        
-        if (cacheKey && resultsCache.current.has(cacheKey)) {
-            const cached = resultsCache.current.get(cacheKey);
-            setGeometryResults(cached.results);
-            setBestGeometry(cached.best);
-            setAdditionalMetrics(cached.metrics);
-            setQualityMetrics(cached.quality);
-            setCoordAtoms(cached.coordAtoms); // RESTORE coordAtoms from cache
-            return;
-        }
-        
-        setIsLoading(true);
-        setProgress(null);
-        setError(null);
-
-        const timer = setTimeout(() => {
-            try {
-                const selected = getCoordinatingAtoms(atoms, selectedMetal, coordRadius);
-                setCoordAtoms(selected);
-
-                const metrics = calculateAdditionalMetrics(selected);
-                setAdditionalMetrics(metrics);
-
-                const cn = selected.length;
-                const geometries = REFERENCE_GEOMETRIES[cn];
-                
-                if (!geometries) {
-                    setGeometryResults([]);
-                    setBestGeometry(null);
-                    setQualityMetrics(null);
-                    setIsLoading(false);
-                    if (cn > 0) {
-                        setWarnings(prev => [...prev, `No reference geometries available for coordination number ${cn}`]);
-                    }
-                    return;
-                }
-
-                const actualCoords = selected.map((c) => [c.vec.x, c.vec.y, c.vec.z]);
-                const results = [];
-                
-                const geometryNames = Object.keys(geometries);
-                
-                const processGeometry = (index) => {
-                    if (index >= geometryNames.length) {
-                        results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
-                        const finiteResults = results.filter(r => isFinite(r.shapeMeasure));
-                        
-                        if(finiteResults.length > 0) {
-                            setGeometryResults(finiteResults);
-                            const best = finiteResults[0];
-                            setBestGeometry(best);
-                            
-                            const quality = calculateQualityMetrics(selected, best, best.shapeMeasure);
-                            setQualityMetrics(quality);
-                            
-                            if (cacheKey) {
-                                resultsCache.current.set(cacheKey, {
-                                    results: finiteResults,
-                                    best,
-                                    metrics,
-                                    quality,
-                                    coordAtoms: selected // CACHE coordAtoms
-                                });
-                            }
-                        } else {
-                            setGeometryResults([]);
-                            setBestGeometry(null);
-                            setQualityMetrics(null);
-                            setError("Analysis completed but no valid geometries found");
-                        }
-                        setIsLoading(false);
-                        setProgress(null);
-                        return;
-                    }
-                    
-                    const name = geometryNames[index];
-                    const refCoords = geometries[name];
-                    
-                    setProgress({ 
-                        geometry: name, 
-                        current: index + 1, 
-                        total: geometryNames.length,
-                        stage: 'Initializing'
-                    });
-                    
-                    setTimeout(() => {
-                        try {
-                            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-                                actualCoords, 
-                                refCoords, 
-                                analysisParams.mode,
-                                (progressInfo) => {
-                                    setProgress({
-                                        geometry: name,
-                                        current: index + 1,
-                                        total: geometryNames.length,
-                                        ...progressInfo
-                                    });
-                                }
-                            );
-                            
-                            results.push({ 
-                                name, 
-                                shapeMeasure: measure, 
-                                refCoords, 
-                                alignedCoords,
-                                rotationMatrix
-                            });
-                            
-                            processGeometry(index + 1);
-                        } catch(error) {
-                            console.error(`Error processing geometry ${name}:`, error);
-                            setWarnings(prev => [...prev, `Failed to analyze ${name}: ${error.message}`]);
-                            processGeometry(index + 1);
-                        }
-                    }, 10);
-                };
-                
-                processGeometry(0);
-
-            } catch (error) {
-                console.error("Failed to perform geometry analysis:", error);
-                setError(`Analysis failed: ${error.message}`);
-                setGeometryResults([]);
-                setBestGeometry(null);
-                setQualityMetrics(null);
-                setIsLoading(false);
-                setProgress(null);
+            if (uploadMetadata.suggestedRadius) {
+                setCoordRadius(uploadMetadata.suggestedRadius, true); // true = auto-detected
             }
-        }, 20);
-
-        return () => clearTimeout(timer);
-
-    }, [selectedMetal, atoms, coordRadius, analysisParams, getCacheKey]);
-
-    // FIX 3: Add coordRadius to dependencies to ensure re-render when slider changes
-    useEffect(() => {
-        if (!canvasRef.current || atoms.length === 0 || selectedMetal == null) return;
-
-        const canvas = canvasRef.current;
-        const container = canvas.parentElement;
-
-        if (rendererRef.current) {
-            rendererRef.current.dispose();
+            setAnalysisParams({ mode: 'default', key: Date.now() });
         }
-
-        const width = container.clientWidth || 800;
-        const height = 600;
-
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
-        sceneRef.current = scene;
-
-        const renderer = new THREE.WebGLRenderer({ 
-            canvas, 
-            antialias: true, 
-            powerPreference: "high-performance",
-            alpha: false
-        });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(width, height, false);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        rendererRef.current = renderer;
-
-        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-        const metal = atoms[selectedMetal];
-        const center = new THREE.Vector3(metal.x, metal.y, metal.z);
-        camera.position.set(center.x + 12, center.y + 8, center.z + 12);
-        camera.lookAt(center);
-        cameraRef.current = camera;
-        
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.copy(center);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 5;
-        controls.maxDistance = 50;
-        controls.autoRotate = autoRotate;
-        controls.autoRotateSpeed = 1.0;
-        controlsRef.current = controls;
-
-        const handleResize = () => {
-            const newWidth = container.clientWidth || 800;
-            const newHeight = 600;
-            camera.aspect = newWidth / newHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(newWidth, newHeight, false);
-        };
-        
-        const resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(container);
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        
-        const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        keyLight.position.set(20, 20, 15);
-        keyLight.castShadow = true;
-        keyLight.shadow.mapSize.width = 2048;
-        keyLight.shadow.mapSize.height = 2048;
-        keyLight.shadow.camera.near = 0.5;
-        keyLight.shadow.camera.far = 100;
-        scene.add(keyLight);
-        
-        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-        fillLight.position.set(-15, 10, -10);
-        scene.add(fillLight);
-        
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
-        backLight.position.set(0, -10, -15);
-        scene.add(backLight);
-
-        const coordinatedIdx = new Set(coordAtoms.map((c) => c.idx));
-        
-        atoms.forEach((a, idx) => {
-            const data = ATOMIC_DATA[a.element] || { radius: 0.6, color: 0xcccccc };
-            const isMetal = idx === selectedMetal;
-            const isCoord = coordinatedIdx.has(idx);
-            
-            if (!isMetal && !isCoord) {
-                return;
-            }
-            
-            const geo = new THREE.SphereGeometry(data.radius * 0.3, 32, 32);
-            const mat = new THREE.MeshStandardMaterial({
-                color: data.color, 
-                metalness: isMetal ? 0.6 : 0.1, 
-                roughness: isMetal ? 0.4 : 0.7,
-                emissive: isMetal ? new THREE.Color(data.color) : 0x000000, 
-                emissiveIntensity: isMetal ? 0.2 : 0,
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(a.x, a.y, a.z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
-            
-            if (showLabels && (isMetal || isCoord)) {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.width = 256;
-                canvas.height = 128;
-                context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                context.font = 'bold 48px Arial';
-                context.fillStyle = isMetal ? '#dc2626' : '#1e40af';
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-                context.fillText(a.element, canvas.width / 2, canvas.height / 2);
-                
-                const texture = new THREE.CanvasTexture(canvas);
-                const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-                const sprite = new THREE.Sprite(spriteMaterial);
-                sprite.position.set(a.x, a.y + data.radius * 0.5, a.z);
-                sprite.scale.set(0.8, 0.4, 1);
-                scene.add(sprite);
-            }
-        });
-        
-        coordAtoms.forEach((c) => {
-            const p0 = center;
-            const p1 = new THREE.Vector3(c.atom.x, c.atom.y, c.atom.z);
-            const bondVec = p1.clone().sub(p0);
-            const bondGeo = new THREE.CylinderGeometry(0.08, 0.08, bondVec.length(), 16);
-            const bondMat = new THREE.MeshStandardMaterial({ 
-                color: 0x64748b, 
-                metalness: 0.3, 
-                roughness: 0.6 
-            });
-            const bondMesh = new THREE.Mesh(bondGeo, bondMat);
-            bondMesh.position.copy(p0).add(bondVec.clone().multiplyScalar(0.5));
-            bondMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), bondVec.clone().normalize());
-            bondMesh.castShadow = true;
-            scene.add(bondMesh);
-        });
-        
-        if (bestGeometry && bestGeometry.rotationMatrix && bestGeometry.refCoords && showIdeal) {
-            const idealGroup = new THREE.Group();
-            const scalingFactor = coordAtoms.length > 0 
-                ? coordAtoms.reduce((acc, curr) => acc + curr.distance, 0) / coordAtoms.length 
-                : 1;
-
-            const inverseRotation = bestGeometry.rotationMatrix.clone().invert();
-
-            const idealCoordsVec = bestGeometry.refCoords.map(c => new THREE.Vector3(...c));
-            const rotatedIdealCoords = idealCoordsVec.map(v => v.clone().applyMatrix4(inverseRotation));
-            
-            rotatedIdealCoords.forEach((rotatedVec) => {
-                const pos = rotatedVec.clone().multiplyScalar(scalingFactor).add(center);
-                const geo = new THREE.SphereGeometry(0.2, 24, 24);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0xff00ff, 
-                    transparent: true, 
-                    opacity: 0.8,
-                    metalness: 0.5,
-                    roughness: 0.3,
-                    emissive: 0xff00ff,
-                    emissiveIntensity: 0.3
-                });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.copy(pos);
-                idealGroup.add(mesh);
-            });
-
-            const edges = [];
-            
-            // FIX 1: Adaptive threshold based on coordination number
-            // Lower CN needs more generous threshold
-            const cnThreshold = coordAtoms.length <= 4 ? 2.5 : 2.2;
-            
-            for (let i = 0; i < idealCoordsVec.length; i++) {
-                for (let j = i + 1; j < idealCoordsVec.length; j++) {
-                    const dist = idealCoordsVec[i].distanceTo(idealCoordsVec[j]);
-                    if (dist < cnThreshold) { 
-                        const p0 = rotatedIdealCoords[i].clone().multiplyScalar(scalingFactor).add(center);
-                        const p1 = rotatedIdealCoords[j].clone().multiplyScalar(scalingFactor).add(center);
-                        edges.push(p0, p1);
-                    }
-                }
-            }
-            
-            if (edges.length > 0) {
-                const lineGeo = new THREE.BufferGeometry().setFromPoints(edges);
-                const lineMat = new THREE.LineBasicMaterial({ 
-                    color: 0xff00ff, 
-                    transparent: true, 
-                    opacity: 0.6,
-                    linewidth: 2
-                });
-                const lines = new THREE.LineSegments(lineGeo, lineMat);
-                idealGroup.add(lines);
-            }
-            
-            scene.add(idealGroup);
-        }
-
-        renderer.render(scene, camera);
-
-        let animationFrameId;
-        const animate = () => {
-            animationFrameId = requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        };
-        animate();
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-            resizeObserver.disconnect();
-            controls.dispose();
-            scene.traverse(object => {
-                if (object.geometry) object.geometry.dispose();
-                if (object.material) {
-                    if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                    else object.material.dispose();
-                }
-            });
-            renderer.dispose();
-        };
-    }, [atoms, selectedMetal, coordAtoms, bestGeometry, autoRotate, showIdeal, showLabels, coordRadius]); // Added coordRadius here
-
-    useEffect(() => {
-        if (controlsRef.current) {
-            controlsRef.current.autoRotate = autoRotate;
-        }
-    }, [autoRotate]);
+    }, [uploadMetadata, setCoordRadius]);
 
 
     // FIX 2: Ensure report uses current state values and clear dependency issues
@@ -1146,12 +676,13 @@ footer strong {
                 reportWindow.document.write(html);
                 reportWindow.document.close();
             } else {
-                setError("Popup blocked. Please allow popups for this site to view the report.");
+                setWarnings(prev => [...prev, "Popup blocked. Please allow popups for this site to view the report."]);
             }
         } catch (err) {
             console.error("Report generation failed:", err);
-            setError(`Report generation failed: ${err.message}`);
+            setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings]);
 
 //     const totalGeometries = useMemo(() => {
@@ -1287,11 +818,7 @@ footer strong {
                   <option value={0.01}>±0.01 Å</option>
                 </select>
                 <button
-                  onClick={() => {
-                    const newVal = coordRadius + radiusStep;
-                    setCoordRadius(newVal);
-                    setAutoRadius(false);
-                  }}
+                  onClick={incrementRadius}
                   disabled={autoRadius}
                   style={{
                     padding: '0.5rem 0.75rem',
@@ -1306,11 +833,7 @@ footer strong {
                   +
                 </button>
                 <button
-                  onClick={() => {
-                    const newVal = Math.max(1.5, coordRadius - radiusStep);
-                    setCoordRadius(newVal);
-                    setAutoRadius(false);
-                  }}
+                  onClick={decrementRadius}
                   disabled={autoRadius}
                   style={{
                     padding: '0.5rem 0.75rem',
@@ -1334,8 +857,7 @@ footer strong {
               step="0.05"
               value={coordRadius}
               onChange={(e) => {
-                setCoordRadius(parseFloat(e.target.value));
-                setAutoRadius(false);
+                setCoordRadius(parseFloat(e.target.value), false);
               }}
               style={{
                 width: '100%',
