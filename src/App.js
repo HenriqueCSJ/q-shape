@@ -31,6 +31,18 @@ export default function CoordinationGeometryAnalyzer() {
     // File Upload Hook
     const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
 
+    // Stable callback for radius changes
+    const handleRadiusChange = useCallback((radius, isAuto) => {
+        // Trigger re-analysis when radius changes manually
+        if (!isAuto) {
+            setAnalysisParams(prev => ({ ...prev, key: Date.now() }));
+        }
+    }, []);
+
+    const handleWarning = useCallback((msg) => {
+        setWarnings(prev => [...prev, msg]);
+    }, []);
+
     // Radius Control Hook (v1.1.0)
     const {
         coordRadius,
@@ -49,13 +61,8 @@ export default function CoordinationGeometryAnalyzer() {
     } = useRadiusControl({
         atoms,
         selectedMetal,
-        onRadiusChange: (radius, isAuto) => {
-            // Trigger re-analysis when radius changes manually
-            if (!isAuto) {
-                setAnalysisParams(prev => ({ ...prev, key: Date.now() }));
-            }
-        },
-        onWarning: (msg) => setWarnings(prev => [...prev, msg])
+        onRadiusChange: handleRadiusChange,
+        onWarning: handleWarning
     });
 
     // Coordination Hook
@@ -93,8 +100,14 @@ export default function CoordinationGeometryAnalyzer() {
     });
 
     // Sync upload metadata with state (set metal center and radius after upload)
+    // Track processed uploads to prevent re-processing the same upload
+    const processedUploadTime = useRef(null);
+
     useEffect(() => {
-        if (uploadMetadata) {
+        if (uploadMetadata && uploadMetadata.uploadTime !== processedUploadTime.current) {
+            // Mark this upload as processed
+            processedUploadTime.current = uploadMetadata.uploadTime;
+
             if (uploadMetadata.detectedMetalIndex != null) {
                 setSelectedMetal(uploadMetadata.detectedMetalIndex);
             }
@@ -104,6 +117,31 @@ export default function CoordinationGeometryAnalyzer() {
             setAnalysisParams({ mode: 'default', key: Date.now() });
         }
     }, [uploadMetadata, setCoordRadius]);
+
+    // Trigger analysis when coordination sphere changes (including from auto-radius changes)
+    // Use a ref to track the previous coordination number to avoid unnecessary re-analysis
+    const prevCN = useRef(null);
+    const prevAutoRadius = useRef(autoRadius);
+
+    useEffect(() => {
+        const currentCN = coordAtoms.length;
+
+        // Trigger analysis if:
+        // 1. Coordination number changed
+        // 2. Auto-radius was just enabled (to apply the new auto-detected radius)
+        if (selectedMetal != null && coordAtoms.length > 0) {
+            const cnChanged = prevCN.current !== null && prevCN.current !== currentCN;
+            const autoJustEnabled = !prevAutoRadius.current && autoRadius;
+
+            if (cnChanged || autoJustEnabled) {
+                setAnalysisParams(prev => ({ ...prev, key: Date.now() }));
+            }
+
+            prevCN.current = currentCN;
+        }
+
+        prevAutoRadius.current = autoRadius;
+    }, [coordAtoms, selectedMetal, autoRadius]);
 
 
     // FIX 2: Ensure report uses current state values and clear dependency issues
