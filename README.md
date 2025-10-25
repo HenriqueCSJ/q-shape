@@ -4,6 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.1.0)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![React Version](https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-r147-black?style=flat-square&logo=three.js)](https://threejs.org/)
@@ -24,8 +25,25 @@
 
 ---
 
+## 🎉 What's New in v1.1.0
+
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| 🎯 **Precise Radius Control** | Text input with adjustable step size (±0.50, ±0.10, ±0.05, ±0.01 Å) for fine-tuned radius adjustments |
+| 🔍 **Find Radius by CN** | Automatically finds optimal radius for target coordination number using gap detection algorithm |
+| ⚠️ **Enhanced Warnings** | Improved warning management with clear button and detailed feedback |
+
+[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.1.0)
+
+</div>
+
+---
+
 ## 📑 Table of Contents
 
+- [🎉 What's New](#-whats-new-in-v110)
 - [✨ Features](#-features)
 - [🚀 Quick Start](#-quick-start)
 - [💻 Installation](#-installation)
@@ -55,6 +73,8 @@
 - ✅ **Automatic Metal Detection**
 - ✅ **Smart Radius Optimization**
 - ✅ **Dual Analysis Modes**
+- ✨ **Precise Radius Control** (v1.1.0)
+- ✨ **Find Radius by CN** (v1.1.0)
 
 </td>
 <td width="50%">
@@ -238,6 +258,22 @@ Cl   0.000  -2.300   0.000
 // 5. Results displayed in real-time
 ```
 
+### Advanced Radius Controls (v1.1.0)
+
+#### Precise Radius Control
+Fine-tune your coordination radius with precision:
+- **Text Input**: Direct entry of radius values (e.g., 3.456 Å)
+- **Step Size Selector**: Choose increment/decrement steps (±0.50, ±0.10, ±0.05, ±0.01 Å)
+- **Quick Buttons**: +/− buttons for rapid adjustments
+- **Real-time Sync**: Instant coordination sphere updates
+
+#### Find Radius by CN
+Automatically determine optimal radius for target coordination number:
+- **Gap Detection Algorithm**: Analyzes neighbor distance distribution
+- **Smart Optimization**: Finds radius that isolates desired CN
+- **Feedback System**: Reports gap quality and confidence
+- **Range**: Supports CN from 2 to 24
+
 ### Analysis Modes
 
 #### Standard Mode (Default)
@@ -405,9 +441,9 @@ in the Software without restriction...
 
 **Prof. Dr. Henrique C. S. Junior**
 
-[![ORCID](https://img.shields.io/badge/ORCID-0000--0000--0000--0000-green?style=for-the-badge&logo=orcid)](https://orcid.org/YOUR-ORCID)
-[![Email](https://img.shields.io/badge/Email-henrique%40ufrrj.br-red?style=for-the-badge&logo=gmail)](mailto:henrique@ufrrj.br)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/YOUR-PROFILE)
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--1453--7274-green?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-1453-7274)
+[![Email](https://img.shields.io/badge/Email-henriquecsj%40ufrrj.br-red?style=for-the-badge&logo=gmail)](mailto:henriquecsj@ufrrj.br)
+[![GitHub](https://img.shields.io/badge/GitHub-HenriqueCSJ-181717?style=for-the-badge&logo=github)](https://github.com/HenriqueCSJ)
 
 **Universidade Federal Rural do Rio de Janeiro (UFRRJ)**  
 Department of Fundamental Chemistry  
