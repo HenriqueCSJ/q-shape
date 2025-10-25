@@ -1,0 +1,590 @@
+/* Q-Shape Application Styles - Clean & Responsive Design */
+
+/* ============================================
+   BASE & LAYOUT
+   ============================================ */
+
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  padding: 1rem;
+}
+
+.app-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.app-header {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-bottom: 3px solid #4f46e5;
+  margin-bottom: 2rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #312e81;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.app-header p {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.app-header p strong {
+  color: #1e293b;
+}
+
+/* ============================================
+   CARDS & SECTIONS
+   ============================================ */
+
+.card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+.card-title {
+  margin: 0 0 1rem;
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ============================================
+   ALERTS & MESSAGES
+   ============================================ */
+
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.alert-error {
+  background: #fee2e2;
+  border: 2px solid #ef4444;
+  color: #991b1b;
+}
+
+.alert-warning {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  color: #92400e;
+}
+
+.alert-warning ul {
+  margin: 0.5rem 0 0 1.5rem;
+}
+
+/* ============================================
+   FILE UPLOAD
+   ============================================ */
+
+.file-upload-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.file-upload-input:hover {
+  border-color: #4f46e5;
+}
+
+/* ============================================
+   CONTROLS
+   ============================================ */
+
+.controls-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.control-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.select-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #f8fafc;
+  transition: border-color 0.2s;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.range-slider {
+  width: 100%;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+/* ============================================
+   COORDINATION SUMMARY
+   ============================================ */
+
+.summary-section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .summary-section {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.summary-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  font-size: 0.95rem;
+  color: #475569;
+  margin-top: 1rem;
+}
+
+.summary-info strong {
+  color: #1e293b;
+}
+
+.stats-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.quality-card {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 12px;
+  border: 2px solid #86efac;
+}
+
+.quality-score {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.quality-subtitle {
+  text-align: center;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.button-group {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 200px;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: white;
+  box-shadow: 0 4px 6px rgba(22, 163, 74, 0.4);
+}
+
+.button-secondary {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: white;
+  box-shadow: 0 4px 6px rgba(79, 70, 229, 0.4);
+}
+
+.button-disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+/* ============================================
+   PROGRESS
+   ============================================ */
+
+.progress-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.progress-bar-wrapper {
+  width: 100%;
+  height: 12px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 6px;
+}
+
+.progress-bar-intensive {
+  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+}
+
+.progress-bar-default {
+  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+}
+
+.progress-footer {
+  margin-top: 0.75rem;
+  color: #64748b;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ============================================
+   VISUALIZATION & RESULTS LAYOUT
+   ============================================ */
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .main-layout {
+    grid-template-columns: 1.5fr 1fr;
+  }
+}
+
+.visualization-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.visualization-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.visualization-controls {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.canvas-container {
+  width: 100%;
+  height: 500px;
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+@media (min-width: 768px) {
+  .canvas-container {
+    height: 600px;
+  }
+}
+
+.canvas-hint {
+  margin-top: 1rem;
+  color: #64748b;
+  font-size: 0.85rem;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ============================================
+   RESULTS
+   ============================================ */
+
+.results-container {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  max-height: 700px;
+  overflow-y: auto;
+}
+
+.result-item {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-item:hover {
+  background: #f1f5f9;
+}
+
+.result-item-best {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-left: 4px solid #10b981;
+  font-weight: 700;
+}
+
+.result-item-best:hover {
+  background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+}
+
+.result-item:nth-child(even):not(.result-item-best) {
+  background: #f9fafb;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.result-name {
+  font-size: 0.95rem;
+  flex: 1;
+}
+
+.result-measure {
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+
+.result-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.loading-state, .empty-state {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #475569;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.loading-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   REFERENCES & FOOTER
+   ============================================ */
+
+.references-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.references-list {
+  list-style: decimal inside;
+  padding-left: 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.references-list li {
+  margin-bottom: 0.5rem;
+}
+
+.app-footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  color: #64748b;
+}
+
+.university-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.university-logo {
+  width: 80px;
+  height: 80px;
+}
+
+.university-info {
+  text-align: center;
+}
+
+.university-info p {
+  margin: 0.25rem 0;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 640px) {
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .button {
+    min-width: 150px;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .button-group {
+    width: 100%;
+  }
+
+  .button {
+    flex: 1;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-center {
+  text-align: center;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}
+
+.mt-1 {
+  margin-top: 0.5rem;
+}

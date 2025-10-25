@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import './App.css';
 
 // --- START: ATOMIC & CHEMICAL DATA ---
 
@@ -3254,94 +3255,37 @@ footer strong {
 //     }, []);
 
     return (
-    <div style={{ 
-        padding: '1.5rem', 
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', 
-        maxWidth: 1400, 
-        margin: '0 auto', 
-        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-        minHeight: '100vh'
-    }}>
-      <header style={{ 
-        marginBottom: '2rem', 
-        borderBottom: '3px solid #4f46e5', 
-        paddingBottom: '1.5rem',
-        background: 'white',
-        padding: '2rem',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-      }}>
-        <h1 style={{ 
-            margin: 0, 
-            color: '#312e81', 
-            fontSize: '2.25rem', 
-            fontWeight: 800,
-            letterSpacing: '-0.025em'
-        }}>
+    <div className="app-container">
+      <div className="app-content">
+      <header className="app-header">
+        <h1>
             🔬 Q-Shape (Quantitative Shape Analyzer)
         </h1>
-        <p style={{
-            margin: '0.75rem 0 0',
-            color: '#475569',
-            fontSize: '1rem',
-            lineHeight: 1.6
-        }}>
+        <p>
             <strong>Complete SHAPE 2.1 Coverage</strong>
         </p>
-        <p style={{
-            margin: '0.5rem 0 0',
-            color: '#475569',
-            fontSize: '0.9rem',
-            fontStyle: 'italic'
-        }}>
+        <p style={{fontStyle: 'italic'}}>
             Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.
         </p>
       </header>
       
       {error && (
-        <div style={{
-          padding: '1rem',
-          background: '#fee2e2',
-          border: '2px solid #ef4444',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          color: '#991b1b'
-        }}>
+        <div className="alert alert-error">
           <strong>⚠️ Error:</strong> {error}
         </div>
       )}
       
       {warnings.length > 0 && (
-        <div style={{
-          padding: '1rem',
-          background: '#fef3c7',
-          border: '2px solid #f59e0b',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          color: '#92400e'
-        }}>
+        <div className="alert alert-warning">
           <strong>⚠️ Warnings:</strong>
-          <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: 0 }}>
+          <ul>
             {warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
       )}
       
-      <div style={{ 
-        marginBottom: '2rem', 
-        padding: '1.5rem', 
-        background: '#fff', 
-        border: '1px solid #e2e8f0', 
-        borderRadius: '12px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.05)' 
-      }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '0.75rem', 
-          fontWeight: 700, 
-          color: '#1e293b', 
-          fontSize: '1rem' 
-        }}>
+      <div className="card">
+        <label className="control-label">
           📁 Load Molecular Structure (.xyz)
         </label>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -3349,55 +3293,22 @@ footer strong {
             type="file" 
             accept=".xyz" 
             onChange={handleFileUpload} 
-            style={{ 
-                flex: '1 1 300px', 
-                padding: '0.75rem 1rem', 
-                border: '2px solid #cbd5e1', 
-                borderRadius: '8px', 
-                background: '#fff', 
-                fontSize: '0.95rem', 
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-            }} 
+            className="file-upload-input" 
           />
         </div>
       </div>
 
       {atoms.length > 0 && (
       <>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-          gap: '1rem', 
-          marginBottom: '2rem' 
-        }}>
-          <div style={{ 
-            padding: '1.5rem', 
-            background: '#fff', 
-            border: '1px solid #e2e8f0', 
-            borderRadius: '12px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)' 
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.75rem', 
-              fontWeight: 700, 
-              color: '#1e293b',
-              fontSize: '0.95rem'
-            }}>
+        <div className="controls-section">
+          <div className="card">
+            <label className="control-label">
               🎯 Metal Center
             </label>
             <select 
               value={selectedMetal ?? ''} 
               onChange={(e) => setSelectedMetal(Number(e.target.value))} 
-              style={{ 
-                width: '100%', 
-                padding: '0.75rem', 
-                border: '2px solid #cbd5e1', 
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                background: '#f8fafc'
-              }}
+              className="select-input"
             >
               <option value="">Select central atom</option>
               {atoms.map((a, i) => ( 
@@ -3408,34 +3319,12 @@ footer strong {
             </select>
           </div>
           
-          <div style={{ 
-            padding: '1.5rem', 
-            background: '#fff', 
-            border: '1px solid #e2e8f0', 
-            borderRadius: '12px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)' 
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '0.75rem' 
-            }}>
-              <label style={{ 
-                fontWeight: 700, 
-                color: '#1e293b',
-                fontSize: '0.95rem'
-              }}>
+          <div className="card">
+            <div className="slider-header">
+              <label className="control-label">
                 📏 Coordination Radius: {coordRadius.toFixed(2)} Å
               </label>
-              <label style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                color: '#475569'
-              }}>
+              <label className="checkbox-label">
                 <input 
                   type="checkbox" 
                   checked={autoRadius} 
@@ -3977,27 +3866,9 @@ footer strong {
         </div>
       </footer>
 
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-
-        /* Responsive layout fixes */
-        @media (max-width: 1200px) {
-          .visualization-grid {
-            grid-template-columns: 1fr !important;
-            gap: 1.5rem !important;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .controls-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-        }
-      `}</style>
+      
     </div>
+</div>
     );
 }
 
