@@ -714,7 +714,26 @@ footer strong {
             Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.
         </p>
       </header>
-      
+
+      <div style={{
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        color: 'white',
+        padding: '1rem',
+        borderRadius: '8px',
+        marginBottom: '1rem',
+        fontFamily: 'monospace',
+        fontSize: '0.85rem',
+        border: '2px solid #047857',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+          ✅ INFINITE LOOP FIX DEPLOYED - Build: 2025-10-25 23:45 UTC
+        </div>
+        <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+          Commit 1d7480f | Auto-radius callbacks fixed | No more warning floods
+        </div>
+      </div>
+
       {error && (
         <div className="alert alert-error">
           <strong>⚠️ Error:</strong> {error}
@@ -1386,6 +1405,25 @@ footer strong {
             <p style={{ margin: 0, fontWeight: 'bold', color: '#333' }}>Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
             <p style={{ margin: 0 }}>Departamento de Química Fundamental</p>
             <p style={{ margin: 0 }}>Prof. Dr. Henrique C. S. Junior</p>
+          </div>
+        </div>
+        <div style={{
+          marginTop: '2rem',
+          padding: '1rem',
+          background: '#f0f9ff',
+          border: '2px solid #3b82f6',
+          borderRadius: '8px',
+          fontFamily: 'monospace',
+          fontSize: '0.9rem'
+        }}>
+          <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '0.5rem' }}>
+            🔧 BUILD INFO
+          </div>
+          <div style={{ color: '#475569' }}>
+            <strong>Version:</strong> INFINITE-LOOP-FIX-DEPLOYED<br/>
+            <strong>Build Date:</strong> 2025-10-25 23:45 UTC<br/>
+            <strong>Commit:</strong> 1d7480f (Critical infinite loop fix)<br/>
+            <strong>Status:</strong> <span style={{ color: '#16a981', fontWeight: 'bold' }}>✅ ALL FIXES APPLIED</span>
           </div>
         </div>
       </footer>
