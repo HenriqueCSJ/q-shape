@@ -73,6 +73,9 @@ export function useShapeAnalysis({
 
     // Main analysis effect
     useEffect(() => {
+        // Cancellation flag to prevent state updates after unmount or re-run
+        let isCancelled = false;
+
         // Early return if no coordinating atoms
         if (!coordAtoms || coordAtoms.length === 0) {
             setGeometryResults([]);
@@ -122,7 +125,11 @@ export function useShapeAnalysis({
         setIsLoading(true);
         setProgress(null);
 
+        const timeouts = []; // Track all timeouts for cleanup
+
         const timer = setTimeout(() => {
+            if (isCancelled) return;
+
             try {
                 const actualCoords = coordAtoms.map((c) => [c.vec.x, c.vec.y, c.vec.z]);
                 const results = [];
@@ -130,8 +137,12 @@ export function useShapeAnalysis({
 
                 // Recursive function to process geometries sequentially
                 const processGeometry = (index) => {
+                    if (isCancelled) return; // Stop processing if cancelled
+
                     if (index >= geometryNames.length) {
                         // All geometries processed
+                        if (isCancelled) return;
+
                         results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
                         const finiteResults = results.filter(r => isFinite(r.shapeMeasure));
 
@@ -169,66 +180,89 @@ export function useShapeAnalysis({
                     const name = geometryNames[index];
                     const refCoords = geometries[name];
 
-                    setProgress({
-                        geometry: name,
-                        current: index + 1,
-                        total: geometryNames.length,
-                        stage: 'Initializing'
-                    });
+                    if (!isCancelled) {
+                        setProgress({
+                            geometry: name,
+                            current: index + 1,
+                            total: geometryNames.length,
+                            stage: 'Initializing'
+                        });
+                    }
 
                     // Process geometry asynchronously
-                    setTimeout(() => {
+                    const timeout = setTimeout(() => {
+                        if (isCancelled) return;
+
                         try {
                             const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
                                 actualCoords,
                                 refCoords,
                                 analysisParams.mode,
                                 (progressInfo) => {
-                                    setProgress({
-                                        geometry: name,
-                                        current: index + 1,
-                                        total: geometryNames.length,
-                                        ...progressInfo
-                                    });
+                                    if (!isCancelled) {
+                                        setProgress({
+                                            geometry: name,
+                                            current: index + 1,
+                                            total: geometryNames.length,
+                                            ...progressInfo
+                                        });
+                                    }
                                 }
                             );
 
-                            results.push({
-                                name,
-                                shapeMeasure: measure,
-                                refCoords,
-                                alignedCoords,
-                                rotationMatrix
-                            });
+                            if (!isCancelled) {
+                                results.push({
+                                    name,
+                                    shapeMeasure: measure,
+                                    refCoords,
+                                    alignedCoords,
+                                    rotationMatrix
+                                });
 
-                            processGeometry(index + 1);
-                        } catch (error) {
-                            console.error(`Error processing geometry ${name}:`, error);
-                            if (onWarning) {
-                                onWarning(`Failed to analyze ${name}: ${error.message}`);
+                                processGeometry(index + 1);
                             }
-                            processGeometry(index + 1);
+                        } catch (error) {
+                            if (!isCancelled) {
+                                console.error(`Error processing geometry ${name}:`, error);
+                                if (onWarning) {
+                                    onWarning(`Failed to analyze ${name}: ${error.message}`);
+                                }
+                                processGeometry(index + 1);
+                            }
                         }
                     }, 10);
+
+                    timeouts.push(timeout);
                 };
 
                 // Start processing
                 processGeometry(0);
 
             } catch (error) {
-                console.error("Failed to perform geometry analysis:", error);
-                if (onError) {
-                    onError(`Analysis failed: ${error.message}`);
+                if (!isCancelled) {
+                    console.error("Failed to perform geometry analysis:", error);
+                    if (onError) {
+                        onError(`Analysis failed: ${error.message}`);
+                    }
+                    setGeometryResults([]);
+                    setBestGeometry(null);
+                    setQualityMetrics(null);
+                    setIsLoading(false);
+                    setProgress(null);
                 }
-                setGeometryResults([]);
-                setBestGeometry(null);
-                setQualityMetrics(null);
-                setIsLoading(false);
-                setProgress(null);
             }
         }, 20);
 
-        return () => clearTimeout(timer);
+        timeouts.push(timer);
+
+        // Cleanup function to cancel ongoing analysis
+        return () => {
+            isCancelled = true;
+            timeouts.forEach(timeout => clearTimeout(timeout));
+            // Reset loading state if this effect is being cleaned up
+            setIsLoading(false);
+            setProgress(null);
+        };
 
     }, [coordAtoms, analysisParams, getCacheKey, onWarning, onError]);
 
