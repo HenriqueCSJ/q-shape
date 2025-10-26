@@ -714,7 +714,15 @@ footer strong {
         <p>
             <strong>Advanced Coordination Geometry Analysis</strong>
         </p>
-        <p style={{fontStyle: 'italic'}}>
+        <p style={{
+            fontSize: '0.9rem',
+            color: '#64748b',
+            marginTop: '0.5rem',
+            fontFamily: 'monospace'
+        }}>
+            Version 1.2.0 | Built: October 26, 2025
+        </p>
+        <p style={{fontStyle: 'italic', marginTop: '1rem'}}>
             Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.
         </p>
       </header>
