@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "Q-Shape - Quantitative Shape Analyzer"
+message: "If you use Q-Shape in your research, please cite the Zenodo DOI."
+authors:
+  - given-names: Henrique
+    family-names: Castro Silva Junior
+    orcid: "https://orcid.org/0000-0003-1453-7274"
+    email: henriquecsj@ufrrj.br
+    affiliation: "Universidade Federal Rural do Rio de Janeiro (UFRRJ), Department of Fundamental Chemistry"
+repository-code: "https://github.com/HenriqueCSJ/q-shape"
+url: "https://henriquecsj.github.io/q-shape"
+license: MIT
+version: "v1.2.1"
+date-released: "2025-10-26"
+keywords:
+  - "coordination chemistry"
+  - "continuous shape measures"
+  - "CShM"
+  - "molecular geometry"
+  - "shape analysis"
+  - "coordination geometry"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.17448252"
+    description: "Zenodo DOI for version 1.2.1"
+preferred-citation:
+  type: software
+  title: "Q-Shape - Quantitative Shape Analyzer"
+  version: "v1.2.1"
+  year: 2025
+  authors:
+    - given-names: Henrique
+      family-names: Castro Silva Junior
+      orcid: "https://orcid.org/0000-0003-1453-7274"
+  doi: "10.5281/zenodo.17448252"
+  url: "https://doi.org/10.5281/zenodo.17448252"
+  repository-code: "https://github.com/HenriqueCSJ/q-shape"

@@ -720,10 +720,10 @@ footer strong {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.2.0 | Built: October 26, 2025
+            Version 1.2.1 | Built: October 26, 2025
         </p>
-        <p style={{fontStyle: 'italic', marginTop: '1rem'}}>
-            Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.
+        <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
+            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.2.1). Zenodo. <a href="https://doi.org/10.5281/zenodo.17448252" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17448252</a>
         </p>
       </header>
 

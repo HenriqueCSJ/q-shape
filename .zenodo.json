@@ -1,0 +1,50 @@
+{
+  "title": "Q-Shape - Quantitative Shape Analyzer",
+  "version": "v1.2.1",
+  "description": "Q-Shape: Advanced coordination geometry analysis using Continuous Shape Measures (CShM). A web-based tool for analyzing molecular coordination geometries with 80+ reference structures, real-time 3D visualization, and comprehensive quality metrics.",
+  "creators": [
+    {
+      "name": "Castro Silva Junior, Henrique",
+      "orcid": "0000-0003-1453-7274",
+      "affiliation": "Universidade Federal Rural do Rio de Janeiro (UFRRJ), Department of Fundamental Chemistry"
+    }
+  ],
+  "keywords": [
+    "coordination chemistry",
+    "continuous shape measures",
+    "CShM",
+    "molecular geometry",
+    "shape analysis",
+    "coordination geometry",
+    "structural analysis",
+    "computational chemistry",
+    "web application",
+    "Three.js",
+    "React"
+  ],
+  "license": {
+    "id": "MIT"
+  },
+  "upload_type": "software",
+  "access_right": "open",
+  "related_identifiers": [
+    {
+      "scheme": "url",
+      "identifier": "https://github.com/HenriqueCSJ/q-shape",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "scheme": "url",
+      "identifier": "https://henriquecsj.github.io/q-shape",
+      "relation": "isDocumentedBy",
+      "resource_type": "other"
+    }
+  ],
+  "references": [
+    "Pinsky, M., & Avnir, D. (1998). Continuous Symmetry Measures. 5. The Classical Polyhedra. Inorganic Chemistry, 37(21), 5575-5582. https://doi.org/10.1021/ic9804925",
+    "Alvarez, S., Avnir, D., Llunell, M., & Pinsky, M. (2002). Continuous symmetry maps and shape classification. The case of six-coordinated metal compounds. New Journal of Chemistry, 26(7), 996-1009. https://doi.org/10.1039/B200641N",
+    "Llunell, M., Casanova, D., Cirera, J., Alemany, P., & Alvarez, S. (2013). SHAPE v2.1. Program for Calculating Continuous Shape Measures of Polyhedral Structures. University of Barcelona, Barcelona, Spain."
+  ],
+  "communities": []
+}
