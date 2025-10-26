@@ -263,7 +263,10 @@ export function useShapeAnalysis({
             // Otherwise we interrupt analysis when coordAtoms changes slightly
         };
 
-    }, [coordAtoms, analysisParams, getCacheKey, onWarning, onError]);
+    // Don't include onWarning/onError in dependencies - they're stable callbacks
+    // Including them causes infinite loops when they're recreated
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [coordAtoms, analysisParams, getCacheKey]);
 
     return {
         // Results

@@ -41,6 +41,10 @@ export default function CoordinationGeometryAnalyzer() {
         setWarnings(prev => [...prev, msg]);
     }, []);
 
+    const handleError = useCallback((msg) => {
+        setWarnings(prev => [...prev, `Error: ${msg}`]);
+    }, []);
+
     // Radius Control Hook (v1.1.0)
     const {
         coordRadius,
@@ -81,8 +85,8 @@ export default function CoordinationGeometryAnalyzer() {
     } = useShapeAnalysis({
         coordAtoms,
         analysisParams,
-        onWarning: (msg) => setWarnings(prev => [...prev, msg]),
-        onError: (msg) => setWarnings(prev => [...prev, `Error: ${msg}`])
+        onWarning: handleWarning,
+        onError: handleError
     });
 
     // Three.js Scene Hook
@@ -716,21 +720,21 @@ footer strong {
       </header>
 
       <div style={{
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
         color: 'white',
         padding: '1rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontFamily: 'monospace',
         fontSize: '0.85rem',
-        border: '2px solid #047857',
+        border: '2px solid #4c1d95',
         boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-          ✅ INFINITE LOOP FIX DEPLOYED - Build: 2025-10-25 23:45 UTC
+          ⚡ CALLBACK FIX v3 - Build: 2025-10-26 00:45 UTC
         </div>
         <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-          Commit 1d7480f | Auto-radius callbacks fixed | No more warning floods
+          Commit 02b8d87 | Fixed onWarning/onError inline functions in useShapeAnalysis
         </div>
       </div>
 
@@ -1410,20 +1414,20 @@ footer strong {
         <div style={{
           marginTop: '2rem',
           padding: '1rem',
-          background: '#f0f9ff',
-          border: '2px solid #3b82f6',
+          background: '#faf5ff',
+          border: '2px solid #7c3aed',
           borderRadius: '8px',
           fontFamily: 'monospace',
           fontSize: '0.9rem'
         }}>
-          <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '0.5rem' }}>
+          <div style={{ fontWeight: 'bold', color: '#5b21b6', marginBottom: '0.5rem' }}>
             🔧 BUILD INFO
           </div>
           <div style={{ color: '#475569' }}>
-            <strong>Version:</strong> INFINITE-LOOP-FIX-DEPLOYED<br/>
-            <strong>Build Date:</strong> 2025-10-25 23:45 UTC<br/>
-            <strong>Commit:</strong> 1d7480f (Critical infinite loop fix)<br/>
-            <strong>Status:</strong> <span style={{ color: '#16a981', fontWeight: 'bold' }}>✅ ALL FIXES APPLIED</span>
+            <strong>Version:</strong> CALLBACK-FIX-v3<br/>
+            <strong>Build Date:</strong> 2025-10-26 00:45 UTC<br/>
+            <strong>Commit:</strong> 02b8d87<br/>
+            <strong>Fix:</strong> <span style={{ color: '#7c3aed', fontWeight: 'bold' }}>⚡ Removed onWarning/onError from useShapeAnalysis deps</span>
           </div>
         </div>
       </footer>
