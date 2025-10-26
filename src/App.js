@@ -712,31 +712,12 @@ footer strong {
             🔬 Q-Shape (Quantitative Shape Analyzer)
         </h1>
         <p>
-            <strong>Complete SHAPE 2.1 Coverage</strong>
+            <strong>Advanced Coordination Geometry Analysis</strong>
         </p>
         <p style={{fontStyle: 'italic'}}>
             Cite this: Junior, H. C. S. Q-Shape (Quantitative Shape Analyzer). 2025.
         </p>
       </header>
-
-      <div style={{
-        background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-        color: 'white',
-        padding: '1rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontFamily: 'monospace',
-        fontSize: '0.85rem',
-        border: '2px solid #4c1d95',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-          ⚡ CALLBACK FIX v3 - Build: 2025-10-26 00:45 UTC
-        </div>
-        <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-          Commit 02b8d87 | Fixed onWarning/onError inline functions in useShapeAnalysis
-        </div>
-      </div>
 
       {error && (
         <div className="alert alert-error">
@@ -1409,25 +1390,6 @@ footer strong {
             <p style={{ margin: 0, fontWeight: 'bold', color: '#333' }}>Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
             <p style={{ margin: 0 }}>Departamento de Química Fundamental</p>
             <p style={{ margin: 0 }}>Prof. Dr. Henrique C. S. Junior</p>
-          </div>
-        </div>
-        <div style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          background: '#faf5ff',
-          border: '2px solid #7c3aed',
-          borderRadius: '8px',
-          fontFamily: 'monospace',
-          fontSize: '0.9rem'
-        }}>
-          <div style={{ fontWeight: 'bold', color: '#5b21b6', marginBottom: '0.5rem' }}>
-            🔧 BUILD INFO
-          </div>
-          <div style={{ color: '#475569' }}>
-            <strong>Version:</strong> CALLBACK-FIX-v3<br/>
-            <strong>Build Date:</strong> 2025-10-26 00:45 UTC<br/>
-            <strong>Commit:</strong> 02b8d87<br/>
-            <strong>Fix:</strong> <span style={{ color: '#7c3aed', fontWeight: 'bold' }}>⚡ Removed onWarning/onError from useShapeAnalysis deps</span>
           </div>
         </div>
       </footer>
