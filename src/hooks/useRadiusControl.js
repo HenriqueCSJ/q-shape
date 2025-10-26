@@ -32,7 +32,7 @@
  * } = useRadiusControl({ atoms, selectedMetal, onRadiusChange, onWarning });
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as THREE from 'three';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
 
@@ -59,12 +59,33 @@ export function useRadiusControl({
         }
     }, [coordRadius]);
 
-    // Auto-detect radius when metal or atoms change
+    // Track if we've already auto-detected for this combination
+    const lastAutoDetectRef = useRef({ metal: null, atomCount: 0, radius: null });
+
+    // Auto-detect radius when metal or atom count changes (not on every render)
     useEffect(() => {
-        if (selectedMetal != null && atoms.length > 0 && autoRadius) {
+        const atomCount = atoms.length;
+
+        // Skip if already processed this combination
+        if (selectedMetal === lastAutoDetectRef.current.metal &&
+            atomCount === lastAutoDetectRef.current.atomCount &&
+            autoRadius === lastAutoDetectRef.current.autoEnabled) {
+            return;
+        }
+
+        if (selectedMetal != null && atomCount > 0 && autoRadius) {
             try {
                 const radius = detectOptimalRadius(atoms[selectedMetal], atoms);
                 setCoordRadius(radius);
+
+                // Update ref to prevent re-processing
+                lastAutoDetectRef.current = {
+                    metal: selectedMetal,
+                    atomCount: atomCount,
+                    autoEnabled: autoRadius,
+                    radius: radius
+                };
+
                 // Call callbacks without including them in dependencies to avoid infinite loops
                 if (onRadiusChange) {
                     onRadiusChange(radius, true); // true = auto-detected
@@ -75,9 +96,13 @@ export function useRadiusControl({
                     onWarning("Failed to auto-detect radius, using manual value");
                 }
             }
+        } else if (!autoRadius) {
+            // Reset tracking when auto is disabled
+            lastAutoDetectRef.current = { metal: null, atomCount: 0, radius: null };
         }
+    // Only depend on things that can change without atoms array changing
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedMetal, atoms, autoRadius]);
+    }, [selectedMetal, atoms.length, autoRadius]);
 
     // Handle text input change
     const handleRadiusInputChange = useCallback((e) => {
