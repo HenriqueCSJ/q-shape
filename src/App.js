@@ -716,21 +716,21 @@ footer strong {
       </header>
 
       <div style={{
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
         color: 'white',
         padding: '1rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontFamily: 'monospace',
         fontSize: '0.85rem',
-        border: '2px solid #047857',
+        border: '2px solid #7f1d1d',
         boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-          ✅ INFINITE LOOP FIX DEPLOYED - Build: 2025-10-25 23:45 UTC
+          🔥 ATOMS.LENGTH FIX - Build: 2025-10-26 00:15 UTC
         </div>
         <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-          Commit 1d7480f | Auto-radius callbacks fixed | No more warning floods
+          Commit c0e981b | Fixed atoms dependency infinite loop | USE ATOMS.LENGTH NOT ATOMS
         </div>
       </div>
 
@@ -1410,20 +1410,20 @@ footer strong {
         <div style={{
           marginTop: '2rem',
           padding: '1rem',
-          background: '#f0f9ff',
-          border: '2px solid #3b82f6',
+          background: '#fef2f2',
+          border: '2px solid #dc2626',
           borderRadius: '8px',
           fontFamily: 'monospace',
           fontSize: '0.9rem'
         }}>
-          <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '0.5rem' }}>
+          <div style={{ fontWeight: 'bold', color: '#991b1b', marginBottom: '0.5rem' }}>
             🔧 BUILD INFO
           </div>
           <div style={{ color: '#475569' }}>
-            <strong>Version:</strong> INFINITE-LOOP-FIX-DEPLOYED<br/>
-            <strong>Build Date:</strong> 2025-10-25 23:45 UTC<br/>
-            <strong>Commit:</strong> 1d7480f (Critical infinite loop fix)<br/>
-            <strong>Status:</strong> <span style={{ color: '#16a981', fontWeight: 'bold' }}>✅ ALL FIXES APPLIED</span>
+            <strong>Version:</strong> ATOMS-LENGTH-FIX-v2<br/>
+            <strong>Build Date:</strong> 2025-10-26 00:15 UTC<br/>
+            <strong>Commit:</strong> c0e981b (Fixed atoms dependency)<br/>
+            <strong>Fix:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>🔥 Changed atoms to atoms.length in dependency array</span>
           </div>
         </div>
       </footer>
