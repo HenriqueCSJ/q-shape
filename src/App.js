@@ -720,21 +720,21 @@ footer strong {
       </header>
 
       <div style={{
-        background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+        background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
         color: 'white',
         padding: '1rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontFamily: 'monospace',
         fontSize: '0.85rem',
-        border: '2px solid #7f1d1d',
+        border: '2px solid #4c1d95',
         boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-          🔥 ATOMS.LENGTH FIX - Build: 2025-10-26 00:15 UTC
+          ⚡ CALLBACK FIX v3 - Build: 2025-10-26 00:45 UTC
         </div>
         <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-          Commit c0e981b | Fixed atoms dependency infinite loop | USE ATOMS.LENGTH NOT ATOMS
+          Commit 02b8d87 | Fixed onWarning/onError inline functions in useShapeAnalysis
         </div>
       </div>
 
@@ -1414,20 +1414,20 @@ footer strong {
         <div style={{
           marginTop: '2rem',
           padding: '1rem',
-          background: '#fef2f2',
-          border: '2px solid #dc2626',
+          background: '#faf5ff',
+          border: '2px solid #7c3aed',
           borderRadius: '8px',
           fontFamily: 'monospace',
           fontSize: '0.9rem'
         }}>
-          <div style={{ fontWeight: 'bold', color: '#991b1b', marginBottom: '0.5rem' }}>
+          <div style={{ fontWeight: 'bold', color: '#5b21b6', marginBottom: '0.5rem' }}>
             🔧 BUILD INFO
           </div>
           <div style={{ color: '#475569' }}>
-            <strong>Version:</strong> ATOMS-LENGTH-FIX-v2<br/>
-            <strong>Build Date:</strong> 2025-10-26 00:15 UTC<br/>
-            <strong>Commit:</strong> c0e981b (Fixed atoms dependency)<br/>
-            <strong>Fix:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>🔥 Changed atoms to atoms.length in dependency array</span>
+            <strong>Version:</strong> CALLBACK-FIX-v3<br/>
+            <strong>Build Date:</strong> 2025-10-26 00:45 UTC<br/>
+            <strong>Commit:</strong> 02b8d87<br/>
+            <strong>Fix:</strong> <span style={{ color: '#7c3aed', fontWeight: 'bold' }}>⚡ Removed onWarning/onError from useShapeAnalysis deps</span>
           </div>
         </div>
       </footer>
