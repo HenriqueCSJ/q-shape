@@ -68,7 +68,7 @@
 <td width="50%">
 
 ### 🎯 Core Features
-- ✅ **82 Reference Geometries** (CN 2-12)
+- ✅ **87 Reference Geometries** (CN 2-12)
 - ✅ **Improved Kabsch Alignment**
 - ✅ **Optimized Hungarian Algorithm**
 - ✅ **Multi-stage Optimization**
@@ -366,7 +366,7 @@ function kabschAlignment(P, Q) {
 | 11 | 7 | Various capped structures |
 | 12 | 13 | Icosahedron, Cuboctahedron, Hexagonal prism |
 
-**Total: 82 reference geometries**
+**Total: 87 reference geometries**
 
 ---
 
