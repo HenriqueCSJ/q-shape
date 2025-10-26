@@ -41,6 +41,10 @@ export default function CoordinationGeometryAnalyzer() {
         setWarnings(prev => [...prev, msg]);
     }, []);
 
+    const handleError = useCallback((msg) => {
+        setWarnings(prev => [...prev, `Error: ${msg}`]);
+    }, []);
+
     // Radius Control Hook (v1.1.0)
     const {
         coordRadius,
@@ -81,8 +85,8 @@ export default function CoordinationGeometryAnalyzer() {
     } = useShapeAnalysis({
         coordAtoms,
         analysisParams,
-        onWarning: (msg) => setWarnings(prev => [...prev, msg]),
-        onError: (msg) => setWarnings(prev => [...prev, `Error: ${msg}`])
+        onWarning: handleWarning,
+        onError: handleError
     });
 
     // Three.js Scene Hook
