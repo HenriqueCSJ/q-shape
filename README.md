@@ -4,7 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.2.0)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![React Version](https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-r147-black?style=flat-square&logo=three.js)](https://threejs.org/)
@@ -25,17 +25,18 @@
 
 ---
 
-## 🎉 What's New in v1.1.0
+## 🎉 What's New in v1.2.0
 
 <div align="center">
 
 | Feature | Description |
 |---------|-------------|
+| 🐛 **Critical Fixes** | Fixed infinite loops, auto-radius toggle, and button states that broke v1.1.0 |
+| 🏗️ **Modular Architecture** | Refactored into clean, maintainable modules with comprehensive documentation |
 | 🎯 **Precise Radius Control** | Text input with adjustable step size (±0.50, ±0.10, ±0.05, ±0.01 Å) for fine-tuned radius adjustments |
 | 🔍 **Find Radius by CN** | Automatically finds optimal radius for target coordination number using gap detection algorithm |
-| ⚠️ **Enhanced Warnings** | Improved warning management with clear button and detailed feedback |
 
-[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.1.0)
+[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.2.0)
 
 </div>
 
@@ -108,6 +109,8 @@
 
 ### Online Version (Recommended)
 Visit [https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-shape)
+
+> 🔒 **Privacy Notice:** Q-Shape runs entirely in your browser. **No molecular structures or data are uploaded, stored, or transmitted** to any server. All calculations are performed locally on your device. Your structures remain completely private.
 
 ### Local Installation
 
