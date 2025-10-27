@@ -27,6 +27,7 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border-bottom: 3px solid #4f46e5;
   margin-bottom: 2rem;
+  text-align: center;
 }
 
 .app-header h1 {
