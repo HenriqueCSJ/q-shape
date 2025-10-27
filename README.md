@@ -489,7 +489,7 @@ Zenodo. https://doi.org/10.5281/zenodo.17448252
 }
 ```
 
-### Related Publications
+### Seminal Related Publications
 
 1. Pinsky & Avnir, *Inorg. Chem.* **1998**, 37, 5575
 2. Alvarez et al., *Coord. Chem. Rev.* **2005**, 249, 1693
