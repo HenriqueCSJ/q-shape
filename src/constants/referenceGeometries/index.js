@@ -176,35 +176,51 @@ function generateHexagon() {
 }
 
 function generatePentagonalPyramid() {
-    // PPY-6
-    const coords = [[0, 0, 1]];
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // PPY-6: Pentagonal Pyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -0.937043],
+        [1.093216, -0.000000, 0.156174],
+        [0.337822, 1.039711, 0.156174],
+        [-0.884431, 0.642576, 0.156174],
+        [-0.884431, -0.642576, 0.156174],
+        [0.337822, -1.039711, 0.156174]
+    ].map(normalize);
 }
 
 function generateOctahedral() {
+    // OC-6: Octahedral - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 1, 0],
-        [0, -1, 0],
-        [0, 0, 1],
-        [0, 0, -1]
+        [0.000000, -0.000000, -1.080123],
+        [1.080123, -0.000000, 0.000000],
+        [0.000000, 1.080123, 0.000000],
+        [-1.080123, 0.000000, 0.000000],
+        [-0.000000, -1.080123, 0.000000],
+        [0.000000, -0.000000, 1.080123]
     ].map(normalize);
 }
 
 function generateTrigonalPrism() {
-    const coords = [];
-    const h = 0.816496580927726;
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), h]);
-        coords.push([Math.cos(angle), Math.sin(angle), -h]);
-    }
-    return coords.map(normalize);
+    // TPR-6: Trigonal Prism - Official CoSyMlib reference (normalized)
+    return [
+        [0.816497, -0.000000, -0.707107],
+        [-0.408248, 0.707107, -0.707107],
+        [-0.408248, -0.707107, -0.707107],
+        [0.816497, -0.000000, 0.707107],
+        [-0.408248, 0.707107, 0.707107],
+        [-0.408248, -0.707107, 0.707107]
+    ].map(normalize);
+}
+
+function generateJohnsonPentagonalPyramid6() {
+    // JPPY-6: Johnson Pentagonal Pyramid (J2) - Official CoSyMlib reference (normalized)
+    return [
+        [1.146282, -0.000000, 0.101206],
+        [0.354221, 1.090179, 0.101206],
+        [-0.927361, 0.673768, 0.101206],
+        [-0.927361, -0.673768, 0.101206],
+        [0.354221, -1.090179, 0.101206],
+        [0.000000, -0.000000, -0.607235]
+    ].map(normalize);
 }
 
 // CN=7 Geometries (7 total from SHAPE 2.1)
@@ -1049,7 +1065,7 @@ const REFERENCE_GEOMETRIES = {
         "PPY-6 (Pentagonal Pyramid)": generatePentagonalPyramid(),
         "OC-6 (Octahedral)": generateOctahedral(),
         "TPR-6 (Trigonal Prism)": generateTrigonalPrism(),
-        "JPPY-6 (Johnson Pentagonal Pyramid, J2)": generatePentagonalPyramid()
+        "JPPY-6 (Johnson Pentagonal Pyramid, J2)": generateJohnsonPentagonalPyramid6()
     },
     7: {
         "HP-7 (Heptagon)": generateHeptagon(),
