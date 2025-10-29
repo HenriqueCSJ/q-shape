@@ -56,26 +56,30 @@ function generateTrigonalPlanar() {
 }
 
 function generatePyramid() {
-    // vT-3: Vacant tetrahedron (trigonal pyramid)
+    // vT-3: Vacant Tetrahedron (Trigonal Pyramid) - Official CoSyMlib reference (normalized)
     return [
-        [1, 1, 1],
-        [1, -1, -1],
-        [-1, 1, -1]
+        [1.137070, -0.000000, 0.100504],
+        [-0.568535, 0.984732, 0.100504],
+        [-0.568535, -0.984732, 0.100504]
     ].map(normalize);
 }
 
 function generateFacTrivacantOctahedron() {
-    // fac-vOC-3
+    // fac-vOC-3: fac-Trivacant Octahedron - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
+        [1.000000, -0.333333, -0.333333],
+        [-0.333333, 1.000000, -0.333333],
+        [-0.333333, -0.333333, 1.000000]
     ].map(normalize);
 }
 
 function generateTShaped() {
-    // mer-vOC-3: mer-Trivacant octahedron
-    return [[1, 0, 0], [-1, 0, 0], [0, 1, 0]].map(normalize);
+    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped) - Official CoSyMlib reference (normalized)
+    return [
+        [1.206045, -0.301511, 0.000000],
+        [0.000000, 0.904534, 0.000000],
+        [-1.206045, -0.301511, 0.000000]
+    ].map(normalize);
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
