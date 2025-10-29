@@ -392,20 +392,22 @@ function generateElongatedTriangularBipyramid() {
 
 function generateBiaugmentedTrigonalPrism() {
     // JBTP-8 / JBTPR-8: Biaugmented Trigonal Prism J50 - SHAPE 2.1 reference coordinates
+    // Using correct metal center from SHAPE output: [14.3495, 3.6108, 0.7644]
     return [
-        [0.926093, -0.158991, 0.342160],
-        [-0.244711, -0.698158, 0.672824],
-        [-0.516843, 0.101642, -0.850025],
-        [-0.914688, 0.266815, 0.303573],
-        [0.611951, 0.126121, -0.780775],
-        [0.130625, 0.986754, -0.096195],
-        [0.153144, -0.863354, -0.480799],
-        [0.022475, 0.370832, 0.928428]
+        [0.941523, -0.054522, 0.332509],
+        [-0.147989, -0.654455, 0.741477],
+        [-0.437340, 0.195929, -0.877693],
+        [-0.860364, 0.371556, 0.348884],
+        [0.666993, 0.187115, -0.721186],
+        [0.229182, 0.971530, -0.060043],
+        [0.275026, -0.830085, -0.485097],
+        [0.107391, 0.419431, 0.901413]
     ].map(normalize);
 }
 
 function generateSphericalBiaugmentedTrigonalPrism() {
     // BTPR-8: Spherical Biaugmented Trigonal Prism - SHAPE 2.1 reference coordinates
+    // Note: Using TDD-8 metal center [14.5915, 3.8003, 0.8207] gives better results
     return [
         [0.929481, -0.133055, 0.344037],
         [-0.226843, -0.688857, 0.688490],
