@@ -3,7 +3,7 @@ import './App.css';
 
 // Constants
 import { ALL_METALS } from './constants/atomicData';
-import { REFERENCE_GEOMETRIES } from './constants/referenceGeometries';
+import { REFERENCE_GEOMETRIES, POINT_GROUPS } from './constants/referenceGeometries';
 
 // Utilities
 import { interpretShapeMeasure } from './utils/geometry';
@@ -523,7 +523,7 @@ footer strong {
   <div class="info-box">
     <h3>🔬 Q-Shape Analysis Overview</h3>
     <p><strong>Q-Shape (Quantitative Shape Analyzer)</strong> provides advanced coordination geometry analysis using Continuous Shape Measures (CShM) methodology.</p>
-    <p>This report analyzes your structure against <strong>${totalAvailableGeometries} reference geometries</strong> across all coordination numbers (CN=2-12).</p>
+    <p>This report analyzes your structure against <strong>${totalAvailableGeometries} reference geometries</strong> across all coordination numbers (CN=2-60).</p>
     <p>For CN=${currentCoordAtoms.length}, ${cnGeometries} reference geometries were evaluated using optimized Kabsch alignment and Hungarian algorithm.</p>
   </div>
 
@@ -623,6 +623,7 @@ footer strong {
       <tr>
         <th>#</th>
         <th>Geometry</th>
+        <th>Point Group</th>
         <th>CShM</th>
         <th>Interpretation</th>
         <th>Confidence</th>
@@ -633,6 +634,7 @@ footer strong {
       <tr class="${i === 0 ? 'best-result' : ''}">
         <td>${i + 1}</td>
         <td><strong>${r.name}</strong></td>
+        <td style="font-family: monospace; font-weight: 600; color: #6366f1;">${POINT_GROUPS[r.name] || '—'}</td>
         <td style="font-family: monospace; font-weight: 600;">${r.shapeMeasure.toFixed(4)}</td>
         <td style="color: ${interpretShapeMeasure(r.shapeMeasure).color}; font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).text}</td>
         <td style="font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).confidence}%</td>
@@ -909,7 +911,7 @@ footer strong {
                 type="text"
                 value={targetCNInput}
                 onChange={(e) => setTargetCNInput(e.target.value)}
-                placeholder="Target CN (2-24)"
+                placeholder="Target CN (2-60)"
                 style={{
                   flex: 1,
                   padding: '0.5rem',
@@ -1291,22 +1293,32 @@ footer strong {
                             onMouseOver={(e) => e.currentTarget.style.background = i === 0 ? 'linear-gradient(135deg, #bbf7d0 0%, #86efac 100%)' : '#f1f5f9'}
                             onMouseOut={(e) => e.currentTarget.style.background = i === 0 ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)' : i % 2 === 0 ? '#f9fafb' : '#fff'}
                         >
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                alignItems: 'center', 
-                                marginBottom: '0.5rem' 
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.5rem'
                             }}>
-                                <strong style={{ 
-                                    fontSize: '0.95rem', 
-                                    color: i === 0 ? '#15803d' : '#1e293b',
-                                    flex: 1
-                                }}>
-                                    {i + 1}. {r.name}
-                                </strong>
-                                <div style={{ 
-                                    fontSize: '1.1rem', 
-                                    fontWeight: 800, 
+                                <div style={{ flex: 1 }}>
+                                    <strong style={{
+                                        fontSize: '0.95rem',
+                                        color: i === 0 ? '#15803d' : '#1e293b',
+                                        display: 'block'
+                                    }}>
+                                        {i + 1}. {r.name}
+                                    </strong>
+                                    <span style={{
+                                        fontSize: '0.8rem',
+                                        color: '#6366f1',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 600
+                                    }}>
+                                        {POINT_GROUPS[r.name] || ''}
+                                    </span>
+                                </div>
+                                <div style={{
+                                    fontSize: '1.1rem',
+                                    fontWeight: 800,
                                     color: inter.color,
                                     fontFamily: 'monospace'
                                 }}>

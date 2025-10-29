@@ -151,9 +151,9 @@ export function useRadiusControl({
         const cn = parseInt(targetCNInput, 10);
 
         // Validate CN input
-        if (!Number.isFinite(cn) || cn < 2 || cn > 24) {
+        if (!Number.isFinite(cn) || cn < 2 || cn > 60) {
             if (onWarning) {
-                onWarning("Please enter a valid Coordination Number (2-24)");
+                onWarning("Please enter a valid Coordination Number (2-60)");
             }
             return;
         }

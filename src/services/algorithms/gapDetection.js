@@ -23,7 +23,7 @@
  * @param {Object} params - Parameters for gap detection
  * @param {Array<{x: number, y: number, z: number}>} params.atoms - All atoms in structure
  * @param {number} params.metalIndex - Index of the metal center atom
- * @param {number} params.targetCN - Target coordination number (2-24)
+ * @param {number} params.targetCN - Target coordination number (2-60)
  * @param {Object} params.THREE - THREE.js library object (for Vector3)
  * @returns {{
  *   optimalRadius: number,
@@ -50,9 +50,9 @@
  */
 export default function findOptimalRadiusForCN({ atoms, metalIndex, targetCN, THREE }) {
     // Validate input
-    if (!Number.isFinite(targetCN) || targetCN < 2 || targetCN > 24) {
+    if (!Number.isFinite(targetCN) || targetCN < 2 || targetCN > 60) {
         return {
-            error: "Target CN must be between 2 and 24",
+            error: "Target CN must be between 2 and 60",
             optimalRadius: null,
             gap: null,
             isLastAtom: false,

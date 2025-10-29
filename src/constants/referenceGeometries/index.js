@@ -1561,4 +1561,130 @@ const REFERENCE_GEOMETRIES = {
 
 // --- END: COMPLETE SHAPE 2.1 GEOMETRY DEFINITIONS ---
 
-export { normalize, REFERENCE_GEOMETRIES };
+// Point Group Symmetries for all Reference Geometries
+// Based on official CoSyMlib/SHAPE 2.1 documentation
+const POINT_GROUPS = {
+    // CN=2
+    "L-2 (Linear)": "D∞h",
+    "vT-2 (V-shape, 109.47°)": "C2v",
+    "vOC-2 (L-shape, 90°)": "C2v",
+
+    // CN=3
+    "TP-3 (Trigonal Planar)": "D3h",
+    "vT-3 (Pyramid)": "C3v",
+    "fac-vOC-3 (fac-Trivacant Octahedron)": "C3v",
+    "mer-vOC-3 (T-shaped)": "C2v",
+
+    // CN=4
+    "SP-4 (Square Planar)": "D4h",
+    "T-4 (Tetrahedral)": "Td",
+    "SS-4 (Seesaw)": "C2v",
+    "vTBPY-4 (Axially Vacant Trigonal Bipyramid)": "C3v",
+
+    // CN=5
+    "PP-5 (Pentagon)": "D5h",
+    "vOC-5 (Square Pyramid, J1)": "C4v",
+    "TBPY-5 (Trigonal Bipyramidal)": "D3h",
+    "SPY-5 (Square Pyramidal)": "C4v",
+    "JTBPY-5 (Johnson Trigonal Bipyramid, J12)": "D3h",
+
+    // CN=6
+    "HP-6 (Hexagon)": "D6h",
+    "PPY-6 (Pentagonal Pyramid)": "C5v",
+    "OC-6 (Octahedral)": "Oh",
+    "TPR-6 (Trigonal Prism)": "D3h",
+    "JPPY-6 (Johnson Pentagonal Pyramid, J2)": "C5v",
+
+    // CN=7
+    "HP-7 (Heptagon)": "D7h",
+    "HPY-7 (Hexagonal Pyramid)": "C6v",
+    "PBPY-7 (Pentagonal Bipyramidal)": "D5h",
+    "COC-7 (Capped Octahedral)": "C3v",
+    "CTPR-7 (Capped Trigonal Prism)": "C2v",
+    "JPBPY-7 (Johnson Pentagonal Bipyramid, J13)": "D5h",
+    "JETPY-7 (Elongated Triangular Pyramid, J7)": "C3v",
+
+    // CN=8
+    "OP-8 (Octagon)": "D8h",
+    "HPY-8 (Heptagonal Pyramid)": "C7v",
+    "HBPY-8 (Hexagonal Bipyramid)": "D6h",
+    "CU-8 (Cube)": "Oh",
+    "SAPR-8 (Square Antiprism)": "D4d",
+    "TDD-8 (Triangular Dodecahedron)": "D2d",
+    "JGBF-8 (Gyrobifastigium, J26)": "D2d",
+    "JETBPY-8 (Elongated Triangular Bipyramid, J14)": "D3h",
+    "JBTP-8 (Biaugmented Trigonal Prism, J50)": "C2v",
+    "BTPR-8 (Biaugmented Trigonal Prism)": "C2v",
+    "JSD-8 (Snub Disphenoid, J84)": "D2d",
+    "TT-8 (Triakis Tetrahedron)": "Td",
+    "ETBPY-8 (Elongated Trigonal Bipyramid)": "D3h",
+
+    // CN=9
+    "EP-9 (Enneagon)": "D9h",
+    "OPY-9 (Octagonal Pyramid)": "C8v",
+    "HBPY-9 (Heptagonal Bipyramid)": "D7h",
+    "JTC-9 (Triangular Cupola, J3)": "C3v",
+    "JCCU-9 (Capped Cube, J8)": "C4v",
+    "CCU-9 (Capped Cube)": "C4v",
+    "JCSAPR-9 (Capped Square Antiprism, J10)": "C4v",
+    "CSAPR-9 (Capped Square Antiprism)": "C4v",
+    "JTCTPR-9 (Tricapped Trigonal Prism, J51)": "D3h",
+    "TCTPR-9 (Tricapped Trigonal Prism)": "D3h",
+    "JTDIC-9 (Tridiminished Icosahedron, J63)": "C3v",
+    "HH-9 (Hula-hoop)": "C2v",
+    "MFF-9 (Muffin)": "Cs",
+
+    // CN=10
+    "DP-10 (Decagon)": "D10h",
+    "EPY-10 (Enneagonal Pyramid)": "C9v",
+    "OBPY-10 (Octagonal Bipyramid)": "D8h",
+    "PPR-10 (Pentagonal Prism - ECLIPSED)": "D5h",
+    "PAPR-10 (Pentagonal Antiprism - STAGGERED)": "D5d",
+    "JBCCU-10 (Bicapped Cube, J15)": "D4h",
+    "JBCSAPR-10 (Bicapped Square Antiprism, J17)": "D4d",
+    "JMBIC-10 (Metabidiminished Icosahedron, J62)": "C2v",
+    "JATDI-10 (Augmented Tridiminished Icosahedron, J64)": "C3v",
+    "JSPC-10 (Sphenocorona, J87)": "C2v",
+    "SDD-10 (Staggered Dodecahedron 2:6:2)": "D2",
+    "TD-10 (Tetradecahedron 2:6:2)": "C2v",
+    "HD-10 (Hexadecahedron 2:6:2)": "D4h",
+
+    // CN=11
+    "HP-11 (Hendecagon)": "D11h",
+    "DPY-11 (Decagonal Pyramid)": "C10v",
+    "EBPY-11 (Enneagonal Bipyramid)": "D9h",
+    "JCPPR-11 (Capped Pentagonal Prism, J9)": "C5v",
+    "JCPAPR-11 (Capped Pentagonal Antiprism, J11)": "C5v",
+    "JAPPR-11 (Augmented Pentagonal Prism, J52)": "C2v",
+    "JASPC-11 (Augmented Sphenocorona, J87)": "Cs",
+
+    // CN=12
+    "DP-12 (Dodecagon)": "D12h",
+    "HPY-12 (Hendecagonal Pyramid)": "C11v",
+    "DBPY-12 (Decagonal Bipyramid)": "D10h",
+    "HPR-12 (Hexagonal Prism)": "D6h",
+    "HAPR-12 (Hexagonal Antiprism)": "D6d",
+    "TT-12 (Truncated Tetrahedron)": "Td",
+    "COC-12 (Cuboctahedral)": "Oh",
+    "ACOC-12 (Anticuboctahedron, J27)": "D3h",
+    "IC-12 (Icosahedral)": "Ih",
+    "JSC-12 (Square Cupola, J4)": "C4v",
+    "JEPBPY-12 (Elongated Pentagonal Bipyramid, J16)": "D5h",
+    "JBAPPR-12 (Biaugmented Pentagonal Prism, J53)": "C2v",
+    "JSPMC-12 (Sphenomegacorona, J88)": "Cs",
+
+    // CN=20
+    "DD-20 (Dodecahedron)": "Ih",
+
+    // CN=24
+    "TCU-24 (Truncated Cube)": "Oh",
+    "TOC-24 (Truncated Octahedron)": "Oh",
+
+    // CN=48
+    "TCOC-48 (Truncated Cuboctahedron)": "Oh",
+
+    // CN=60
+    "TIC-60 (Truncated Icosahedron)": "Ih"
+};
+
+export { normalize, REFERENCE_GEOMETRIES, POINT_GROUPS };
