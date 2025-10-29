@@ -80,11 +80,12 @@ function generateTShaped() {
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
 function generateTetrahedral() {
+    // T-4: Tetrahedral - Official CoSyMlib reference (normalized)
     return [
-        [1, 1, 1],
-        [1, -1, -1],
-        [-1, 1, -1],
-        [-1, -1, 1]
+        [0.000000, 0.912871, -0.645497],
+        [-0.000000, -0.912871, -0.645497],
+        [0.912871, -0.000000, 0.645497],
+        [-0.912871, 0.000000, 0.645497]
     ].map(normalize);
 }
 
@@ -98,24 +99,23 @@ function generateSquarePlanar() {
 }
 
 function generateSeesaw() {
-    // SS-4: Seesaw (cis-divacant octahedron)
+    // SS-4: Seesaw (cis-divacant octahedron) - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 1, 0],
-        [0, 0.5, 0.866]
+        [-0.235702, -0.235702, -1.178511],
+        [0.942809, -0.235702, 0.000000],
+        [-0.235702, 0.942809, 0.000000],
+        [-0.235702, -0.235702, 1.178511]
     ].map(normalize);
 }
 
 function generateAxialVacantTBPY() {
-    // vTBPY-4: Axially vacant trigonal bipyramid
-    const coords = [];
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    coords.push([0, 0, 1]);
-    return coords.map(normalize);
+    // vTBPY-4: Axially Vacant Trigonal Bipyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -0.917663],
+        [1.147079, -0.000000, 0.229416],
+        [-0.573539, 0.993399, 0.229416],
+        [-0.573539, -0.993399, 0.229416]
+    ].map(normalize);
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
