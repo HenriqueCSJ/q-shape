@@ -301,13 +301,17 @@ function generateOctagon() {
 }
 
 function generateHeptagonalPyramid() {
-    // HPY-8
-    const coords = [[0, 0, 1]];
-    for (let i = 0; i < 7; i++) {
-        const angle = (i * 2 * Math.PI) / 7;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HPY-8: Heptagonal Pyramid - SHAPE 2.1 reference coordinates
+    return [
+        [0.889005, -0.290328, 0.354090],
+        [-0.527356, -0.751762, 0.395916],
+        [0.144749, -0.318728, -0.936729],
+        [-0.484034, -0.035473, 0.874330],
+        [0.354123, 0.504541, -0.787423],
+        [0.222910, 0.971978, -0.074626],
+        [-0.247544, -0.877802, -0.410105],
+        [-0.150123, 0.731642, 0.664953]
+    ].map(normalize);
 }
 
 function generateHexagonalBipyramid() {
@@ -345,92 +349,86 @@ function generateSquareAntiprism() {
 }
 
 function generateTriangularDodecahedron() {
-    // TDD-8: Triangular Dodecahedron (D2d symmetry)
-    // This is SHAPE's TDD-8, which uses Johnson solid J84 parameterization
-    // Parameters from cubic equation 8q³ - 4q - 1 = 0
-    const q = 0.169019;  // Root of the cubic
-    const r = Math.sqrt(q);  // ≈ 0.41112
-    const s = Math.sqrt((1 - q) / (2 * q));  // ≈ 1.56786
-    const t = 2 * r * s;  // ≈ 1.28917
-
+    // TDD-8: Triangular Dodecahedron - SHAPE 2.1 reference coordinates
     return [
-        [t, r, 0],
-        [-t, r, 0],
-        [0, -r, t],
-        [0, -r, -t],
-        [1, -s, 0],
-        [-1, -s, 0],
-        [0, s, 1],
-        [0, s, -1]
+        [0.941102, -0.192251, 0.278149],
+        [-0.440237, -0.698606, 0.564040],
+        [-0.584646, -0.104939, -0.804473],
+        [-0.895083, 0.366816, 0.253520],
+        [0.574289, 0.203694, -0.792907],
+        [0.083710, 0.995777, -0.037695],
+        [0.238726, -0.881445, -0.407510],
+        [0.082035, 0.310900, 0.946896]
     ].map(normalize);
 }
 
 function generateGyrobifastigium() {
-    // JGBF-8: Johnson J26 (D2d)
+    // JGBF-8: Gyrobifastigium J26 - SHAPE 2.1 reference coordinates
     return [
-        [1, 0, 0.5], [-1, 0, 0.5],
-        [0, 1, -0.5], [0, -1, -0.5],
-        [0.707, 0.707, -0.2], [-0.707, 0.707, -0.2],
-        [0.707, -0.707, 0.2], [-0.707, -0.707, 0.2]
+        [0.726680, -0.249409, 0.640102],
+        [-0.460151, -0.868569, 0.183982],
+        [-0.726680, 0.249409, -0.640102],
+        [-0.861367, 0.151959, 0.484722],
+        [0.347525, 0.024401, -0.937353],
+        [0.460173, 0.868555, -0.183991],
+        [0.535980, -0.766139, -0.354622],
+        [-0.022139, 0.589770, 0.807268]
     ].map(normalize);
 }
 
 function generateElongatedTriangularBipyramid() {
-    // JETBPY-8: Johnson J14 (D3h)
-    const h = 0.6;
+    // JETBPY-8: Elongated Triangular Bipyramid J14 - SHAPE 2.1 reference coordinates
     return [
-        [0, 0, 1.2],
-        [0, 0, -1.2],
-        [1, 0, h],
-        [-0.5, 0.866, h],
-        [-0.5, -0.866, h],
-        [1, 0, -h],
-        [-0.5, 0.866, -h],
-        [-0.5, -0.866, -h]
+        [0.262689, -0.800806, 0.538242],
+        [-0.322419, -0.325880, 0.888734],
+        [-0.490273, 0.154620, -0.857744],
+        [-0.912366, -0.272075, 0.305883],
+        [0.322387, 0.325884, -0.888744],
+        [0.438623, 0.859535, -0.262316],
+        [0.684790, -0.374120, -0.625378],
+        [0.016468, 0.432828, 0.901326]
     ].map(normalize);
 }
 
 function generateBiaugmentedTrigonalPrism() {
-    // JBTP-8: Johnson J50 (C2v) - exact Johnson solid
-    const h = 0.7;
+    // JBTP-8 / JBTPR-8: Biaugmented Trigonal Prism J50 - SHAPE 2.1 reference coordinates
     return [
-        [1, 0, h],
-        [-0.5, 0.866, h],
-        [-0.5, -0.866, h],
-        [1, 0, -h],
-        [-0.5, 0.866, -h],
-        [-0.5, -0.866, -h],
-        [0.5, 0.289, 0],
-        [0, -0.577, 0]
+        [0.926093, -0.158991, 0.342160],
+        [-0.244711, -0.698158, 0.672824],
+        [-0.516843, 0.101642, -0.850025],
+        [-0.914688, 0.266815, 0.303573],
+        [0.611951, 0.126121, -0.780775],
+        [0.130625, 0.986754, -0.096195],
+        [0.153144, -0.863354, -0.480799],
+        [0.022475, 0.370832, 0.928428]
     ].map(normalize);
 }
 
 function generateSphericalBiaugmentedTrigonalPrism() {
-    // BTPR-8: Spherically optimized biaugmented trigonal prism (C2v)
-    // Adjusted for better sphere packing compared to J50
-    const h = 0.75;  // Slightly larger height for sphere optimization
+    // BTPR-8: Spherical Biaugmented Trigonal Prism - SHAPE 2.1 reference coordinates
     return [
-        [1, 0, h],
-        [-0.5, 0.866, h],
-        [-0.5, -0.866, h],
-        [1, 0, -h],
-        [-0.5, 0.866, -h],
-        [-0.5, -0.866, -h],
-        [0.55, 0.32, 0],   // Adjusted cap positions
-        [0, -0.64, 0]
+        [0.929481, -0.133055, 0.344037],
+        [-0.226843, -0.688857, 0.688490],
+        [-0.496236, 0.122569, -0.859492],
+        [-0.904961, 0.291270, 0.310173],
+        [0.615280, 0.125236, -0.778297],
+        [0.156739, 0.983793, -0.087093],
+        [0.181929, -0.857549, -0.481157],
+        [0.018823, 0.371379, 0.928290]
     ].map(normalize);
 }
 
 function generateSnubDisphenoid() {
-    // JSD-8: Snub Disphenoid J84 (D2d symmetry)
-    // This is SHAPE's JSD-8, which uses a simpler D2d parameterization
-    // Note: Both JSD-8 and TDD-8 refer to related D2d dodecahedra,
-    // but SHAPE uses different optimizations for each
+    // JSD-8: Snub Disphenoid J84 - SHAPE 2.1 reference coordinates
     return [
-        [1, 0, 0.707], [-1, 0, 0.707],
-        [0, 1, -0.707], [0, -1, -0.707],
-        [0.707, 0.707, 0], [-0.707, 0.707, 0],
-        [0.707, -0.707, 0], [-0.707, -0.707, 0]
+        [0.931008, -0.170659, 0.322645],
+        [-0.419237, -0.732753, 0.536017],
+        [-0.622137, -0.087208, -0.778036],
+        [-0.866860, 0.381303, 0.321187],
+        [0.577984, 0.128584, -0.805854],
+        [0.110370, 0.990614, -0.080639],
+        [0.279063, -0.844134, -0.457780],
+        [0.009791, 0.334201, 0.942451]
     ].map(normalize);
 }
 
