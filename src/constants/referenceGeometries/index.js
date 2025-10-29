@@ -345,12 +345,23 @@ function generateSquareAntiprism() {
 }
 
 function generateTriangularDodecahedron() {
-    // TDD-8: D2d symmetry
+    // TDD-8: Triangular Dodecahedron (D2d symmetry)
+    // This is SHAPE's TDD-8, which uses Johnson solid J84 parameterization
+    // Parameters from cubic equation 8q³ - 4q - 1 = 0
+    const q = 0.169019;  // Root of the cubic
+    const r = Math.sqrt(q);  // ≈ 0.41112
+    const s = Math.sqrt((1 - q) / (2 * q));  // ≈ 1.56786
+    const t = 2 * r * s;  // ≈ 1.28917
+
     return [
-        [1, 0, 0.707], [-1, 0, 0.707],
-        [0, 1, -0.707], [0, -1, -0.707],
-        [0.707, 0.707, 0], [-0.707, 0.707, 0],
-        [0.707, -0.707, 0], [-0.707, -0.707, 0]
+        [t, r, 0],
+        [-t, r, 0],
+        [0, -r, t],
+        [0, -r, -t],
+        [1, -s, 0],
+        [-1, -s, 0],
+        [0, s, 1],
+        [0, s, -1]
     ].map(normalize);
 }
 
@@ -411,23 +422,15 @@ function generateSphericalBiaugmentedTrigonalPrism() {
 }
 
 function generateSnubDisphenoid() {
-    // JSD-8: Johnson J84 (D2d) - Snub Disphenoid
-    // Coordinates from Johnson solid J84
-    // Parameters from cubic equation 8q³ - 4q - 1 = 0
-    const q = 0.169019;  // Root of the cubic
-    const r = Math.sqrt(q);  // ≈ 0.41112
-    const s = Math.sqrt((1 - q) / (2 * q));  // ≈ 1.56786
-    const t = 2 * r * s;  // ≈ 1.28917
-
+    // JSD-8: Snub Disphenoid J84 (D2d symmetry)
+    // This is SHAPE's JSD-8, which uses a simpler D2d parameterization
+    // Note: Both JSD-8 and TDD-8 refer to related D2d dodecahedra,
+    // but SHAPE uses different optimizations for each
     return [
-        [t, r, 0],
-        [-t, r, 0],
-        [0, -r, t],
-        [0, -r, -t],
-        [1, -s, 0],
-        [-1, -s, 0],
-        [0, s, 1],
-        [0, s, -1]
+        [1, 0, 0.707], [-1, 0, 0.707],
+        [0, 1, -0.707], [0, -1, -0.707],
+        [0.707, 0.707, 0], [-0.707, 0.707, 0],
+        [0.707, -0.707, 0], [-0.707, -0.707, 0]
     ].map(normalize);
 }
 
