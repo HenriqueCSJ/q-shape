@@ -894,65 +894,105 @@ function generateHendecagon() {
 }
 
 function generateDecagonalPyramid() {
-    // DPY-11
-    const coords = [[0, 0, 1]];
-    for (let i = 0; i < 10; i++) {
-        const angle = (i * 2 * Math.PI) / 10;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // DPY-11: Decagonal Pyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -0.961074],
+        [1.048445, -0.000000, 0.087370],
+        [0.848210, 0.616260, 0.087370],
+        [0.323987, 0.997130, 0.087370],
+        [-0.323987, 0.997130, 0.087370],
+        [-0.848210, 0.616260, 0.087370],
+        [-1.048445, 0.000000, 0.087370],
+        [-0.848210, -0.616260, 0.087370],
+        [-0.323987, -0.997130, 0.087370],
+        [0.323987, -0.997130, 0.087370],
+        [0.848210, -0.616260, 0.087370]
+    ].map(normalize);
 }
 
 function generateEnneagonalBipyramid() {
-    // EBPY-11
-    const coords = [
-        [0, 0, 1],
-        [0, 0, -1]
-    ];
-    for (let i = 0; i < 9; i++) {
-        const angle = (i * 2 * Math.PI) / 9;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // EBPY-11: Enneagonal Bipyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -1.044466],
+        [1.044466, -0.000000, 0.000000],
+        [0.800107, 0.671370, 0.000000],
+        [0.181370, 1.028598, 0.000000],
+        [-0.522233, 0.904534, 0.000000],
+        [-0.981477, 0.357228, 0.000000],
+        [-0.981477, -0.357228, 0.000000],
+        [-0.522233, -0.904534, 0.000000],
+        [0.181370, -1.028598, 0.000000],
+        [0.800107, -0.671370, 0.000000],
+        [0.000000, -0.000000, 1.044466]
+    ].map(normalize);
 }
 
 function generateCappedPentagonalPrism() {
-    // JCPPR-11: Elongated pentagonal pyramid (J9, C5v)
-    const prism = generatePentagonalPrism();
-    prism.push([0, 0, 1.4]);
-    return prism.slice(0, 11).map(normalize);
+    // JCPPR-11: Capped Pentagonal Prism (J9) - Official CoSyMlib reference (normalized)
+    return [
+        [0.900823, -0.000000, 0.438971],
+        [0.900823, -0.000000, -0.620010],
+        [0.278370, 0.856734, 0.438971],
+        [0.278370, 0.856734, -0.620010],
+        [-0.728781, 0.529491, 0.438971],
+        [-0.728781, 0.529491, -0.620010],
+        [-0.728781, -0.529491, 0.438971],
+        [-0.728781, -0.529491, -0.620010],
+        [0.278370, -0.856734, 0.438971],
+        [0.278370, -0.856734, -0.620010],
+        [0.000000, -0.000000, 0.995711]
+    ].map(normalize);
 }
 
 function generateCappedPentagonalAntiprism() {
-    // JCPAPR-11: Gyroelongated pentagonal pyramid (J11, C5v)
-    const antiprism = generatePentagonalAntiprism();
-    antiprism.push([0, 0, 1.4]);
-    return antiprism.slice(0, 11).map(normalize);
+    // JCPAPR-11: Capped Pentagonal Antiprism (J11) - Official CoSyMlib reference (normalized)
+    return [
+        [0.937758, -0.000000, 0.556249],
+        [0.758662, 0.551200, -0.381508],
+        [0.289783, 0.891860, 0.556249],
+        [-0.289783, 0.891860, -0.381508],
+        [-0.758662, 0.551200, 0.556249],
+        [-0.937758, 0.000000, -0.381508],
+        [-0.758662, -0.551200, 0.556249],
+        [-0.289783, -0.891860, -0.381508],
+        [0.289783, -0.891860, 0.556249],
+        [0.758662, -0.551200, -0.381508],
+        [0.000000, -0.000000, -0.961074]
+    ].map(normalize);
 }
 
 function generateAugmentedPentagonalPrism() {
-    // JAPPR-11: Johnson J52 (C2v)
-    const h = 0.85;
+    // JAPPR-11: Augmented Pentagonal Prism (J52) - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, h],
-        [0.309, 0.951, h],
-        [-0.809, 0.588, h],
-        [-0.809, -0.588, h],
-        [0.309, -0.951, h],
-        [1, 0, -h],
-        [0.309, 0.951, -h],
-        [-0.809, 0.588, -h],
-        [-0.809, -0.588, -h],
-        [0.309, -0.951, -h],
-        [0.5, 0.3, 0]
+        [-0.000000, -1.305264, 0.000000],
+        [-0.000000, 0.986976, 0.510294],
+        [0.825655, 0.386871, 0.510294],
+        [0.510294, -0.583708, 0.510294],
+        [-0.510294, -0.583708, 0.510294],
+        [-0.825655, 0.386871, 0.510294],
+        [-0.000000, 0.986976, -0.510294],
+        [0.825655, 0.386871, -0.510294],
+        [0.510294, -0.583708, -0.510294],
+        [-0.510294, -0.583708, -0.510294],
+        [-0.825655, 0.386871, -0.510294]
     ].map(normalize);
 }
 
 function generateAugmentedSphenocorona() {
-    // JASPC-11: Johnson J87 augmented (Cs)
-    const spc = generateSphenocorona();
-    spc.push([0.5, 0.5, 0.7]);
-    return spc.slice(0, 11).map(normalize);
+    // JASPC-11: Augmented Sphenocorona (J87) - Official CoSyMlib reference (normalized)
+    return [
+        [-0.549649, -0.001864, 0.864507],
+        [0.549649, -0.001864, 0.864507],
+        [-0.000000, 0.867614, 0.476754],
+        [-0.867816, 0.476159, -0.072895],
+        [-0.549649, -0.576090, -0.072895],
+        [0.549649, -0.576090, -0.072895],
+        [0.867816, 0.476159, -0.072895],
+        [-0.000000, 0.867614, -0.622545],
+        [-0.549649, -0.001864, -1.010297],
+        [0.549649, -0.001864, -1.010297],
+        [-0.000000, -0.951821, 0.801846]
+    ].map(normalize);
 }
 
 // CN=12 Geometries (13 total from SHAPE 2.1) - COMPLETE SET
