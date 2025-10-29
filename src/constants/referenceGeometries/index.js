@@ -35,14 +35,19 @@ function generateLinear() {
 }
 
 function generateVShape() {
-    // vT-2: Divacant tetrahedron (109.47°)
-    const angle = 109.47 * Math.PI / 180;
-    return [[1, 0, 0], [Math.cos(angle), Math.sin(angle), 0]].map(normalize);
+    // vT-2: Divacant Tetrahedron (V-shape, 109.47°) - Official CoSyMlib reference (normalized)
+    return [
+        [0.801784, 0.801784, 0.267261],
+        [-0.801784, -0.801784, 0.267261]
+    ].map(normalize);
 }
 
 function generateLShape() {
-    // vOC-2: Tetravacant octahedron (90°)
-    return [[1, 0, 0], [0, 1, 0]].map(normalize);
+    // vOC-2: Tetravacant Octahedron (L-shape, 90°) - Official CoSyMlib reference (normalized)
+    return [
+        [1.000000, -0.500000, 0.000000],
+        [-0.500000, 1.000000, 0.000000]
+    ].map(normalize);
 }
 
 // CN=3 Geometries (4 total from SHAPE 2.1)
