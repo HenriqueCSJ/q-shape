@@ -500,115 +500,182 @@ function generateEnneagon() {
 }
 
 function generateOctagonalPyramid() {
-    // OPY-9
-    const coords = [[0, 0, 1]];
-    for (let i = 0; i < 8; i++) {
-        const angle = (i * 2 * Math.PI) / 8;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // OPY-9: Octagonal Pyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, -0.953998],
+        [1.059998, 0.000000, 0.106000],
+        [0.749532, 0.749532, 0.106000],
+        [0.000000, 1.059998, 0.106000],
+        [-0.749532, 0.749532, 0.106000],
+        [-1.059998, 0.000000, 0.106000],
+        [-0.749532, -0.749532, 0.106000],
+        [-0.000000, -1.059998, 0.106000],
+        [0.749532, -0.749532, 0.106000]
+    ].map(normalize);
 }
 
 function generateHeptagonalBipyramid() {
-    // HBPY-9
-    const coords = [
-        [0, 0, 1],
-        [0, 0, -1]
-    ];
-    for (let i = 0; i < 7; i++) {
-        const angle = (i * 2 * Math.PI) / 7;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HBPY-9: Heptagonal Bipyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, -1.054093],
+        [1.054093, 0.000000, 0.000000],
+        [0.657216, 0.824123, 0.000000],
+        [-0.234558, 1.027664, 0.000000],
+        [-0.949705, 0.457354, 0.000000],
+        [-0.949705, -0.457354, 0.000000],
+        [-0.234558, -1.027664, 0.000000],
+        [0.657216, -0.824123, 0.000000],
+        [0.000000, 0.000000, 1.054093]
+    ].map(normalize);
 }
 
 function generateTriangularCupola() {
-    // JTC-9: Johnson J3 (C3v) - trivacant cuboctahedron
+    // JTC-9: Triangular Cupola J3 - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, 0.5],
-        [-0.5, 0.866, 0.5],
-        [-0.5, -0.866, 0.5],
-        [0.707, 0.707, -0.3],
-        [0.707, -0.707, -0.3],
-        [-0.707, 0.707, -0.3],
-        [-0.707, -0.707, -0.3],
-        [0, 1, -0.3],
-        [0, -1, -0.3]
+        [1.091089, -0.000000, 0.267261],
+        [0.545545, 0.944911, 0.267261],
+        [-0.545545, 0.944911, 0.267261],
+        [-1.091089, 0.000000, 0.267261],
+        [-0.545545, -0.944911, 0.267261],
+        [0.545545, -0.944911, 0.267261],
+        [0.545545, 0.314970, -0.623610],
+        [-0.545545, 0.314970, -0.623610],
+        [-0.000000, -0.629941, -0.623610]
     ].map(normalize);
 }
 
 function generateCappedCube() {
-    // JCCU-9 & CCU-9: Capped cube (C4v)
-    const cube = generateCube();
-    cube.push([0, 0, 1.5]);
-    return cube.slice(0, 9).map(normalize);
+    // JCCU-9: Capped Cube J8 - Official CoSyMlib reference (normalized)
+    return [
+        [0.826961, 0.000000, 0.443578],
+        [0.826961, 0.000000, -0.725920],
+        [0.000000, 0.826961, 0.443578],
+        [0.000000, 0.826961, -0.725920],
+        [-0.826961, 0.000000, 0.443578],
+        [-0.826961, 0.000000, -0.725920],
+        [-0.000000, -0.826961, 0.443578],
+        [-0.000000, -0.826961, -0.725920],
+        [0.000000, 0.000000, 1.270539]
+    ].map(normalize);
+}
+
+function generateCappedCubeAlt() {
+    // CCU-9: Capped Cube (alternative) - Official CoSyMlib reference (normalized)
+    return [
+        [0.676580, 0.676580, 0.433151],
+        [0.676580, -0.676580, 0.433151],
+        [-0.676580, 0.676580, 0.433151],
+        [-0.676580, -0.676580, 0.433151],
+        [0.567845, 0.567845, -0.692080],
+        [0.567845, -0.567845, -0.692080],
+        [-0.567845, 0.567845, -0.692080],
+        [-0.567845, -0.567845, -0.692080],
+        [0.000000, 0.000000, 1.044927]
+    ].map(normalize);
 }
 
 function generateCappedSquareAntiprism() {
-    // JCSAPR-9 & CSAPR-9: Capped square antiprism (C4v)
-    const antiprism = generateSquareAntiprism();
-    antiprism.push([0, 0, 1.3]);
-    return antiprism.slice(0, 9).map(normalize);
+    // JCSAPR-9: Capped Square Antiprism J10 - Official CoSyMlib reference (normalized)
+    return [
+        [0.873141, 0.000000, 0.658404],
+        [0.617404, 0.617404, -0.379941],
+        [0.000000, 0.873141, 0.658404],
+        [-0.617404, 0.617404, -0.379941],
+        [-0.873141, 0.000000, 0.658404],
+        [-0.617404, -0.617404, -0.379941],
+        [-0.000000, -0.873141, 0.658404],
+        [0.617404, -0.617404, -0.379941],
+        [0.000000, 0.000000, -1.253082]
+    ].map(normalize);
+}
+
+function generateCappedSquareAntiprismAlt() {
+    // CSAPR-9: Capped Square Antiprism (alternative) - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, 1.053083],
+        [0.982654, 0.000000, 0.380440],
+        [0.000000, 0.982654, 0.380440],
+        [-0.982654, 0.000000, 0.380440],
+        [-0.000000, -0.982654, 0.380440],
+        [0.590920, 0.590920, -0.643458],
+        [-0.590920, 0.590920, -0.643458],
+        [-0.590920, -0.590920, -0.643458],
+        [0.590920, -0.590920, -0.643458]
+    ].map(normalize);
 }
 
 function generateTricappedTrigonalPrism() {
-    // JTCTPR-9 & TCTPR-9: Tricapped trigonal prism (D3h)
-    const coords = [];
-    const h = 0.7;
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), h]);
-        coords.push([Math.cos(angle), Math.sin(angle), -h]);
-    }
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([1.2 * Math.cos(angle), 1.2 * Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // JTCTPR-9: Tricapped Trigonal Prism J51 - Official CoSyMlib reference (normalized)
+    return [
+        [0.621382, 0.621382, 0.358755],
+        [-0.621382, 0.621382, 0.358755],
+        [0.621382, -0.621382, 0.358755],
+        [-0.621382, -0.621382, 0.358755],
+        [0.000000, 0.621382, -0.717510],
+        [0.000000, -0.621382, -0.717510],
+        [1.071725, 0.000000, -0.618761],
+        [-1.071725, 0.000000, -0.618761],
+        [0.000000, 0.000000, 1.237522]
+    ].map(normalize);
+}
+
+function generateTricappedTrigonalPrismAlt() {
+    // TCTPR-9: Tricapped Trigonal Prism (alternative) - Official CoSyMlib reference (normalized)
+    return [
+        [0.702728, 0.000000, 0.785674],
+        [-0.351364, 0.608581, 0.785674],
+        [-0.351364, -0.608581, 0.785674],
+        [0.702728, 0.000000, -0.785674],
+        [-0.351364, 0.608581, -0.785674],
+        [-0.351364, -0.608581, -0.785674],
+        [-1.054093, 0.000000, -0.000000],
+        [0.527046, 0.912871, -0.000000],
+        [0.527046, -0.912871, -0.000000]
+    ].map(normalize);
 }
 
 function generateTridiminishedIcosahedron() {
-    // JTDIC-9: Johnson J63 (C3v)
+    // JTDIC-9: Tridiminished Icosahedron J63 - Official CoSyMlib reference (normalized)
     return [
-        [0, 0, 1],
-        [0.894, 0, 0.447],
-        [-0.447, 0.775, 0.447],
-        [-0.447, -0.775, 0.447],
-        [0.724, 0.526, -0.447],
-        [0.724, -0.526, -0.447],
-        [-0.276, 0.851, -0.447],
-        [-0.894, 0, -0.447],
-        [-0.276, -0.851, -0.447]
+        [-0.262672, 0.919451, -0.425013],
+        [-0.915287, 0.021205, -0.425013],
+        [-0.262672, -0.877042, -0.425013],
+        [0.793280, -0.533942, -0.425013],
+        [0.973658, 0.021205, 0.519460],
+        [0.321044, 0.919451, 0.519460],
+        [-0.734908, -0.533942, 0.519460],
+        [0.029186, 0.021205, -1.008729],
+        [0.029186, 0.021205, 1.103176]
     ].map(normalize);
 }
 
 function generateHulaHoop() {
-    // HH-9: C2v symmetry
+    // HH-9: Hula-hoop - Official CoSyMlib reference (normalized)
     return [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 1, 0.3],
-        [0, -1, 0.3],
-        [0.7, 0, -0.7],
-        [-0.7, 0, -0.7],
-        [0, 0.7, -0.7],
-        [0, -0.7, -0.7],
-        [0, 0, 1]
+        [1.057245, 0.000000, 0.077396],
+        [0.528622, 0.915601, 0.077396],
+        [-0.528622, 0.915601, 0.077396],
+        [-1.057245, 0.000000, 0.077396],
+        [-0.528622, -0.915601, 0.077396],
+        [0.528622, -0.915601, 0.077396],
+        [0.000000, 0.000000, 1.134641],
+        [0.528622, 0.000000, -0.838205],
+        [-0.528622, 0.000000, -0.838205]
     ].map(normalize);
 }
 
 function generateMuffin() {
-    // MFF-9: Cs symmetry
+    // MFF-9: Muffin - Official CoSyMlib reference (normalized)
     return [
-        [0, 0, 1],
-        [1, 0, 0.5],
-        [-1, 0, 0.5],
-        [0.5, 0.866, 0],
-        [-0.5, 0.866, 0],
-        [0.5, -0.866, 0],
-        [-0.5, -0.866, 0],
-        [0, 0, -0.8],
-        [0, 0.5, -0.5]
+        [-0.000000, 1.042110, 0.212993],
+        [0.990864, 0.322172, 0.212993],
+        [0.612400, -0.842614, 0.212993],
+        [-0.612400, -0.842614, 0.212993],
+        [-0.990864, 0.322172, 0.212993],
+        [-0.612400, -0.354163, -0.737453],
+        [0.612400, -0.354163, -0.737453],
+        [-0.000000, 0.706514, -0.737453],
+        [-0.000000, 0.000294, 1.100973]
     ].map(normalize);
 }
 
@@ -1115,11 +1182,11 @@ const REFERENCE_GEOMETRIES = {
         "HBPY-9 (Heptagonal Bipyramid)": generateHeptagonalBipyramid(),
         "JTC-9 (Triangular Cupola, J3)": generateTriangularCupola(),
         "JCCU-9 (Capped Cube, J8)": generateCappedCube(),
-        "CCU-9 (Capped Cube)": generateCappedCube(),
+        "CCU-9 (Capped Cube)": generateCappedCubeAlt(),
         "JCSAPR-9 (Capped Square Antiprism, J10)": generateCappedSquareAntiprism(),
-        "CSAPR-9 (Capped Square Antiprism)": generateCappedSquareAntiprism(),
+        "CSAPR-9 (Capped Square Antiprism)": generateCappedSquareAntiprismAlt(),
         "JTCTPR-9 (Tricapped Trigonal Prism, J51)": generateTricappedTrigonalPrism(),
-        "TCTPR-9 (Tricapped Trigonal Prism)": generateTricappedTrigonalPrism(),
+        "TCTPR-9 (Tricapped Trigonal Prism)": generateTricappedTrigonalPrismAlt(),
         "JTDIC-9 (Tridiminished Icosahedron, J63)": generateTridiminishedIcosahedron(),
         "HH-9 (Hula-hoop)": generateHulaHoop(),
         "MFF-9 (Muffin)": generateMuffin()
