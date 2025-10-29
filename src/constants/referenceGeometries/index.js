@@ -219,73 +219,80 @@ function generateHeptagon() {
 }
 
 function generateHexagonalPyramid() {
-    // HPY-7
-    const coords = [[0, 0, 1]];
-    for (let i = 0; i < 6; i++) {
-        const angle = (i * 2 * Math.PI) / 6;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HPY-7: Hexagonal Pyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -0.943880],
+        [1.078720, -0.000000, 0.134840],
+        [0.539360, 0.934199, 0.134840],
+        [-0.539360, 0.934199, 0.134840],
+        [-1.078720, 0.000000, 0.134840],
+        [-0.539360, -0.934199, 0.134840],
+        [0.539360, -0.934199, 0.134840]
+    ].map(normalize);
 }
 
 function generatePentagonalBipyramid() {
-    const coords = [
-        [0, 0, 1.176],
-        [0, 0, -1.176]
-    ];
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // PBPY-7: Pentagonal Bipyramid - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -1.069045],
+        [1.069045, -0.000000, 0.000000],
+        [0.330353, 1.016722, 0.000000],
+        [-0.864876, 0.628369, 0.000000],
+        [-0.864876, -0.628369, 0.000000],
+        [0.330353, -1.016722, 0.000000],
+        [0.000000, -0.000000, 1.069045]
+    ].map(normalize);
 }
 
 function generateCappedOctahedron() {
-    const oct = [
-        [1, 0, 0], [-1, 0, 0],
-        [0, 1, 0], [0, -1, 0],
-        [0, 0, 1], [0, 0, -1]
-    ];
-    oct.push([0.577, 0.577, 0.577]);
-    return oct.map(normalize);
+    // COC-7: Capped Octahedron - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, 1.128907],
+        [0.000000, -1.046937, 0.283079],
+        [0.906674, 0.523469, 0.283079],
+        [-0.906674, 0.523469, 0.283079],
+        [0.672965, -0.388536, -0.678735],
+        [-0.672965, -0.388536, -0.678735],
+        [0.000000, 0.777073, -0.678735]
+    ].map(normalize);
 }
 
 function generateCappedTrigonalPrism() {
-    const coords = [];
-    const h = 0.7;
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), h]);
-        coords.push([Math.cos(angle), Math.sin(angle), -h]);
-    }
-    coords.push([0, 1.5, 0]);
-    return coords.map(normalize);
+    // CTPR-7: Capped Trigonal Prism - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, 1.020027],
+        [0.735248, 0.735248, 0.203751],
+        [-0.735248, 0.735248, 0.203751],
+        [0.735248, -0.735248, 0.203751],
+        [-0.735248, -0.735248, 0.203751],
+        [0.660961, 0.000000, -0.892328],
+        [-0.660961, 0.000000, -0.892328]
+    ].map(normalize);
 }
 
 function generateJohnsonPentagonalBipyramid() {
-    // JPBPY-7: Johnson pentagonal bipyramid (J13)
-    const h = 0.85;
-    const coords = [
-        [0, 0, h],
-        [0, 0, -h]
-    ];
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // JPBPY-7: Johnson Pentagonal Bipyramid (J13) - Official CoSyMlib reference (normalized)
+    return [
+        [1.178109, -0.000000, 0.000000],
+        [0.364056, 1.120448, 0.000000],
+        [-0.953110, 0.692475, 0.000000],
+        [-0.953110, -0.692475, 0.000000],
+        [0.364056, -1.120448, 0.000000],
+        [0.000000, -0.000000, 0.728112],
+        [0.000000, -0.000000, -0.728112]
+    ].map(normalize);
 }
 
 function generateElongatedTriangularPyramid() {
-    // JETPY-7: J7
+    // JETPY-7: Elongated Triangular Pyramid (J7) - Official CoSyMlib reference (normalized)
     return [
-        [0, 0, 1.5],
-        [1, 0, 0],
-        [-0.5, 0.866, 0],
-        [-0.5, -0.866, 0],
-        [0.5, 0.289, -0.816],
-        [-0.5, 0.289, -0.816],
-        [0, -0.577, -0.816]
+        [0.729093, -0.000000, 0.423600],
+        [0.729093, -0.000000, -0.839227],
+        [-0.364547, 0.631413, 0.423600],
+        [-0.364547, 0.631413, -0.839227],
+        [-0.364547, -0.631413, 0.423600],
+        [-0.364547, -0.631413, -0.839227],
+        [0.000000, -0.000000, 1.454694]
     ].map(normalize);
 }
 
