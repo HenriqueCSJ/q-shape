@@ -130,37 +130,46 @@ function generatePentagon() {
 }
 
 function generateSquarePyramid() {
-    // vOC-5: Vacant octahedron (Johnson square pyramid J1)
+    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1) - Official CoSyMlib reference (normalized)
     return [
-        [0, 0, 1],
-        [1, 0, 0],
-        [0, 1, 0],
-        [-1, 0, 0],
-        [0, -1, 0]
+        [0.000000, -0.000000, -0.928477],
+        [1.114172, -0.000000, 0.185695],
+        [0.000000, 1.114172, 0.185695],
+        [-1.114172, 0.000000, 0.185695],
+        [-0.000000, -1.114172, 0.185695]
     ].map(normalize);
 }
 
 function generateTrigonalBipyramidal() {
-    const coords = [
-        [0, 0, 1],
-        [0, 0, -1]
-    ];
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // TBPY-5: Trigonal Bipyramidal - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, -0.000000, -1.095445],
+        [1.095445, -0.000000, 0.000000],
+        [-0.547723, 0.948683, 0.000000],
+        [-0.547723, -0.948683, 0.000000],
+        [0.000000, -0.000000, 1.095445]
+    ].map(normalize);
 }
 
 function generateJohnsonTrigonalBipyramid() {
-    // JTBPY-5: Johnson trigonal bipyramid (J12) - more regular than TBPY-5
-    const h = 0.612372435695794; // Optimized height
+    // JTBPY-5: Johnson Trigonal Bipyramid (J12) - Official CoSyMlib reference (normalized)
     return [
-        [0, 0, h],
-        [0, 0, -h],
-        [1, 0, 0],
-        [-0.5, 0.866, 0],
-        [-0.5, -0.866, 0]
+        [0.925820, -0.000000, 0.000000],
+        [-0.462910, 0.801784, 0.000000],
+        [-0.462910, -0.801784, 0.000000],
+        [0.000000, -0.000000, 1.309307],
+        [0.000000, -0.000000, -1.309307]
+    ].map(normalize);
+}
+
+function generateSquarePyramidal() {
+    // SPY-5: Square Pyramidal - Official CoSyMlib reference (normalized)
+    return [
+        [0.000000, 0.000000, 1.095445],
+        [1.060660, 0.000000, -0.273861],
+        [0.000000, 1.060660, -0.273861],
+        [-1.060660, 0.000000, -0.273861],
+        [0.000000, -1.060660, -0.273861]
     ].map(normalize);
 }
 
@@ -1057,7 +1066,7 @@ const REFERENCE_GEOMETRIES = {
         "PP-5 (Pentagon)": generatePentagon(),
         "vOC-5 (Square Pyramid, J1)": generateSquarePyramid(),
         "TBPY-5 (Trigonal Bipyramidal)": generateTrigonalBipyramidal(),
-        "SPY-5 (Square Pyramidal)": generateSquarePyramid(),
+        "SPY-5 (Square Pyramidal)": generateSquarePyramidal(),
         "JTBPY-5 (Johnson Trigonal Bipyramid, J12)": generateJohnsonTrigonalBipyramid()
     },
     6: {
