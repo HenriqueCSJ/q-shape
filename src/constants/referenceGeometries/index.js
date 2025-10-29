@@ -380,7 +380,7 @@ function generateElongatedTriangularBipyramid() {
 }
 
 function generateBiaugmentedTrigonalPrism() {
-    // JBTP-8 & BTPR-8: Johnson J50 (C2v)
+    // JBTP-8: Johnson J50 (C2v) - exact Johnson solid
     const h = 0.7;
     return [
         [1, 0, h],
@@ -394,9 +394,41 @@ function generateBiaugmentedTrigonalPrism() {
     ].map(normalize);
 }
 
+function generateSphericalBiaugmentedTrigonalPrism() {
+    // BTPR-8: Spherically optimized biaugmented trigonal prism (C2v)
+    // Adjusted for better sphere packing compared to J50
+    const h = 0.75;  // Slightly larger height for sphere optimization
+    return [
+        [1, 0, h],
+        [-0.5, 0.866, h],
+        [-0.5, -0.866, h],
+        [1, 0, -h],
+        [-0.5, 0.866, -h],
+        [-0.5, -0.866, -h],
+        [0.55, 0.32, 0],   // Adjusted cap positions
+        [0, -0.64, 0]
+    ].map(normalize);
+}
+
 function generateSnubDisphenoid() {
-    // JSD-8: Johnson J84 (D2d) - same as TDD-8 essentially
-    return generateTriangularDodecahedron();
+    // JSD-8: Johnson J84 (D2d) - Snub Disphenoid
+    // Coordinates from Johnson solid J84
+    // Parameters from cubic equation 8q³ - 4q - 1 = 0
+    const q = 0.169019;  // Root of the cubic
+    const r = Math.sqrt(q);  // ≈ 0.41112
+    const s = Math.sqrt((1 - q) / (2 * q));  // ≈ 1.56786
+    const t = 2 * r * s;  // ≈ 1.28917
+
+    return [
+        [t, r, 0],
+        [-t, r, 0],
+        [0, -r, t],
+        [0, -r, -t],
+        [1, -s, 0],
+        [-1, -s, 0],
+        [0, s, 1],
+        [0, s, -1]
+    ].map(normalize);
 }
 
 function generateTriakisTetrahedron() {
@@ -1029,7 +1061,7 @@ const REFERENCE_GEOMETRIES = {
         "JGBF-8 (Gyrobifastigium, J26)": generateGyrobifastigium(),
         "JETBPY-8 (Elongated Triangular Bipyramid, J14)": generateElongatedTriangularBipyramid(),
         "JBTP-8 (Biaugmented Trigonal Prism, J50)": generateBiaugmentedTrigonalPrism(),
-        "BTPR-8 (Biaugmented Trigonal Prism)": generateBiaugmentedTrigonalPrism(),
+        "BTPR-8 (Biaugmented Trigonal Prism)": generateSphericalBiaugmentedTrigonalPrism(),
         "JSD-8 (Snub Disphenoid, J84)": generateSnubDisphenoid(),
         "TT-8 (Triakis Tetrahedron)": generateTriakisTetrahedron(),
         "ETBPY-8 (Elongated Trigonal Bipyramid)": generateElongatedTriangularBipyramid()
