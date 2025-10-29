@@ -335,30 +335,30 @@ function generateCube() {
 }
 
 function generateSquareAntiprism() {
-    const coords = [];
-    const h = 0.707;
-    for (let i = 0; i < 4; i++) {
-        const angle = (i * Math.PI) / 2;
-        coords.push([Math.cos(angle), Math.sin(angle), h]);
-    }
-    for (let i = 0; i < 4; i++) {
-        const angle = (i * Math.PI) / 2 + Math.PI / 4;
-        coords.push([Math.cos(angle), Math.sin(angle), -h]);
-    }
-    return coords.map(normalize);
+    // SAPR-8: Square Antiprism - Official CoSyMlib reference (normalized)
+    return [
+        [0.644649, 0.644649, -0.542083],
+        [-0.644649, 0.644649, -0.542083],
+        [-0.644649, -0.644649, -0.542083],
+        [0.644649, -0.644649, -0.542083],
+        [0.911672, 0.000000, 0.542083],
+        [0.000000, 0.911672, 0.542083],
+        [-0.911672, 0.000000, 0.542083],
+        [-0.000000, -0.911672, 0.542083]
+    ].map(normalize);
 }
 
 function generateTriangularDodecahedron() {
-    // TDD-8: Triangular Dodecahedron - SHAPE 2.1 reference coordinates
+    // TDD-8: Triangular Dodecahedron - Official CoSyMlib reference (normalized)
     return [
-        [0.941102, -0.192251, 0.278149],
-        [-0.440237, -0.698606, 0.564040],
-        [-0.584646, -0.104939, -0.804473],
-        [-0.895083, 0.366816, 0.253520],
-        [0.574289, 0.203694, -0.792907],
-        [0.083710, 0.995777, -0.037695],
-        [0.238726, -0.881445, -0.407510],
-        [0.082035, 0.310900, 0.946896]
+        [-0.636106, 0.000000, 0.848768],
+        [-0.000000, -0.993211, 0.372147],
+        [0.636106, 0.000000, 0.848768],
+        [-0.000000, 0.993211, 0.372147],
+        [-0.993211, 0.000000, -0.372147],
+        [-0.000000, -0.636106, -0.848768],
+        [0.993211, 0.000000, -0.372147],
+        [-0.000000, 0.636106, -0.848768]
     ].map(normalize);
 }
 
@@ -391,17 +391,16 @@ function generateElongatedTriangularBipyramid() {
 }
 
 function generateBiaugmentedTrigonalPrism() {
-    // JBTP-8 / JBTPR-8: Biaugmented Trigonal Prism J50 - SHAPE 2.1 reference coordinates
-    // Using correct metal center from SHAPE output: [14.3495, 3.6108, 0.7644]
+    // JBTP-8 / JBTPR-8: Biaugmented Trigonal Prism J50 - Official CoSyMlib reference (normalized)
     return [
-        [0.941523, -0.054522, 0.332509],
-        [-0.147989, -0.654455, 0.741477],
-        [-0.437340, 0.195929, -0.877693],
-        [-0.860364, 0.371556, 0.348884],
-        [0.666993, 0.187115, -0.721186],
-        [0.229182, 0.971530, -0.060043],
-        [0.275026, -0.830085, -0.485097],
-        [0.107391, 0.419431, 0.901413]
+        [0.647118, 0.000000, 0.604030],
+        [-0.647118, 0.000000, 0.604030],
+        [0.647118, 0.647118, -0.516811],
+        [-0.647118, 0.647118, -0.516811],
+        [0.647118, -0.647118, -0.516811],
+        [-0.647118, -0.647118, -0.516811],
+        [0.000000, 1.116113, 0.501191],
+        [0.000000, -1.116113, 0.501191]
     ].map(normalize);
 }
 
