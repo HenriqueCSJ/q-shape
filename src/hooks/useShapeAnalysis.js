@@ -32,10 +32,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
 import { calculateAdditionalMetrics, calculateQualityMetrics } from '../services/shapeAnalysis/qualityMetrics';
+import { runIntensiveAnalysis } from '../services/coordination/intensiveAnalysis';
 
 export function useShapeAnalysis({
     coordAtoms = [],
     analysisParams = { mode: 'default', key: 0 },
+    atoms = null,
+    selectedMetal = null,
+    coordRadius = null,
     onWarning = null,
     onError = null
 } = {}) {
@@ -44,6 +48,7 @@ export function useShapeAnalysis({
     const [bestGeometry, setBestGeometry] = useState(null);
     const [additionalMetrics, setAdditionalMetrics] = useState(null);
     const [qualityMetrics, setQualityMetrics] = useState(null);
+    const [intensiveResults, setIntensiveResults] = useState(null);
 
     // Analysis progress state
     const [isLoading, setIsLoading] = useState(false);
@@ -268,12 +273,70 @@ export function useShapeAnalysis({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [coordAtoms, analysisParams, getCacheKey]);
 
+    // Enhanced Intensive Analysis Effect
+    useEffect(() => {
+        console.log('[DEBUG] Intensive analysis effect triggered');
+        console.log('[DEBUG] analysisParams.mode:', analysisParams?.mode);
+        console.log('[DEBUG] atoms:', atoms ? atoms.length : 'null');
+        console.log('[DEBUG] selectedMetal:', selectedMetal);
+        console.log('[DEBUG] coordRadius:', coordRadius);
+        console.log('[DEBUG] coordAtoms:', coordAtoms ? coordAtoms.length : 'null');
+
+        // Only run intensive analysis if mode is 'intensive' and we have all required data
+        if (analysisParams.mode !== 'intensive') {
+            console.log('[DEBUG] Skipping: mode is not intensive');
+            setIntensiveResults(null);
+            return;
+        }
+
+        if (!atoms || selectedMetal == null || !coordRadius) {
+            console.log('[DEBUG] Skipping: missing atoms, selectedMetal, or coordRadius');
+            setIntensiveResults(null);
+            return;
+        }
+
+        // Don't run if no coordinated atoms
+        if (!coordAtoms || coordAtoms.length === 0) {
+            console.log('[DEBUG] Skipping: no coordinated atoms');
+            setIntensiveResults(null);
+            return;
+        }
+
+        console.log('🔬 Running Enhanced Intensive Analysis...');
+        console.log('   Atoms:', atoms.length, 'Metal index:', selectedMetal, 'Radius:', coordRadius);
+
+        try {
+            // Run intensive analysis with ring detection and centroid-based CShM
+            const results = runIntensiveAnalysis(atoms, selectedMetal, coordRadius);
+
+            console.log('✅ Intensive Analysis Complete:');
+            console.log('  - Rings detected:', results.ligandGroups.ringCount);
+            console.log('  - Monodentate:', results.ligandGroups.monodentate.length);
+            console.log('  - Recommendation:', results.recommendation.method);
+
+            setIntensiveResults(results);
+
+            // If centroid-based analysis is recommended, log the improvement
+            if (results.recommendation.preferredResult && results.recommendation.improvement) {
+                console.log('  - CShM Improvement:', results.recommendation.improvement);
+            }
+        } catch (error) {
+            console.error('❌ Error in intensive analysis:', error);
+            console.error('Error stack:', error.stack);
+            if (onError) {
+                onError(`Intensive analysis failed: ${error.message}`);
+            }
+            setIntensiveResults(null);
+        }
+    }, [analysisParams, atoms, selectedMetal, coordRadius, coordAtoms, onError]);
+
     return {
         // Results
         geometryResults,
         bestGeometry,
         additionalMetrics,
         qualityMetrics,
+        intensiveResults,
 
         // Progress
         isLoading,
