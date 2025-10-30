@@ -275,19 +275,35 @@ export function useShapeAnalysis({
 
     // Enhanced Intensive Analysis Effect
     useEffect(() => {
+        console.log('[DEBUG] Intensive analysis effect triggered');
+        console.log('[DEBUG] analysisParams.mode:', analysisParams?.mode);
+        console.log('[DEBUG] atoms:', atoms ? atoms.length : 'null');
+        console.log('[DEBUG] selectedMetal:', selectedMetal);
+        console.log('[DEBUG] coordRadius:', coordRadius);
+        console.log('[DEBUG] coordAtoms:', coordAtoms ? coordAtoms.length : 'null');
+
         // Only run intensive analysis if mode is 'intensive' and we have all required data
-        if (analysisParams.mode !== 'intensive' || !atoms || selectedMetal == null || !coordRadius) {
+        if (analysisParams.mode !== 'intensive') {
+            console.log('[DEBUG] Skipping: mode is not intensive');
+            setIntensiveResults(null);
+            return;
+        }
+
+        if (!atoms || selectedMetal == null || !coordRadius) {
+            console.log('[DEBUG] Skipping: missing atoms, selectedMetal, or coordRadius');
             setIntensiveResults(null);
             return;
         }
 
         // Don't run if no coordinated atoms
         if (!coordAtoms || coordAtoms.length === 0) {
+            console.log('[DEBUG] Skipping: no coordinated atoms');
             setIntensiveResults(null);
             return;
         }
 
         console.log('🔬 Running Enhanced Intensive Analysis...');
+        console.log('   Atoms:', atoms.length, 'Metal index:', selectedMetal, 'Radius:', coordRadius);
 
         try {
             // Run intensive analysis with ring detection and centroid-based CShM
@@ -305,7 +321,8 @@ export function useShapeAnalysis({
                 console.log('  - CShM Improvement:', results.recommendation.improvement);
             }
         } catch (error) {
-            console.error('Error in intensive analysis:', error);
+            console.error('❌ Error in intensive analysis:', error);
+            console.error('Error stack:', error.stack);
             if (onError) {
                 onError(`Intensive analysis failed: ${error.message}`);
             }
