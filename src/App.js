@@ -27,6 +27,7 @@ export default function CoordinationGeometryAnalyzer() {
 
     // Refs
     const canvasRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // File Upload Hook
     const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
@@ -110,6 +111,17 @@ export default function CoordinationGeometryAnalyzer() {
             // Mark this upload as processed
             processedUploadTime.current = uploadMetadata.uploadTime;
 
+            // Reset all state to prevent lingering data from previous calculations
+            setWarnings([]);
+            setSelectedMetal(null);
+            setAnalysisParams({ mode: 'default', key: 0 });
+
+            // Reset file input to allow re-uploading the same file
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+
+            // Set new values from uploaded file
             if (uploadMetadata.detectedMetalIndex != null) {
                 setSelectedMetal(uploadMetadata.detectedMetalIndex);
             }
@@ -546,6 +558,10 @@ footer strong {
       <span style="color:${interpretation.color};">${name}</span>
     </div>
     <div class="summary-item">
+      <strong>Point Group</strong>
+      <span style="color:#6366f1; font-family: monospace; font-weight: 600;">${POINT_GROUPS[name] || '—'}</span>
+    </div>
+    <div class="summary-item">
       <strong>CShM Value</strong>
       <span style="color:${interpretation.color};">${shapeMeasure.toFixed(4)}</span>
     </div>
@@ -712,6 +728,54 @@ footer strong {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings]);
 
+    // CSV Export functionality
+    const generateCSV = useCallback(() => {
+        if (!geometryResults || geometryResults.length === 0) return;
+
+        try {
+            // CSV Header
+            const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Interpretation', 'Confidence %'];
+
+            // CSV Rows
+            const rows = geometryResults.map((result, index) => {
+                const interpretation = interpretShapeMeasure(result.shapeMeasure);
+                const pointGroup = POINT_GROUPS[result.name] || '';
+
+                return [
+                    index + 1,
+                    `"${result.name}"`, // Quote to handle commas in names
+                    pointGroup,
+                    result.shapeMeasure.toFixed(4),
+                    `"${interpretation.text}"`,
+                    interpretation.confidence
+                ];
+            });
+
+            // Combine into CSV string
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            // Create download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${fileName || 'shape-analysis'}_results.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (err) {
+            console.error("CSV generation failed:", err);
+            setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
+        }
+    }, [geometryResults, fileName]);
+
 //     const totalGeometries = useMemo(() => {
 //         return Object.values(REFERENCE_GEOMETRIES).reduce((sum, geoms) => sum + Object.keys(geoms).length, 0);
 //     }, []);
@@ -776,11 +840,12 @@ footer strong {
           📁 Load Molecular Structure (.xyz)
         </label>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input 
-            type="file" 
-            accept=".xyz" 
-            onChange={handleFileUpload} 
-            className="file-upload-input" 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xyz"
+            onChange={handleFileUpload}
+            className="file-upload-input"
           />
         </div>
       </div>
@@ -1062,18 +1127,18 @@ footer strong {
                     {isLoading && analysisParams.mode === 'intensive' ? '⚡ Running...' : '⚡ Intensive Analysis'}
                 </button>
                 
-                <button 
-                    onClick={generateReport} 
-                    disabled={!bestGeometry || isLoading} 
-                    style={{ 
-                        padding: '1rem 2rem', 
-                        background: bestGeometry && !isLoading 
-                            ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' 
-                            : '#cbd5e1', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '10px', 
-                        fontWeight: 700, 
+                <button
+                    onClick={generateReport}
+                    disabled={!bestGeometry || isLoading}
+                    style={{
+                        padding: '1rem 2rem',
+                        background: bestGeometry && !isLoading
+                            ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)'
+                            : '#cbd5e1',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 700,
                         cursor: bestGeometry && !isLoading ? 'pointer' : 'not-allowed',
                         boxShadow: bestGeometry && !isLoading ? '0 4px 6px rgba(79, 70, 229, 0.4)' : 'none',
                         transition: 'all 0.2s',
@@ -1082,8 +1147,32 @@ footer strong {
                     }}
                     onMouseOver={(e) => bestGeometry && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                > 
-                    📄 Generate Report 
+                >
+                    📄 Generate Report
+                </button>
+
+                <button
+                    onClick={generateCSV}
+                    disabled={!geometryResults || geometryResults.length === 0 || isLoading}
+                    style={{
+                        padding: '1rem 2rem',
+                        background: geometryResults && geometryResults.length > 0 && !isLoading
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : '#cbd5e1',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        cursor: geometryResults && geometryResults.length > 0 && !isLoading ? 'pointer' : 'not-allowed',
+                        boxShadow: geometryResults && geometryResults.length > 0 && !isLoading ? '0 4px 6px rgba(16, 185, 129, 0.4)' : 'none',
+                        transition: 'all 0.2s',
+                        fontSize: '1rem',
+                        minWidth: '200px'
+                    }}
+                    onMouseOver={(e) => geometryResults && geometryResults.length > 0 && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                    📊 Download CSV
                 </button>
             </div>
             
