@@ -10,9 +10,9 @@
  * ferrocenes, benzene complexes, and other π-coordinated systems.
  */
 
-import { detectLigandGroups, createCentroidAtoms } from './ringDetector.js';
-import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator.js';
-import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries.js';
+import { detectLigandGroups, createCentroidAtoms } from './ringDetector';
+import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
+import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
