@@ -10,9 +10,9 @@
  * ferrocenes, benzene complexes, and other π-coordinated systems.
  */
 
-import { detectLigandGroups, createCentroidAtoms } from './ringDetector.js';
-import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator.js';
-import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries.js';
+import { detectLigandGroups, createCentroidAtoms } from './ringDetector';
+import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
+import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -310,4 +310,86 @@ function getCshmPercentage(cshm) {
     // Rough conversion: 0 = 100%, 10 = 0%
     const percentage = Math.max(0, Math.min(100, 100 - (cshm * 10)));
     return Math.round(percentage);
+}
+
+/**
+ * Async wrapper for intensive analysis that yields to UI thread
+ * Prevents UI freeze during heavy computation
+ *
+ * @param {Array} atoms - All atoms in structure
+ * @param {number} metalIndex - Index of central metal atom
+ * @param {number} radius - Coordination sphere radius (Å)
+ * @param {Function} onProgress - Optional callback for progress updates
+ * @returns {Promise<Object>} Comprehensive analysis results
+ */
+export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onProgress = null) {
+    // Yield to UI thread before starting
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    if (onProgress) onProgress({ stage: 'detecting', progress: 0.1, message: 'Detecting coordination sphere...' });
+
+    // Step 1: Get coordinated atoms
+    const coordIndices = getCoordinatedAtoms(atoms, metalIndex, radius);
+    const coordAtoms = coordIndices.map(idx => atoms[idx]);
+
+    console.log(`Found ${coordIndices.length} atoms in coordination sphere`);
+
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (onProgress) onProgress({ stage: 'rings', progress: 0.3, message: 'Detecting rings and ligand groups...' });
+
+    // Step 2: Detect ligand groups (rings and monodentate)
+    const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
+
+    console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
+
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (onProgress) onProgress({ stage: 'point-based', progress: 0.5, message: 'Running point-based CShM analysis...' });
+
+    // Step 3: Point-based analysis (traditional method)
+    const pointBasedResults = analyzePointBased(atoms, metalIndex, coordIndices);
+
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Step 4: Centroid-based analysis (new method)
+    let centroidBasedResults = null;
+    if (ligandGroups.ringCount > 0) {
+        if (onProgress) onProgress({ stage: 'centroid-based', progress: 0.7, message: 'Running centroid-based CShM analysis...' });
+
+        centroidBasedResults = analyzeCentroidBased(
+            atoms,
+            metalIndex,
+            ligandGroups
+        );
+
+        // Yield to UI
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    if (onProgress) onProgress({ stage: 'finalizing', progress: 0.9, message: 'Determining recommendation...' });
+
+    // Step 5: Determine best interpretation
+    const recommendation = determineRecommendation(
+        pointBasedResults,
+        centroidBasedResults,
+        ligandGroups
+    );
+
+    if (onProgress) onProgress({ stage: 'complete', progress: 1.0, message: 'Analysis complete!' });
+
+    return {
+        coordIndices,
+        ligandGroups,
+        pointBasedAnalysis: pointBasedResults,
+        centroidBasedAnalysis: centroidBasedResults,
+        recommendation,
+        metadata: {
+            metalElement: atoms[metalIndex].element,
+            metalIndex,
+            radius,
+            timestamp: Date.now()
+        }
+    };
 }

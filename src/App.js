@@ -15,6 +15,9 @@ import useCoordination from './hooks/useCoordination';
 import useShapeAnalysis from './hooks/useShapeAnalysis';
 import { useThreeScene } from './hooks/useThreeScene';
 
+// Services
+import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
+
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
     // UI State (managed locally)
@@ -24,6 +27,11 @@ export default function CoordinationGeometryAnalyzer() {
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
+
+    // Intensive Analysis State
+    const [intensiveResults, setIntensiveResults] = useState(null);
+    const [intensiveProgress, setIntensiveProgress] = useState(null);
+    const [isRunningIntensive, setIsRunningIntensive] = useState(false);
 
     // Refs
     const canvasRef = useRef(null);
@@ -45,6 +53,35 @@ export default function CoordinationGeometryAnalyzer() {
     const handleError = useCallback((msg) => {
         setWarnings(prev => [...prev, `Error: ${msg}`]);
     }, []);
+
+    // Intensive Analysis Handler
+    const handleIntensiveAnalysis = useCallback(async () => {
+        if (!atoms || selectedMetal === null || !coordRadius) {
+            handleWarning('Cannot run intensive analysis: Missing required data');
+            return;
+        }
+
+        setIsRunningIntensive(true);
+        setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
+        setIntensiveResults(null);
+
+        try {
+            const results = await runIntensiveAnalysisAsync(
+                atoms,
+                selectedMetal,
+                coordRadius,
+                (progress) => setIntensiveProgress(progress)
+            );
+
+            setIntensiveResults(results);
+            setIntensiveProgress(null);
+        } catch (error) {
+            handleError(`Intensive analysis failed: ${error.message}`);
+            setIntensiveProgress(null);
+        } finally {
+            setIsRunningIntensive(false);
+        }
+    }, [atoms, selectedMetal, coordRadius, handleWarning, handleError]);
 
     // Radius Control Hook (v1.1.0)
     const {
@@ -1105,26 +1142,26 @@ footer strong {
               flexWrap: 'wrap',
               justifyContent: 'center'
             }}>
-                <button 
-                    onClick={() => setAnalysisParams({ mode: 'intensive', key: Date.now() })} 
-                    disabled={isLoading} 
-                    style={{ 
-                        padding: '1rem 2rem', 
-                        background: isLoading ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '10px', 
-                        fontWeight: 700, 
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        boxShadow: isLoading ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
+                <button
+                    onClick={handleIntensiveAnalysis}
+                    disabled={isLoading || isRunningIntensive}
+                    style={{
+                        padding: '1rem 2rem',
+                        background: (isLoading || isRunningIntensive) ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        cursor: (isLoading || isRunningIntensive) ? 'not-allowed' : 'pointer',
+                        boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
                         minWidth: '200px'
                     }}
-                    onMouseOver={(e) => !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    {isLoading && analysisParams.mode === 'intensive' ? '⚡ Running...' : '⚡ Intensive Analysis'}
+                    {isRunningIntensive ? '⚡ Running...' : '⚡ Intensive Analysis'}
                 </button>
                 
                 <button
@@ -1464,6 +1501,167 @@ footer strong {
             )}
           </div>
         </div>
+
+        {/* Intensive Analysis Progress */}
+        {intensiveProgress && (
+          <div style={{
+            marginTop: '2rem',
+            padding: '1.5rem',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '2px solid #86efac',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(34, 197, 94, 0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem' }}>⚡</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem' }}>
+                  {intensiveProgress.message}
+                </div>
+                <div style={{
+                  background: '#fff',
+                  height: '8px',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    background: 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)',
+                    height: '100%',
+                    width: `${intensiveProgress.progress * 100}%`,
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Intensive Analysis Results */}
+        {intensiveResults && (
+          <div style={{
+            marginTop: '2rem',
+            padding: '1.5rem',
+            background: '#fff',
+            border: '2px solid #10b981',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
+          }}>
+            <h3 style={{
+              margin: '0 0 1rem 0',
+              color: '#15803d',
+              fontSize: '1.25rem',
+              fontWeight: 700
+            }}>
+              🔬 Enhanced Intensive Analysis
+            </h3>
+
+            {/* Ligand Detection Summary */}
+            <div style={{
+              padding: '1rem',
+              background: '#f0fdf4',
+              borderRadius: '8px',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>
+                Ligand Detection
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#166534' }}>
+                {intensiveResults.ligandGroups.summary}
+              </div>
+              {intensiveResults.ligandGroups.rings.length > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
+                  {intensiveResults.ligandGroups.rings.map((ring, i) => (
+                    <div key={i}>• Ring {i+1}: {ring.hapticity} ({ring.size} atoms)</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Recommendation */}
+            {intensiveResults.recommendation && (
+              <div style={{
+                padding: '1rem',
+                background: intensiveResults.recommendation.confidence === 'VERY HIGH'
+                  ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+                  : '#fef3c7',
+                border: '2px solid #fbbf24',
+                borderRadius: '8px',
+                marginBottom: '1rem'
+              }}>
+                <div style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>
+                  ✨ Recommended Method: {intensiveResults.recommendation.preferredMethod.toUpperCase()}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#78350f', marginBottom: '0.5rem' }}>
+                  Confidence: <strong>{intensiveResults.recommendation.confidence}</strong>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#78350f' }}>
+                  {intensiveResults.recommendation.reason}
+                </div>
+              </div>
+            )}
+
+            {/* Analysis Comparison */}
+            <div style={{ display: 'grid', gridTemplateColumns: intensiveResults.centroidBasedAnalysis ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+              {/* Point-Based Results */}
+              <div style={{
+                padding: '1rem',
+                background: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ fontWeight: 600, color: '#475569', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                  📍 Point-Based Analysis
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                  CN = {intensiveResults.pointBasedAnalysis.coordinationNumber}
+                </div>
+                {intensiveResults.pointBasedAnalysis.bestMatch && (
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                      {intensiveResults.pointBasedAnalysis.bestMatch.shapeName}
+                    </div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: intensiveResults.pointBasedAnalysis.bestMatch.cshm < 1 ? '#10b981' : intensiveResults.pointBasedAnalysis.bestMatch.cshm < 3 ? '#f59e0b' : '#ef4444' }}>
+                      CShM: {intensiveResults.pointBasedAnalysis.bestMatch.cshm.toFixed(3)}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      {intensiveResults.pointBasedAnalysis.bestMatch.quality} ({intensiveResults.pointBasedAnalysis.bestMatch.qualityPercentage}%)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Centroid-Based Results */}
+              {intensiveResults.centroidBasedAnalysis && (
+                <div style={{
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                  borderRadius: '8px',
+                  border: '2px solid #22c55e'
+                }}>
+                  <div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                    🎯 Centroid-Based Analysis
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#166534', marginBottom: '0.5rem' }}>
+                    CN = {intensiveResults.centroidBasedAnalysis.coordinationNumber} (via centroids)
+                  </div>
+                  {intensiveResults.centroidBasedAnalysis.bestMatch && (
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#15803d' }}>
+                        {intensiveResults.centroidBasedAnalysis.bestMatch.shapeName}
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700, color: intensiveResults.centroidBasedAnalysis.bestMatch.cshm < 1 ? '#10b981' : intensiveResults.centroidBasedAnalysis.bestMatch.cshm < 3 ? '#f59e0b' : '#ef4444' }}>
+                        CShM: {intensiveResults.centroidBasedAnalysis.bestMatch.cshm.toFixed(3)}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#166534' }}>
+                        {intensiveResults.centroidBasedAnalysis.bestMatch.quality} ({intensiveResults.centroidBasedAnalysis.bestMatch.qualityPercentage}%)
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div style={{
             marginTop: '2rem',
