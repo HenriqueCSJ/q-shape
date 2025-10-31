@@ -81,15 +81,11 @@ export default function CoordinationGeometryAnalyzer() {
         bestGeometry,
         additionalMetrics,
         qualityMetrics,
-        intensiveResults,
         isLoading,
         progress
     } = useShapeAnalysis({
         coordAtoms,
         analysisParams,
-        atoms,
-        selectedMetal,
-        coordRadius,
         onWarning: handleWarning,
         onError: handleError
     });
@@ -1464,167 +1460,6 @@ footer strong {
                     {selectedMetal == null 
                         ? 'Select a metal center to begin analysis' 
                         : 'No reference geometries for this coordination number'}
-                </div>
-            )}
-
-            {/* Enhanced Intensive Analysis Results */}
-            {intensiveResults && (
-                <div style={{
-                    marginTop: '2rem',
-                    padding: '1.5rem',
-                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                    border: '2px solid #10b981',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px rgba(16, 185, 129, 0.1)'
-                }}>
-                    <h3 style={{
-                        margin: '0 0 1rem 0',
-                        color: '#15803d',
-                        fontSize: '1.1rem',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    }}>
-                        <span style={{ fontSize: '1.5rem' }}>🔬</span>
-                        Enhanced Intensive Analysis
-                    </h3>
-
-                    {/* Ligand Detection Summary */}
-                    <div style={{
-                        padding: '1rem',
-                        background: '#fff',
-                        borderRadius: '8px',
-                        marginBottom: '1rem',
-                        border: '1px solid #d1fae5'
-                    }}>
-                        <h4 style={{ margin: '0 0 0.75rem 0', color: '#15803d', fontSize: '0.95rem' }}>
-                            Ligand Detection
-                        </h4>
-                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem' }}>
-                            <div>
-                                <strong style={{ color: '#10b981' }}>{intensiveResults.ligandGroups.ringCount}</strong>
-                                <span style={{ color: '#64748b' }}> π-coordinated ring(s)</span>
-                            </div>
-                            <div>
-                                <strong style={{ color: '#10b981' }}>{intensiveResults.ligandGroups.monodentate.length}</strong>
-                                <span style={{ color: '#64748b' }}> monodentate ligand(s)</span>
-                            </div>
-                        </div>
-
-                        {intensiveResults.ligandGroups.summary.hasSandwichStructure && (
-                            <div style={{
-                                marginTop: '0.75rem',
-                                padding: '0.5rem',
-                                background: '#fef3c7',
-                                border: '1px solid #fbbf24',
-                                borderRadius: '6px',
-                                fontSize: '0.85rem',
-                                color: '#92400e'
-                            }}>
-                                🥪 <strong>Sandwich Structure Detected!</strong>
-                                {intensiveResults.ligandGroups.summary.detectedHapticities.length > 0 && (
-                                    <span> ({intensiveResults.ligandGroups.summary.detectedHapticities.join(', ')})</span>
-                                )}
-                            </div>
-                        )}
-
-                        {intensiveResults.ligandGroups.rings.length > 0 && (
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                                    <strong>Detected Rings:</strong>
-                                </div>
-                                {intensiveResults.ligandGroups.rings.map((ring, idx) => (
-                                    <div key={idx} style={{
-                                        fontSize: '0.8rem',
-                                        color: '#475569',
-                                        marginLeft: '1rem',
-                                        padding: '0.25rem 0'
-                                    }}>
-                                        • Ring {idx + 1}: <strong>{ring.hapticity}</strong> ({ring.size} atoms, {ring.distanceToMetal.toFixed(3)} Å from metal)
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Recommendation */}
-                    <div style={{
-                        padding: '1rem',
-                        background: '#fff',
-                        borderRadius: '8px',
-                        border: '1px solid #d1fae5'
-                    }}>
-                        <h4 style={{ margin: '0 0 0.75rem 0', color: '#15803d', fontSize: '0.95rem' }}>
-                            ✨ Recommendation
-                        </h4>
-                        <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                            <strong style={{ color: '#10b981', textTransform: 'uppercase' }}>
-                                {intensiveResults.recommendation.method}
-                            </strong>
-                            <span style={{
-                                marginLeft: '0.5rem',
-                                padding: '0.25rem 0.5rem',
-                                background: '#dcfce7',
-                                borderRadius: '4px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                color: '#15803d'
-                            }}>
-                                {intensiveResults.recommendation.confidence} confidence
-                            </span>
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
-                            {intensiveResults.recommendation.reason}
-                        </div>
-
-                        {intensiveResults.recommendation.improvement && (
-                            <div style={{
-                                marginTop: '0.75rem',
-                                padding: '0.75rem',
-                                background: '#f0fdf4',
-                                borderRadius: '6px',
-                                border: '1px solid #86efac'
-                            }}>
-                                <div style={{ fontSize: '0.85rem', color: '#15803d', marginBottom: '0.5rem' }}>
-                                    <strong>📊 CShM Improvement:</strong>
-                                </div>
-                                {intensiveResults.pointBasedAnalysis && (
-                                    <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.6 }}>
-                                        <div>Point-based (CN={intensiveResults.pointBasedAnalysis.coordinationNumber}):
-                                            <strong style={{ color: '#dc2626', marginLeft: '0.5rem' }}>
-                                                {intensiveResults.pointBasedAnalysis.bestMatch?.cshm.toFixed(4)}
-                                            </strong>
-                                        </div>
-                                        {intensiveResults.centroidBasedAnalysis && (
-                                            <div>Centroid-based (CN={intensiveResults.centroidBasedAnalysis.coordinationNumber}):
-                                                <strong style={{ color: '#10b981', marginLeft: '0.5rem' }}>
-                                                    {intensiveResults.centroidBasedAnalysis.bestMatch?.cshm.toFixed(4)}
-                                                </strong>
-                                            </div>
-                                        )}
-                                        <div style={{ marginTop: '0.25rem', fontWeight: 600, color: '#15803d' }}>
-                                            Δ Improvement: {intensiveResults.recommendation.improvement}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {intensiveResults.recommendation.note && (
-                            <div style={{
-                                marginTop: '0.75rem',
-                                fontSize: '0.8rem',
-                                color: '#64748b',
-                                fontStyle: 'italic',
-                                padding: '0.5rem',
-                                background: '#f8fafc',
-                                borderRadius: '4px'
-                            }}>
-                                💡 {intensiveResults.recommendation.note}
-                            </div>
-                        )}
-                    </div>
                 </div>
             )}
           </div>

@@ -2,15 +2,15 @@
  * Enhanced Intensive Analysis Service
  *
  * Provides chemically-intelligent coordination geometry analysis by:
- * 1. Detecting π-coordinated ligands (rings, hapticity)
- * 2. Running BOTH point-based AND centroid-based CShM analysis
- * 3. Recommending the most chemically reasonable interpretation
+ * 1. Detecting π-coordinated ligands (rings, hapticity) as metadata
+ * 2. Running enhanced CShM analysis on ALL coordinating atoms (maintains correct CN)
+ * 3. Returns results in standard format plus ligand metadata
  *
- * This makes Q-Shape superior to SHAPE 2.1 for sandwich compounds,
- * ferrocenes, benzene complexes, and other π-coordinated systems.
+ * For ferrocene: Detects 2 η⁵-Cp rings as metadata, but analyzes all 10 C atoms
+ * to correctly identify PAPR-10 or PPR-10 geometry.
  */
 
-import { detectLigandGroups, createCentroidAtoms } from './ringDetector';
+import { detectLigandGroups } from './ringDetector';
 import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 
@@ -39,66 +39,50 @@ function getCoordinatedAtoms(atoms, metalIndex, radius) {
 }
 
 /**
- * Run intensive analysis with ring detection and dual CShM calculation
+ * Run intensive analysis with ring detection and improved CShM calculation
+ * Returns geometry results in same format as standard analysis, plus metadata
  *
  * @param {Array} atoms - All atoms in structure
  * @param {number} metalIndex - Index of central metal atom
  * @param {number} radius - Coordination sphere radius (Å)
- * @returns {Object} Comprehensive analysis results
+ * @returns {Object} { geometryResults, ligandGroups, metadata }
  */
 export function runIntensiveAnalysis(atoms, metalIndex, radius) {
     console.log(`Starting intensive analysis for ${atoms[metalIndex].element}...`);
 
     // Step 1: Get coordinated atoms
     const coordIndices = getCoordinatedAtoms(atoms, metalIndex, radius);
-    const coordAtoms = coordIndices.map(idx => atoms[idx]);
 
     console.log(`Found ${coordIndices.length} atoms in coordination sphere`);
 
-    // Step 2: Detect ligand groups (rings and monodentate)
+    // Step 2: Detect ligand groups (rings and monodentate) - for metadata only
     const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
 
     console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-    // Step 3: Point-based analysis (traditional method)
-    const pointBasedResults = analyzePointBased(atoms, metalIndex, coordIndices);
-
-    // Step 4: Centroid-based analysis (new method)
-    let centroidBasedResults = null;
-    if (ligandGroups.ringCount > 0) {
-        centroidBasedResults = analyzeCentroidBased(
-            atoms,
-            metalIndex,
-            ligandGroups
-        );
-    }
-
-    // Step 5: Determine best interpretation
-    const recommendation = determineRecommendation(
-        pointBasedResults,
-        centroidBasedResults,
-        ligandGroups
-    );
+    // Step 3: Run enhanced CShM analysis on all coordinating atoms
+    // This maintains the correct CN (e.g., CN=10 for ferrocene)
+    const geometryResults = analyzeGeometry(atoms, metalIndex, coordIndices);
 
     return {
-        coordIndices,
-        ligandGroups,
-        pointBasedAnalysis: pointBasedResults,
-        centroidBasedAnalysis: centroidBasedResults,
-        recommendation,
+        geometryResults,  // Results in standard format (array of {name, shapeMeasure})
+        ligandGroups,     // Metadata about ring detection
         metadata: {
             metalElement: atoms[metalIndex].element,
             metalIndex,
             radius,
+            coordinationNumber: coordIndices.length,
+            intensiveMode: true,
             timestamp: Date.now()
         }
     };
 }
 
 /**
- * Perform traditional point-based CShM analysis
+ * Perform enhanced geometry analysis with intensive mode
+ * Returns results in standard format compatible with useShapeAnalysis
  */
-function analyzePointBased(atoms, metalIndex, coordIndices) {
+function analyzeGeometry(atoms, metalIndex, coordIndices) {
     const CN = coordIndices.length;
     const metal = atoms[metalIndex];
 
@@ -106,11 +90,8 @@ function analyzePointBased(atoms, metalIndex, coordIndices) {
     const geometries = REFERENCE_GEOMETRIES[CN];
 
     if (!geometries) {
-        return {
-            coordinationNumber: CN,
-            results: [],
-            error: `No reference geometries defined for CN=${CN}`
-        };
+        console.warn(`No reference geometries defined for CN=${CN}`);
+        return [];
     }
 
     // Prepare coordinates (centered at origin, metal subtracted)
@@ -123,7 +104,7 @@ function analyzePointBased(atoms, metalIndex, coordIndices) {
         ];
     });
 
-    // Calculate CShM for each shape
+    // Calculate CShM for each shape using intensive mode
     const results = [];
     const geometryNames = Object.keys(geometries);
 
@@ -134,12 +115,8 @@ function analyzePointBased(atoms, metalIndex, coordIndices) {
             const { measure } = calculateShapeMeasure(actualCoords, refCoords, 'intensive');
 
             results.push({
-                shapeName: name,
-                code: name,
-                symmetry: '', // Would need to be added to reference geometries
-                cshm: measure,
-                quality: getCshmQuality(measure),
-                qualityPercentage: getCshmPercentage(measure)
+                name,              // Standard format expects 'name' not 'shapeName'
+                shapeMeasure: measure  // Standard format expects 'shapeMeasure' not 'cshm'
             });
         } catch (error) {
             console.warn(`Failed to calculate CShM for ${name}:`, error.message);
@@ -147,167 +124,62 @@ function analyzePointBased(atoms, metalIndex, coordIndices) {
     }
 
     // Sort by CShM (best first)
-    results.sort((a, b) => a.cshm - b.cshm);
+    results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
 
-    return {
-        coordinationNumber: CN,
-        method: 'point-based',
-        results: results.slice(0, 10), // Top 10 results
-        bestMatch: results[0]
-    };
+    return results;
 }
 
 /**
- * Perform centroid-based CShM analysis
+ * Async wrapper for intensive analysis that yields to UI thread
+ * Prevents browser freeze during heavy computation
+ *
+ * @param {Array} atoms - All atoms in structure
+ * @param {number} metalIndex - Index of central metal atom
+ * @param {number} radius - Coordination sphere radius (Å)
+ * @param {Function} onProgress - Optional callback for progress updates
+ * @returns {Promise<Object>} Comprehensive analysis results
  */
-function analyzeCentroidBased(atoms, metalIndex, ligandGroups) {
-    const metal = atoms[metalIndex];
+export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onProgress = null) {
+    // Yield to UI thread before starting
+    await new Promise(resolve => setTimeout(resolve, 10));
 
-    // Create pseudo-atoms from centroids
-    const centroidAtoms = createCentroidAtoms(ligandGroups);
-    const CN = centroidAtoms.length;
+    if (onProgress) onProgress({ stage: 'detecting', progress: 0.2, message: 'Detecting coordination sphere...' });
 
-    console.log(`Centroid-based analysis: CN=${CN} (${ligandGroups.ringCount} ring centroids + ${ligandGroups.monodentate.length} monodentate)`);
+    // Step 1: Get coordinated atoms
+    const coordIndices = getCoordinatedAtoms(atoms, metalIndex, radius);
 
-    // Get possible shapes for centroid-based CN
-    const geometries = REFERENCE_GEOMETRIES[CN];
+    console.log(`Found ${coordIndices.length} atoms in coordination sphere`);
 
-    if (!geometries) {
-        return {
-            coordinationNumber: CN,
-            ligandGroups,
-            results: [],
-            error: `No reference geometries defined for CN=${CN}`
-        };
-    }
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 10));
+    if (onProgress) onProgress({ stage: 'rings', progress: 0.4, message: 'Detecting rings and ligand groups...' });
 
-    // Prepare coordinates (centered at origin, metal subtracted)
-    const actualCoords = centroidAtoms.map(centroid => [
-        centroid.x - metal.x,
-        centroid.y - metal.y,
-        centroid.z - metal.z
-    ]);
+    // Step 2: Detect ligand groups
+    const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
 
-    // Calculate CShM for each shape
-    const results = [];
-    const geometryNames = Object.keys(geometries);
+    console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-    for (const name of geometryNames) {
-        const refCoords = geometries[name];
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 10));
+    if (onProgress) onProgress({ stage: 'analysis', progress: 0.6, message: 'Running enhanced CShM analysis...' });
 
-        try {
-            const { measure } = calculateShapeMeasure(actualCoords, refCoords, 'intensive');
+    // Step 3: Run geometry analysis
+    const geometryResults = analyzeGeometry(atoms, metalIndex, coordIndices);
 
-            results.push({
-                shapeName: name,
-                code: name,
-                symmetry: '',
-                cshm: measure,
-                quality: getCshmQuality(measure),
-                qualityPercentage: getCshmPercentage(measure)
-            });
-        } catch (error) {
-            console.warn(`Failed to calculate CShM for ${name}:`, error.message);
-        }
-    }
-
-    // Sort by CShM (best first)
-    results.sort((a, b) => a.cshm - b.cshm);
+    // Yield to UI
+    await new Promise(resolve => setTimeout(resolve, 10));
+    if (onProgress) onProgress({ stage: 'complete', progress: 1.0, message: 'Analysis complete!' });
 
     return {
-        coordinationNumber: CN,
-        method: 'centroid-based',
+        geometryResults,
         ligandGroups,
-        centroidAtoms,
-        results: results.slice(0, 10),
-        bestMatch: results[0]
-    };
-}
-
-/**
- * Determine which analysis method is most chemically reasonable
- */
-function determineRecommendation(pointBased, centroidBased, ligandGroups) {
-    // If no rings detected, point-based is the only option
-    if (!centroidBased || ligandGroups.ringCount === 0) {
-        return {
-            method: 'point-based',
-            reason: 'No π-coordinated rings detected - point-based analysis is appropriate',
-            confidence: 'high',
-            preferredResult: pointBased
-        };
-    }
-
-    // If sandwich structure detected (2+ rings, both η5 or η6)
-    if (ligandGroups.summary.hasSandwichStructure) {
-        // Centroid-based should be MUCH better for sandwich compounds
-        const improvement = pointBased.bestMatch.cshm - centroidBased.bestMatch.cshm;
-
-        return {
-            method: 'centroid-based',
-            reason: `Sandwich structure detected (${ligandGroups.summary.detectedHapticities.join(', ')}) - centroid-based analysis is chemically correct`,
-            confidence: 'very high',
-            improvement: improvement.toFixed(3),
-            preferredResult: centroidBased,
-            note: `Point-based treats ${pointBased.coordinationNumber} carbons as independent ligands. ` +
-                  `Centroid-based correctly treats ${ligandGroups.ringCount} ring(s) as ${centroidBased.coordinationNumber} coordination site(s).`
-        };
-    }
-
-    // Mixed case: some rings + some monodentate
-    if (ligandGroups.ringCount > 0 && ligandGroups.monodentate.length > 0) {
-        const improvement = pointBased.bestMatch.cshm - centroidBased.bestMatch.cshm;
-
-        if (improvement > 1.0) {
-            return {
-                method: 'centroid-based',
-                reason: `Mixed coordination (${ligandGroups.ringCount} ring(s) + ${ligandGroups.monodentate.length} monodentate) - centroid-based significantly better`,
-                confidence: 'high',
-                improvement: improvement.toFixed(3),
-                preferredResult: centroidBased,
-                note: 'Centroid-based analysis treats π-coordinated rings as single coordination sites.'
-            };
-        } else {
-            return {
-                method: 'both',
-                reason: 'Mixed coordination - both interpretations are valid',
-                confidence: 'medium',
-                improvement: improvement.toFixed(3),
-                note: 'Consider chemical context to choose appropriate interpretation.',
-                pointBasedResult: pointBased,
-                centroidBasedResult: centroidBased
-            };
+        metadata: {
+            metalElement: atoms[metalIndex].element,
+            metalIndex,
+            radius,
+            coordinationNumber: coordIndices.length,
+            intensiveMode: true,
+            timestamp: Date.now()
         }
-    }
-
-    // Default: prefer centroid if rings detected
-    return {
-        method: 'centroid-based',
-        reason: `π-coordinated rings detected (${ligandGroups.summary.detectedHapticities.join(', ')})`,
-        confidence: 'medium',
-        preferredResult: centroidBased
     };
-}
-
-/**
- * Convert CShM value to qualitative description
- */
-function getCshmQuality(cshm) {
-    if (cshm < 0.1) return 'Perfect Match';
-    if (cshm < 0.5) return 'Excellent';
-    if (cshm < 1.0) return 'Very Good';
-    if (cshm < 2.0) return 'Good';
-    if (cshm < 3.0) return 'Moderate';
-    if (cshm < 5.0) return 'Fair';
-    if (cshm < 10.0) return 'Poor';
-    return 'Very Poor / No Match';
-}
-
-/**
- * Convert CShM value to percentage match
- */
-function getCshmPercentage(cshm) {
-    // Rough conversion: 0 = 100%, 10 = 0%
-    const percentage = Math.max(0, Math.min(100, 100 - (cshm * 10)));
-    return Math.round(percentage);
 }
