@@ -15,6 +15,9 @@ import useCoordination from './hooks/useCoordination';
 import useShapeAnalysis from './hooks/useShapeAnalysis';
 import { useThreeScene } from './hooks/useThreeScene';
 
+// Services
+import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
+
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
     // UI State (managed locally)
@@ -24,6 +27,11 @@ export default function CoordinationGeometryAnalyzer() {
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
+
+    // Intensive Analysis State
+    const [intensiveMetadata, setIntensiveMetadata] = useState(null);
+    const [intensiveProgress, setIntensiveProgress] = useState(null);
+    const [isRunningIntensive, setIsRunningIntensive] = useState(false);
 
     // Refs
     const canvasRef = useRef(null);
@@ -45,6 +53,45 @@ export default function CoordinationGeometryAnalyzer() {
     const handleError = useCallback((msg) => {
         setWarnings(prev => [...prev, `Error: ${msg}`]);
     }, []);
+
+    // Intensive Analysis Handler
+    const handleIntensiveAnalysis = useCallback(async () => {
+        if (!atoms || selectedMetal === null || !coordRadius) {
+            handleWarning('Cannot run intensive analysis: Missing required data');
+            return;
+        }
+
+        setIsRunningIntensive(true);
+        setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
+
+        try {
+            const results = await runIntensiveAnalysisAsync(
+                atoms,
+                selectedMetal,
+                coordRadius,
+                (progress) => setIntensiveProgress(progress)
+            );
+
+            // Update analysis params to trigger useShapeAnalysis with intensive results
+            setAnalysisParams({
+                mode: 'intensive',
+                key: Date.now(),
+                intensiveResults: results.geometryResults
+            });
+
+            setIntensiveMetadata({
+                ligandGroups: results.ligandGroups,
+                metadata: results.metadata
+            });
+
+            setIntensiveProgress(null);
+        } catch (error) {
+            handleError(`Intensive analysis failed: ${error.message}`);
+            setIntensiveProgress(null);
+        } finally {
+            setIsRunningIntensive(false);
+        }
+    }, [atoms, selectedMetal, coordRadius, handleWarning, handleError]);
 
     // Radius Control Hook (v1.1.0)
     const {
@@ -148,6 +195,7 @@ export default function CoordinationGeometryAnalyzer() {
             const currentWarnings = warnings;
             const currentFileName = fileName;
             const currentAnalysisMode = analysisParams.mode;
+            const currentIntensiveMetadata = intensiveMetadata;
             
             const canvas = canvasRef.current;
             const oldWidth = canvas.width;
@@ -559,7 +607,7 @@ footer strong {
     </div>
     <div class="summary-item">
       <strong>Point Group</strong>
-      <span style="color:#6366f1; font-family: monospace; font-weight: 600;">${POINT_GROUPS[name] || '—'}</span>
+      <span style="color:#6366f1; font-family: monospace;">${POINT_GROUPS[name] || '—'}</span>
     </div>
     <div class="summary-item">
       <strong>CShM Value</strong>
@@ -570,6 +618,27 @@ footer strong {
       <span style="color:${interpretation.color};">${interpretation.text}</span>
     </div>
   </div>
+
+  ${currentIntensiveMetadata ? `
+  <div class="info-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #86efac;">
+    <h3 style="color: #15803d; display: flex; align-items: center; gap: 0.5rem;">
+      <span>🔬</span> Enhanced Intensive Analysis Applied
+    </h3>
+    <p><strong>Analysis Mode:</strong> Intensive (with ring detection and enhanced CShM calculation)</p>
+    <p><strong>Coordination Number:</strong> ${currentIntensiveMetadata.metadata.coordinationNumber}</p>
+    <p><strong>Ligand Structure:</strong> ${currentIntensiveMetadata.ligandGroups.summary}</p>
+    ${currentIntensiveMetadata.ligandGroups.rings.length > 0 ? `
+    <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px;">
+      <strong style="color: #15803d;">Detected Rings:</strong>
+      <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+        ${currentIntensiveMetadata.ligandGroups.rings.map((ring, i) =>
+          `<li>Ring ${i+1}: ${ring.hapticity} (${ring.size} atoms)</li>`
+        ).join('')}
+      </ul>
+    </div>
+    ` : ''}
+  </div>
+  ` : ''}
 
   ${currentQualityMetrics ? `
   <h2>🎯 Quality Metrics</h2>
@@ -733,6 +802,21 @@ footer strong {
         if (!geometryResults || geometryResults.length === 0) return;
 
         try {
+            // Add metadata header if intensive analysis was used
+            const metadataRows = [];
+            if (intensiveMetadata) {
+                metadataRows.push('# Enhanced Intensive Analysis Results');
+                metadataRows.push(`# Analysis Mode,Intensive`);
+                metadataRows.push(`# Coordination Number,${intensiveMetadata.metadata.coordinationNumber}`);
+                metadataRows.push(`# Ligand Structure,"${intensiveMetadata.ligandGroups.summary}"`);
+                if (intensiveMetadata.ligandGroups.rings.length > 0) {
+                    intensiveMetadata.ligandGroups.rings.forEach((ring, i) => {
+                        metadataRows.push(`# Ring ${i+1},${ring.hapticity},${ring.size} atoms`);
+                    });
+                }
+                metadataRows.push(''); // Empty line separator
+            }
+
             // CSV Header
             const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Interpretation', 'Confidence %'];
 
@@ -753,6 +837,7 @@ footer strong {
 
             // Combine into CSV string
             const csvContent = [
+                ...metadataRows,
                 headers.join(','),
                 ...rows.map(row => row.join(','))
             ].join('\n');
@@ -774,7 +859,7 @@ footer strong {
             console.error("CSV generation failed:", err);
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
-    }, [geometryResults, fileName]);
+    }, [geometryResults, fileName, intensiveMetadata]);
 
 //     const totalGeometries = useMemo(() => {
 //         return Object.values(REFERENCE_GEOMETRIES).reduce((sum, geoms) => sum + Object.keys(geoms).length, 0);
@@ -1105,26 +1190,26 @@ footer strong {
               flexWrap: 'wrap',
               justifyContent: 'center'
             }}>
-                <button 
-                    onClick={() => setAnalysisParams({ mode: 'intensive', key: Date.now() })} 
-                    disabled={isLoading} 
-                    style={{ 
-                        padding: '1rem 2rem', 
-                        background: isLoading ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '10px', 
+                <button
+                    onClick={handleIntensiveAnalysis}
+                    disabled={isLoading || isRunningIntensive}
+                    style={{
+                        padding: '1rem 2rem',
+                        background: (isLoading || isRunningIntensive) ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
                         fontWeight: 700, 
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        boxShadow: isLoading ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
+                        cursor: (isLoading || isRunningIntensive) ? 'not-allowed' : 'pointer',
+                        boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
                         minWidth: '200px'
                     }}
-                    onMouseOver={(e) => !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    {isLoading && analysisParams.mode === 'intensive' ? '⚡ Running...' : '⚡ Intensive Analysis'}
+                    {isRunningIntensive ? '⚡ Running...' : '⚡ Intensive Analysis'}
                 </button>
                 
                 <button
@@ -1320,10 +1405,69 @@ footer strong {
              💡 Mouse: rotate • Scroll: zoom • Right-click: pan
            </p>
           </div>
-          
+
+          {/* Intensive Analysis Progress */}
+          {intensiveProgress && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '2px solid #86efac',
+              borderRadius: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ fontSize: '1.5rem' }}>⚡</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>
+                    {intensiveProgress.message}
+                  </div>
+                  <div style={{
+                    background: '#fff',
+                    height: '6px',
+                    borderRadius: '3px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      background: 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)',
+                      height: '100%',
+                      width: `${intensiveProgress.progress * 100}%`,
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Intensive Analysis Metadata */}
+          {intensiveMetadata && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '2px solid #10b981',
+              borderRadius: '8px',
+              fontSize: '0.9rem'
+            }}>
+              <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🔬</span> Enhanced Analysis Applied (CN={intensiveMetadata.metadata.coordinationNumber})
+              </div>
+              <div style={{ color: '#166534' }}>
+                {intensiveMetadata.ligandGroups.summary}
+              </div>
+              {intensiveMetadata.ligandGroups.rings.length > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
+                  {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
+                    <div key={i}>• Ring {i+1}: {ring.hapticity} ({ring.size} atoms)</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
-            <h3 style={{ 
-                margin: '0 0 1rem 0', 
+            <h3 style={{
+                margin: '0 0 1rem 0',
                 color: '#1e293b',
                 fontSize: '1.25rem',
                 fontWeight: 700
