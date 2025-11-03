@@ -111,18 +111,20 @@ export default function CoordinationGeometryAnalyzer() {
                 throw new Error('Invalid results structure from intensive analysis');
             }
 
-            // Update analysis params to trigger useShapeAnalysis with intensive results
-            console.log('Setting analysis params...');
-            setAnalysisParams({
-                mode: 'intensive',
-                key: Date.now(),
-                intensiveResults: results.geometryResults
-            });
-
+            // DON'T set intensiveResults - just store the metadata
+            // The normal analysis is already showing the results, we just add metadata on top
             console.log('Setting intensive metadata...');
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
-                metadata: results.metadata
+                metadata: results.metadata,
+                properties: results.properties
+            });
+
+            // Trigger a re-analysis with the normal flow to ensure UI stays consistent
+            // This will use the current coordAtoms and show results properly
+            setAnalysisParams({
+                mode: 'default',
+                key: Date.now()
             });
 
             console.log('Clearing progress...');
@@ -222,6 +224,8 @@ export default function CoordinationGeometryAnalyzer() {
             const currentWarnings = warnings;
             const currentFileName = fileName;
             const currentAnalysisMode = analysisParams.mode;
+            // eslint-disable-next-line no-unused-vars
+            const currentIntensiveMetadata = intensiveMetadata; // TODO: Add to report HTML
             
             const canvas = canvasRef.current;
             const oldWidth = canvas.width;
@@ -800,7 +804,7 @@ footer strong {
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings]);
+    }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata]);
 
     // CSV Export functionality
     const generateCSV = useCallback(() => {
