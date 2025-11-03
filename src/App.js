@@ -111,20 +111,20 @@ export default function CoordinationGeometryAnalyzer() {
                 throw new Error('Invalid results structure from intensive analysis');
             }
 
-            // DON'T set intensiveResults - just store the metadata
-            // The normal analysis is already showing the results, we just add metadata on top
+            // Store metadata AND geometry results from intensive analysis
             console.log('Setting intensive metadata...');
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
-                metadata: results.metadata,
-                properties: results.properties
+                metadata: results.metadata
             });
 
-            // Trigger a re-analysis with the normal flow to ensure UI stays consistent
-            // This will use the current coordAtoms and show results properly
+            // *** KEY: Use the intensive geometry results instead of running default analysis ***
+            // This ensures the UI shows the improved CShM values from intensive mode
+            console.log('Setting intensive results...');
             setAnalysisParams({
-                mode: 'default',
-                key: Date.now()
+                mode: 'intensive',
+                key: Date.now(),
+                intensiveResults: results.geometryResults  // <-- Use intensive CShM results
             });
 
             console.log('Clearing progress...');

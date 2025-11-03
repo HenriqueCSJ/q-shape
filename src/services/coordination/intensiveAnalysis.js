@@ -1,11 +1,17 @@
 /**
  * Intensive Analysis Service
  *
- * Detects rings, ligand groups, and hapticity for coordination complexes.
- * This provides METADATA ONLY - the normal geometry analysis continues as usual.
+ * Runs geometry detection with INTENSIVE CShM optimization (more steps, better results).
+ * Also detects rings, ligand groups, and hapticity for coordination complexes.
+ *
+ * This provides TWO versions of CShM:
+ * - Default: Fast, 18 grid steps, 6 restarts, 3000 optimization steps
+ * - Intensive: Thorough, 30 grid steps, 12 restarts, 8000 optimization steps
  */
 
 import { detectLigandGroups } from './ringDetector';
+import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
+import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -32,18 +38,30 @@ function getCoordinatedAtoms(atoms, metalIndex, radius) {
 }
 
 /**
- * Run intensive analysis - detects rings and ligand metadata
+ * Extract and center coordinated atoms relative to metal
+ */
+function extractCoordinatedCoords(atoms, metalIndex, coordIndices) {
+    const metal = atoms[metalIndex];
+    return coordIndices.map(idx => [
+        atoms[idx].x - metal.x,
+        atoms[idx].y - metal.y,
+        atoms[idx].z - metal.z
+    ]);
+}
+
+/**
+ * Run intensive analysis - calculates geometry with intensive CShM and detects rings
  *
  * @param {Array} atoms - All atoms in structure
  * @param {number} metalIndex - Index of central metal atom
  * @param {number} radius - Coordination sphere radius (Å)
  * @param {Function} onProgress - Progress callback
- * @returns {Promise<Object>} { ligandGroups, metadata }
+ * @returns {Promise<Object>} { geometryResults, ligandGroups, metadata }
  */
 export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onProgress = null) {
     const startTime = Date.now();
 
-    console.log(`Starting intensive analysis (ring detection) for ${atoms[metalIndex].element}...`);
+    console.log(`Starting intensive analysis with intensive CShM for ${atoms[metalIndex].element}...`);
 
     const reportProgress = (stage, progress, message) => {
         if (onProgress) {
@@ -52,23 +70,78 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
     };
 
     try {
-        reportProgress('detecting', 0.3, 'Detecting coordination sphere...');
+        reportProgress('detecting', 0.1, 'Detecting coordination sphere...');
 
         const coordIndices = getCoordinatedAtoms(atoms, metalIndex, radius);
         const CN = coordIndices.length;
 
         console.log(`Found ${CN} atoms in coordination sphere`);
 
-        reportProgress('rings', 0.6, 'Detecting rings and ligand groups...');
+        if (CN === 0) {
+            throw new Error('No coordinated atoms found within radius');
+        }
+
+        reportProgress('rings', 0.2, 'Detecting rings and ligand groups...');
 
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        reportProgress('complete', 1.0, 'Ring detection complete!');
+        reportProgress('geometry', 0.3, 'Calculating geometries with intensive CShM...');
+
+        // Extract centered coordinates
+        const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
+
+        // Get reference geometries for this CN
+        const geometries = REFERENCE_GEOMETRIES[CN];
+        if (!geometries) {
+            throw new Error(`No reference geometries available for CN=${CN}`);
+        }
+
+        const geometryNames = Object.keys(geometries);
+        console.log(`Running intensive CShM for ${geometryNames.length} geometries (CN=${CN})...`);
+
+        const results = [];
+        for (let i = 0; i < geometryNames.length; i++) {
+            const shapeName = geometryNames[i];
+            const refCoords = geometries[shapeName];
+
+            reportProgress(
+                'calculating',
+                0.3 + (0.6 * i / geometryNames.length),
+                `Calculating ${shapeName} (${i + 1}/${geometryNames.length})...`
+            );
+
+            console.log(`Running intensive CShM for ${shapeName}...`);
+
+            // *** KEY: Use 'intensive' mode for better optimization ***
+            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+                actualCoords,
+                refCoords,
+                'intensive',  // <-- INTENSIVE MODE: 30 grid steps, 12 restarts, 8000 steps/run
+                null
+            );
+
+            results.push({
+                name: shapeName,
+                shapeMeasure: measure,
+                alignedCoords,
+                rotationMatrix
+            });
+
+            console.log(`  ${shapeName}: CShM = ${measure.toFixed(4)}`);
+        }
+
+        // Sort by CShM (best first)
+        results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
+
+        reportProgress('complete', 1.0, 'Intensive analysis complete!');
 
         const elapsed = Date.now() - startTime;
 
+        console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${results[0].shapeMeasure.toFixed(4)})`);
+
         return {
+            geometryResults: results,
             ligandGroups,
             metadata: {
                 metalElement: atoms[metalIndex].element,
@@ -76,6 +149,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 radius,
                 coordinationNumber: CN,
                 intensiveMode: true,
+                geometryCount: results.length,
+                bestGeometry: results[0].name,
+                bestCShM: results[0].shapeMeasure,
                 elapsedSeconds: elapsed / 1000,
                 timestamp: Date.now()
             }
@@ -86,6 +162,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         reportProgress('error', 0, `Error: ${error.message}`);
 
         return {
+            geometryResults: [],
             ligandGroups: {
                 rings: [],
                 monodentate: [],
