@@ -146,26 +146,31 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         });
     }
 
-    reportProgress('calculating', 0.25, 'Starting parallel CShM calculations...');
+    reportProgress('calculating', 0.25, 'Starting CShM calculations...');
 
-    // Step 7: Initialize worker pool and run calculations
-    const workerPool = getWorkerPool();
+    // Step 7: Try to initialize worker pool, but always fall back if it fails
+    // NOTE: Workers are currently disabled due to initialization issues
+    // TODO: Re-enable workers once path resolution is fixed
+    const useWorkers = false; // Set to true to enable workers
 
-    try {
-        await workerPool.initialize();
+    if (useWorkers) {
+        const workerPool = getWorkerPool();
 
-        console.log(`Worker pool initialized with ${workerPool.workers.length} workers`);
+        try {
+            await workerPool.initialize();
 
-    } catch (error) {
-        console.error('Failed to initialize worker pool:', error);
-        console.log('Falling back to single-threaded calculation...');
+            console.log(`Worker pool initialized with ${workerPool.workers.length} workers`);
 
-        // Fallback: run sequentially without workers
-        return runIntensiveAnalysisFallback(atoms, metalIndex, coordIndices, actualCoords, geometries, ligandGroups, properties, reportProgress);
-    }
+        } catch (error) {
+            console.error('Failed to initialize worker pool:', error);
+            console.log('Falling back to single-threaded calculation...');
 
-    // Run parallel calculations
-    return new Promise((resolve, reject) => {
+            // Fallback: run sequentially without workers
+            return runIntensiveAnalysisFallback(atoms, metalIndex, coordIndices, actualCoords, geometries, ligandGroups, properties, reportProgress);
+        }
+
+        // Run parallel calculations
+        return new Promise((resolve, reject) => {
         const workerProgress = (progressData) => {
             // Map worker progress to overall progress (0.25 to 0.95)
             const workerProgressFraction = progressData.overallProgress;
@@ -221,7 +226,12 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         };
 
         workerPool.calculateBatch(tasks, workerProgress, workerComplete);
-    });
+        });
+    } else {
+        // Workers disabled - use fallback mode
+        console.log('Workers disabled, using single-threaded calculation...');
+        return runIntensiveAnalysisFallback(atoms, metalIndex, coordIndices, actualCoords, geometries, ligandGroups, properties, reportProgress);
+    }
 }
 
 /**
