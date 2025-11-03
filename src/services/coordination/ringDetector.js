@@ -68,8 +68,6 @@ function magnitude(v) {
 function isPlanar(atoms, tolerance = 0.3) {
     if (atoms.length < 3) return false;
 
-    const centroid = calculateCentroid(atoms);
-
     // Use first three atoms to define plane
     const v1 = {
         x: atoms[1].x - atoms[0].x,
