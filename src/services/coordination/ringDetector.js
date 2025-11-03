@@ -269,11 +269,10 @@ export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize 
         monodentate,
         totalGroups: ligandGroups.length + monodentate.length,
         ringCount: ligandGroups.length,
-        summary: {
-            hasSandwichStructure: ligandGroups.length >= 2 &&
-                                  ligandGroups.every(g => g.size >= 5),
-            detectedHapticities: [...new Set(ligandGroups.map(g => g.hapticity))]
-        }
+        summary: `${ligandGroups.length} ring(s) + ${monodentate.length} monodentate ligand(s)`,
+        hasSandwichStructure: ligandGroups.length >= 2 &&
+                              ligandGroups.every(g => g.size >= 5),
+        detectedHapticities: [...new Set(ligandGroups.map(g => g.hapticity))]
     };
 }
 
