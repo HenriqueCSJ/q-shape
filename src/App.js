@@ -15,6 +15,9 @@ import useCoordination from './hooks/useCoordination';
 import useShapeAnalysis from './hooks/useShapeAnalysis';
 import { useThreeScene } from './hooks/useThreeScene';
 
+// Services
+import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
+
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
     // UI State (managed locally)
@@ -24,6 +27,11 @@ export default function CoordinationGeometryAnalyzer() {
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
+
+    // Intensive Analysis State
+    const [intensiveMetadata, setIntensiveMetadata] = useState(null);
+    const [intensiveProgress, setIntensiveProgress] = useState(null);
+    const [isRunningIntensive, setIsRunningIntensive] = useState(false);
 
     // Refs
     const canvasRef = useRef(null);
@@ -1144,26 +1152,26 @@ footer strong {
               flexWrap: 'wrap',
               justifyContent: 'center'
             }}>
-                <button 
-                    onClick={() => setAnalysisParams({ mode: 'intensive', key: Date.now() })} 
-                    disabled={isLoading} 
-                    style={{ 
-                        padding: '1rem 2rem', 
-                        background: isLoading ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '10px', 
-                        fontWeight: 700, 
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        boxShadow: isLoading ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
+                <button
+                    onClick={handleIntensiveAnalysis}
+                    disabled={isLoading || isRunningIntensive}
+                    style={{
+                        padding: '1rem 2rem',
+                        background: (isLoading || isRunningIntensive) ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        cursor: (isLoading || isRunningIntensive) ? 'not-allowed' : 'pointer',
+                        boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
                         minWidth: '200px'
                     }}
-                    onMouseOver={(e) => !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    {isLoading && analysisParams.mode === 'intensive' ? '⚡ Running...' : '⚡ Intensive Analysis'}
+                    {isRunningIntensive ? '⚡ Running...' : '⚡ Intensive Analysis'}
                 </button>
                 
                 <button
