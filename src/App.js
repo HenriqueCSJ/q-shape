@@ -1484,7 +1484,7 @@ footer strong {
           )}
 
           {/* Intensive Analysis Metadata */}
-          {intensiveMetadata && (
+          {intensiveMetadata && intensiveMetadata.metadata && intensiveMetadata.ligandGroups && (
             <div style={{
               marginBottom: '1.5rem',
               padding: '1rem',
@@ -1494,15 +1494,15 @@ footer strong {
               fontSize: '0.9rem'
             }}>
               <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🔬</span> Enhanced Analysis Applied (CN={intensiveMetadata.metadata.coordinationNumber})
+                <span>🔬</span> Enhanced Analysis Applied (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
               </div>
               <div style={{ color: '#166534' }}>
-                {intensiveMetadata.ligandGroups.summary}
+                {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
               </div>
-              {intensiveMetadata.ligandGroups.rings.length > 0 && (
+              {intensiveMetadata.ligandGroups?.rings?.length > 0 && (
                 <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
                   {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
-                    <div key={i}>• Ring {i+1}: {ring.hapticity} ({ring.size} atoms)</div>
+                    <div key={i}>• Ring {i+1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
                   ))}
                 </div>
               )}
