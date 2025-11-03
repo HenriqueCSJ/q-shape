@@ -78,6 +78,8 @@ export default function CoordinationGeometryAnalyzer() {
 
     // Intensive Analysis Handler (after coordRadius is defined)
     const handleIntensiveAnalysis = useCallback(async () => {
+        console.log('=== INTENSIVE ANALYSIS BUTTON CLICKED ===');
+
         if (!atoms || selectedMetal === null || !coordRadius) {
             handleWarning('Cannot run intensive analysis: Missing required data');
             return;
@@ -87,30 +89,55 @@ export default function CoordinationGeometryAnalyzer() {
         setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
 
         try {
+            console.log('Calling runIntensiveAnalysisAsync...');
+
             const results = await runIntensiveAnalysisAsync(
                 atoms,
                 selectedMetal,
                 coordRadius,
-                (progress) => setIntensiveProgress(progress)
+                (progress) => {
+                    console.log('Progress update:', progress);
+                    setIntensiveProgress(progress);
+                }
             );
 
+            console.log('=== INTENSIVE ANALYSIS RESULTS ===', results);
+            console.log('geometryResults:', results?.geometryResults?.length || 0);
+            console.log('ligandGroups:', results?.ligandGroups);
+            console.log('metadata:', results?.metadata);
+
+            // Validate results before setting state
+            if (!results || !results.geometryResults || !results.ligandGroups || !results.metadata) {
+                throw new Error('Invalid results structure from intensive analysis');
+            }
+
             // Update analysis params to trigger useShapeAnalysis with intensive results
+            console.log('Setting analysis params...');
             setAnalysisParams({
                 mode: 'intensive',
                 key: Date.now(),
                 intensiveResults: results.geometryResults
             });
 
+            console.log('Setting intensive metadata...');
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
                 metadata: results.metadata
             });
 
+            console.log('Clearing progress...');
             setIntensiveProgress(null);
+
+            console.log('=== INTENSIVE ANALYSIS COMPLETED SUCCESSFULLY ===');
+
         } catch (error) {
+            console.error('=== INTENSIVE ANALYSIS ERROR ===', error);
+            console.error('Error stack:', error.stack);
             handleError(`Intensive analysis failed: ${error.message}`);
             setIntensiveProgress(null);
+            alert(`Intensive analysis crashed!\n\nError: ${error.message}\n\nCheck browser console (F12) for full error details.`);
         } finally {
+            console.log('Setting isRunningIntensive to false');
             setIsRunningIntensive(false);
         }
     }, [atoms, selectedMetal, coordRadius, handleWarning, handleError]);
