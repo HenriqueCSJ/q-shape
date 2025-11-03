@@ -91,16 +91,34 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
     reportProgress('analyzing', 0.10, 'Analyzing geometric properties...');
 
     // Step 3: Analyze geometric properties (UNIVERSAL - works for any structure)
-    const properties = analyzeGeometricProperties(actualCoords);
-
-    console.log(`Property analysis: ${properties.layers.length} layers, ${properties.symmetries.length} symmetries, ${properties.cycles.length} cycles`);
+    let properties = null;
+    try {
+        properties = analyzeGeometricProperties(actualCoords);
+        console.log(`Property analysis: ${properties.layers.length} layers, ${properties.symmetries.length} symmetries, ${properties.cycles.length} cycles`);
+    } catch (error) {
+        console.warn('Property analysis failed, continuing without it:', error);
+        properties = { layers: [], symmetries: [], cycles: [], principalAxes: { axes: [], eigenvalues: [], anisotropy: 0 }, atomCount: CN };
+    }
 
     reportProgress('rings', 0.15, 'Detecting rings and ligand groups...');
 
     // Step 4: Detect ligand groups (for metadata)
-    const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
-
-    console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
+    let ligandGroups;
+    try {
+        ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
+        console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
+    } catch (error) {
+        console.warn('Ligand detection failed, using fallback:', error);
+        ligandGroups = {
+            rings: [],
+            monodentate: coordIndices,
+            totalGroups: 1,
+            ringCount: 0,
+            summary: `${CN} monodentate ligand(s)`,
+            hasSandwichStructure: false,
+            detectedHapticities: []
+        };
+    }
 
     // Step 5: Get reference geometries for this CN
     const geometries = REFERENCE_GEOMETRIES[CN];
@@ -126,7 +144,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
     const geometryNames = Object.keys(geometries);
     console.log(`Analyzing ${geometryNames.length} reference geometries for CN=${CN}`);
 
-    reportProgress('aligning', 0.20, 'Preparing smart alignments...');
+    reportProgress('aligning', 0.20, 'Preparing analysis...');
 
     // Step 6: Prepare tasks for worker pool
     const tasks = [];
@@ -134,8 +152,14 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
     for (const shapeName of geometryNames) {
         const refCoords = geometries[shapeName];
 
-        // Generate smart alignments for this specific geometry
-        const smartAlignments = generateSmartAlignments(actualCoords, refCoords);
+        // Generate smart alignments for this specific geometry (optional - skip if it fails)
+        let smartAlignments = [];
+        try {
+            smartAlignments = generateSmartAlignments(actualCoords, refCoords);
+            console.log(`Generated ${smartAlignments.length} smart alignments for ${shapeName}`);
+        } catch (error) {
+            console.warn(`Smart alignment failed for ${shapeName}, using default:`, error);
+        }
 
         tasks.push({
             shapeName,
