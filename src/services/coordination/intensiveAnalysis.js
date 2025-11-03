@@ -101,6 +101,8 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         console.log(`Running intensive CShM for ${geometryNames.length} geometries (CN=${CN})...`);
 
         const results = [];
+
+        // Process geometries asynchronously to prevent UI freezing
         for (let i = 0; i < geometryNames.length; i++) {
             const shapeName = geometryNames[i];
             const refCoords = geometries[shapeName];
@@ -112,6 +114,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             );
 
             console.log(`Running intensive CShM for ${shapeName}...`);
+
+            // Allow UI to update by yielding to event loop
+            await new Promise(resolve => setTimeout(resolve, 0));
 
             // *** KEY: Use 'intensive' mode for better optimization ***
             const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
