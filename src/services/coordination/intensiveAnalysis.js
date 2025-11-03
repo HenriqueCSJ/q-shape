@@ -1,13 +1,23 @@
 /**
  * Enhanced Intensive Analysis Service
  *
- * Simple, reliable intensive analysis without complex property analysis
- * that was causing blank page crashes.
+ * Provides chemically-intelligent coordination geometry analysis using:
+ * 1. Property-based geometric analysis (PCA, symmetry, layers) - UNIVERSAL
+ * 2. Smart alignment for better initial orientations
+ * 3. Ring detection for metadata (hapticity, ligand groups)
+ *
+ * Design principles:
+ * - GENERAL: Works for ANY coordination complex (ferrocene, octahedral, etc.)
+ * - NO hardcoding for specific compounds
+ * - Uses geometric properties to guide optimization
  */
 
+import * as THREE from 'three';
 import { detectLigandGroups } from './ringDetector';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
+import { analyzeGeometricProperties } from '../shapeAnalysis/propertyAnalysis';
+import { generateSmartAlignments } from '../shapeAnalysis/smartAlignment';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -78,9 +88,21 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             ];
         });
 
+        reportProgress('analyzing', 0.10, 'Analyzing geometric properties...');
+
+        // Step 3: Analyze geometric properties (UNIVERSAL - works for any structure)
+        let properties = null;
+        try {
+            properties = analyzeGeometricProperties(actualCoords);
+            console.log(`Property analysis: ${properties.layers.length} layers, ${properties.symmetries.length} symmetries, ${properties.cycles.length} cycles`);
+        } catch (error) {
+            console.warn('Property analysis failed:', error);
+            properties = { layers: [], symmetries: [], cycles: [], principalAxes: { axes: [], eigenvalues: [], anisotropy: 0 }, atomCount: CN };
+        }
+
         reportProgress('rings', 0.15, 'Detecting rings and ligand groups...');
 
-        // Step 3: Detect ligand groups (for metadata)
+        // Step 4: Detect ligand groups (for metadata)
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s)`);
 
@@ -107,9 +129,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         const geometryNames = Object.keys(geometries);
         console.log(`Analyzing ${geometryNames.length} reference geometries for CN=${CN}`);
 
-        reportProgress('calculating', 0.25, 'Starting CShM calculations...');
+        reportProgress('calculating', 0.25, 'Starting CShM calculations with smart alignment...');
 
-        // Step 5: Run CShM calculations for each geometry
+        // Step 5: Run CShM calculations for each geometry with smart alignments
         const results = [];
 
         for (let i = 0; i < geometryNames.length; i++) {
@@ -120,12 +142,66 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             reportProgress('calculating', progress, `Calculating ${shapeName}... (${i + 1}/${geometryNames.length})`);
 
             try {
-                const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+                // Generate smart alignments for this geometry
+                let smartAlignments = [];
+                try {
+                    smartAlignments = generateSmartAlignments(actualCoords, refCoords);
+                    console.log(`Generated ${smartAlignments.length} smart alignments for ${shapeName}`);
+                } catch (error) {
+                    console.warn(`Smart alignment failed for ${shapeName}:`, error);
+                }
+
+                // Try each smart alignment and keep the best result
+                let bestMeasure = Infinity;
+                let bestAligned = null;
+                let bestRotation = null;
+
+                // First try without smart alignment (baseline)
+                const baselineResult = calculateShapeMeasure(
                     actualCoords,
                     refCoords,
-                    'intensive',  // Use intensive mode for longer optimization
+                    'intensive',
                     null
                 );
+
+                bestMeasure = baselineResult.measure;
+                bestAligned = baselineResult.alignedCoords;
+                bestRotation = baselineResult.rotationMatrix;
+
+                // Then try with each smart alignment if available
+                if (smartAlignments.length > 0) {
+                    // Try up to 3 best smart alignments to save time
+                    const alignmentsToTry = smartAlignments.slice(0, 3);
+
+                    for (const alignment of alignmentsToTry) {
+                        // Pre-rotate the coordinates using the smart alignment
+                        const preRotatedCoords = actualCoords.map(coord => {
+                            const v = new THREE.Vector3(...coord);
+                            v.applyMatrix4(alignment);
+                            return [v.x, v.y, v.z];
+                        });
+
+                        const result = calculateShapeMeasure(
+                            preRotatedCoords,
+                            refCoords,
+                            'intensive',
+                            null
+                        );
+
+                        if (result.measure < bestMeasure) {
+                            bestMeasure = result.measure;
+                            bestAligned = result.alignedCoords;
+                            bestRotation = result.rotationMatrix;
+                            console.log(`Smart alignment improved ${shapeName}: ${bestMeasure.toFixed(4)}`);
+                        }
+                    }
+                }
+
+                const { measure, alignedCoords, rotationMatrix } = {
+                    measure: bestMeasure,
+                    alignedCoords: bestAligned,
+                    rotationMatrix: bestRotation
+                };
 
                 results.push({
                     name: shapeName,
@@ -160,6 +236,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         return {
             geometryResults: results,
             ligandGroups,
+            properties,
             metadata: {
                 metalElement: atoms[metalIndex].element,
                 metalIndex,
@@ -167,6 +244,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 coordinationNumber: CN,
                 intensiveMode: true,
                 elapsedSeconds: elapsed / 1000,
+                propertyAnalysisUsed: properties !== null,
                 timestamp: Date.now()
             }
         };
