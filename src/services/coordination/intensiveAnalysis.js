@@ -148,8 +148,14 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         };
 
     } catch (error) {
-        console.error('Intensive analysis failed:', error);
+        console.error('=== INTENSIVE ANALYSIS FAILED ===');
+        console.error('Error:', error);
+        console.error('Error message:', error.message);
+        console.error('Stack trace:', error.stack);
         reportProgress('error', 0, `Error: ${error.message}`);
+
+        // Alert the user with detailed error info
+        alert(`Intensive Analysis Failed!\n\nError: ${error.message}\n\nStack: ${error.stack}\n\nCheck console (F12) for details.`);
 
         return {
             geometryResults: [],
@@ -158,7 +164,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 monodentate: [],
                 totalGroups: 0,
                 ringCount: 0,
-                summary: 'Analysis failed',
+                summary: `Analysis failed: ${error.message}`,
                 hasSandwichStructure: false,
                 detectedHapticities: []
             },
@@ -169,6 +175,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 coordinationNumber: 0,
                 intensiveMode: true,
                 error: error.message,
+                errorStack: error.stack,
                 timestamp: Date.now()
             }
         };
