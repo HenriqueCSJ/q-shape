@@ -1525,16 +1525,36 @@ footer strong {
               fontSize: '0.9rem'
             }}>
               <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🔬</span> Enhanced Analysis Applied (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
+                <span>🔬</span> Pattern-Based Analysis Applied (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
               </div>
+
+              {/* Pattern Detection Info */}
+              {intensiveMetadata.metadata?.patternDetected && (
+                <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem' }}>
+                  ✓ Detected: <span style={{ textTransform: 'capitalize' }}>
+                    {intensiveMetadata.metadata.patternDetected.replace('_', ' ')}
+                  </span> structure ({Math.round(intensiveMetadata.metadata.patternConfidence * 100)}% confidence)
+                </div>
+              )}
+
+              {/* Ligand Groups Summary */}
               <div style={{ color: '#166534' }}>
                 {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
               </div>
+
+              {/* Ring Details */}
               {intensiveMetadata.ligandGroups?.rings?.length > 0 && (
                 <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
                   {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
                     <div key={i}>• Ring {i+1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
                   ))}
+                </div>
+              )}
+
+              {/* Best Geometry */}
+              {intensiveMetadata.metadata?.bestGeometry && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
+                  → Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
                 </div>
               )}
             </div>

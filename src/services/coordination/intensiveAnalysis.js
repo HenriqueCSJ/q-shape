@@ -1,17 +1,19 @@
 /**
  * Intensive Analysis Service
  *
- * Runs geometry detection with INTENSIVE CShM optimization (more steps, better results).
- * Also detects rings, ligand groups, and hapticity for coordination complexes.
+ * Pattern-based geometry detection using chemical knowledge:
+ * 1. Detects structural patterns (sandwich, piano stool, macrocycle, etc.)
+ * 2. Applies pattern-specific geometry analysis
+ * 3. Uses intensive CShM optimization for better results
  *
- * This provides TWO versions of CShM:
- * - Default: Fast, 18 grid steps, 6 restarts, 3000 optimization steps
- * - Intensive: Thorough, 30 grid steps, 12 restarts, 8000 optimization steps
+ * This provides TWO approaches:
+ * - Default: Pure CShM (matches other software)
+ * - Intensive: Pattern-aware analysis using structural information
  */
 
 import { detectLigandGroups } from './ringDetector';
-import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
-import calculateShapeMeasure from '../shapeAnalysis/shapeCalculator';
+import { detectPattern } from './patterns/patternDetector';
+import { buildPatternGeometry, buildGeneralGeometry } from './patterns/geometryBuilder';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -86,53 +88,39 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        reportProgress('geometry', 0.3, 'Calculating geometries with intensive CShM...');
-
         // Extract centered coordinates
         const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
 
-        // Get reference geometries for this CN
-        const geometries = REFERENCE_GEOMETRIES[CN];
-        if (!geometries) {
-            throw new Error(`No reference geometries available for CN=${CN}`);
+        reportProgress('pattern', 0.3, 'Analyzing structural patterns...');
+
+        // *** PATTERN DETECTION: Use chemical knowledge to identify structure type ***
+        const pattern = detectPattern(atoms, metalIndex, ligandGroups);
+
+        let results = [];
+
+        if (pattern && pattern.confidence > 0.7) {
+            // High-confidence pattern detected - use pattern-based analysis
+            console.log(`✓ Pattern detected: ${pattern.patternType} (${(pattern.confidence * 100).toFixed(1)}% confidence)`);
+
+            reportProgress('geometry', 0.4, `Analyzing ${pattern.patternType} structure...`);
+
+            // Allow UI to update
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Build geometry using pattern-specific logic
+            results = buildPatternGeometry(actualCoords, pattern, 'intensive');
+
+        } else {
+            // No pattern or low confidence - fall back to general analysis
+            console.log('No high-confidence pattern, using general CShM analysis');
+
+            reportProgress('geometry', 0.4, 'Calculating geometries with intensive CShM...');
+
+            // Allow UI to update
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            results = buildGeneralGeometry(actualCoords, CN, 'intensive');
         }
-
-        const geometryNames = Object.keys(geometries);
-        console.log(`Running intensive CShM for ${geometryNames.length} geometries (CN=${CN})...`);
-
-        const results = [];
-        for (let i = 0; i < geometryNames.length; i++) {
-            const shapeName = geometryNames[i];
-            const refCoords = geometries[shapeName];
-
-            reportProgress(
-                'calculating',
-                0.3 + (0.6 * i / geometryNames.length),
-                `Calculating ${shapeName} (${i + 1}/${geometryNames.length})...`
-            );
-
-            console.log(`Running intensive CShM for ${shapeName}...`);
-
-            // *** KEY: Use 'intensive' mode for better optimization ***
-            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-                actualCoords,
-                refCoords,
-                'intensive',  // <-- INTENSIVE MODE: 30 grid steps, 12 restarts, 8000 steps/run
-                null
-            );
-
-            results.push({
-                name: shapeName,
-                shapeMeasure: measure,
-                alignedCoords,
-                rotationMatrix
-            });
-
-            console.log(`  ${shapeName}: CShM = ${measure.toFixed(4)}`);
-        }
-
-        // Sort by CShM (best first)
-        results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
 
         reportProgress('complete', 1.0, 'Intensive analysis complete!');
 
@@ -149,6 +137,8 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 radius,
                 coordinationNumber: CN,
                 intensiveMode: true,
+                patternDetected: pattern?.patternType || null,
+                patternConfidence: pattern?.confidence || 0,
                 geometryCount: results.length,
                 bestGeometry: results[0].name,
                 bestCShM: results[0].shapeMeasure,
