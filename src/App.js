@@ -111,6 +111,11 @@ export default function CoordinationGeometryAnalyzer() {
                 throw new Error('Invalid results structure from intensive analysis');
             }
 
+            // Check if geometry results are empty (analysis failed)
+            if (results.geometryResults.length === 0) {
+                throw new Error('Analysis completed but no valid geometries found. Check console for details.');
+            }
+
             // Store metadata AND geometry results from intensive analysis
             console.log('Setting intensive metadata...');
             setIntensiveMetadata({

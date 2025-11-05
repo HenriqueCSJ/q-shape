@@ -9,47 +9,58 @@ import { REFERENCE_GEOMETRIES } from '../../../constants/referenceGeometries';
 import calculateShapeMeasure from '../../shapeAnalysis/shapeCalculator';
 
 /**
+ * Calculate centroid of a set of coordinates
+ */
+function calculateCentroid(coords) {
+    const sum = coords.reduce((acc, c) => [
+        acc[0] + c[0],
+        acc[1] + c[1],
+        acc[2] + c[2]
+    ], [0, 0, 0]);
+    return [sum[0] / coords.length, sum[1] / coords.length, sum[2] / coords.length];
+}
+
+/**
  * Build geometry analysis for sandwich structures
  *
- * Sandwich structures (2 parallel rings) map to specific geometries:
- * - CN=10 (2×η⁵): PPR-10 (pentagonal prism), PAPR-10 (pentagonal antiprism)
- * - CN=12 (2×η⁶): Hexagonal prism/antiprism
- * - CN=14 (2×η⁷): Heptagonal prism/antiprism
+ * Sandwich structures use CENTROID-based analysis:
+ * - 2 parallel rings → CN=2 (2 centroids)
+ * - Evaluate against linear, bent geometries
+ *
+ * This correctly analyzes ferrocene as CN=2 instead of CN=10
  */
 export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive') {
-    const { coordinationNumber, ringSize } = pattern.metadata;
+    const { coordinationNumber, ringSize, ring1Coords, ring2Coords, pointBasedCN } = pattern.metadata;
 
-    console.log(`Building sandwich geometry for CN=${coordinationNumber} (2×η${ringSize})`);
+    console.log(`Building sandwich geometry for 2×η${ringSize} (point-based CN=${pointBasedCN}, centroid-based CN=${coordinationNumber})`);
 
-    // Get all reference geometries for this CN
+    // Calculate centroids for each ring
+    const centroid1 = calculateCentroid(ring1Coords);
+    const centroid2 = calculateCentroid(ring2Coords);
+
+    // Use centroid coordinates for analysis (CN=2)
+    const centroidCoords = [centroid1, centroid2];
+
+    console.log(`Using ${centroidCoords.length} ring centroids for analysis`);
+    console.log(`  Ring 1 centroid: [${centroid1.map(v => v.toFixed(3)).join(', ')}]`);
+    console.log(`  Ring 2 centroid: [${centroid2.map(v => v.toFixed(3)).join(', ')}]`);
+
+    // Get all reference geometries for centroid-based CN
     const geometries = REFERENCE_GEOMETRIES[coordinationNumber];
     if (!geometries) {
         throw new Error(`No reference geometries for CN=${coordinationNumber}`);
     }
 
-    // Filter to sandwich-like geometries (prisms, antiprisms)
-    const sandwichGeometries = Object.keys(geometries).filter(name => {
-        const lower = name.toLowerCase();
-        return lower.includes('prism') ||
-               lower.includes('antiprism') ||
-               lower.includes('ppr') ||
-               lower.includes('papr');
-    });
+    const geometryNames = Object.keys(geometries);
+    console.log(`Evaluating ${geometryNames.length} geometries for CN=${coordinationNumber}: ${geometryNames.join(', ')}`);
 
-    if (sandwichGeometries.length === 0) {
-        console.warn(`No sandwich geometries found for CN=${coordinationNumber}, using all geometries`);
-        return buildGeneralGeometry(actualCoords, coordinationNumber, mode);
-    }
-
-    console.log(`Evaluating ${sandwichGeometries.length} sandwich geometries: ${sandwichGeometries.join(', ')}`);
-
-    // Calculate CShM for each sandwich geometry
+    // Calculate CShM for each geometry
     const results = [];
-    for (const name of sandwichGeometries) {
+    for (const name of geometryNames) {
         const refCoords = geometries[name];
 
         const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-            actualCoords,
+            centroidCoords,
             refCoords,
             mode,
             null
@@ -60,7 +71,10 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
             shapeMeasure: measure,
             alignedCoords,
             rotationMatrix,
-            pattern: 'sandwich'
+            pattern: 'sandwich',
+            usedCentroids: true,
+            centroidCount: coordinationNumber,
+            pointBasedCN: pointBasedCN
         });
 
         console.log(`  ${name}: CShM = ${measure.toFixed(4)}`);
@@ -75,17 +89,58 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
 /**
  * Build geometry analysis for piano stool structures
  *
- * Half-sandwich + monodentate ligands
- * Maps to three-legged piano stool geometries
+ * Half-sandwich + monodentate ligands use CENTROID-based analysis:
+ * - 1 ring + N monodentate → CN = 1 + N (1 centroid + N atoms)
+ * - Evaluate against appropriate geometries
  */
 export function buildPianoStoolGeometry(actualCoords, pattern, mode = 'intensive') {
-    const { coordinationNumber, ringSize, monodentateCount } = pattern.metadata;
+    const { coordinationNumber, ringSize, monodentateCount, ringCoords, monoCoords, pointBasedCN } = pattern.metadata;
 
-    console.log(`Building piano stool geometry for CN=${coordinationNumber} (η${ringSize} + ${monodentateCount} ligands)`);
+    console.log(`Building piano stool geometry for η${ringSize} + ${monodentateCount} ligands (point-based CN=${pointBasedCN}, centroid-based CN=${coordinationNumber})`);
 
-    // For now, use all geometries for this CN
-    // Could be refined to prefer specific geometries based on ring size
-    return buildGeneralGeometry(actualCoords, coordinationNumber, mode);
+    // Calculate centroid for the ring
+    const ringCentroid = calculateCentroid(ringCoords);
+
+    // Combine ring centroid with monodentate coordinates
+    const centroidCoords = [ringCentroid, ...monoCoords];
+
+    console.log(`Using ${centroidCoords.length} coordinates (1 ring centroid + ${monoCoords.length} monodentate)`);
+    console.log(`  Ring centroid: [${ringCentroid.map(v => v.toFixed(3)).join(', ')}]`);
+
+    // Use general geometry analysis with centroid-based coordinates
+    const geometries = REFERENCE_GEOMETRIES[coordinationNumber];
+    if (!geometries) {
+        throw new Error(`No reference geometries for CN=${coordinationNumber}`);
+    }
+
+    const geometryNames = Object.keys(geometries);
+    console.log(`Evaluating ${geometryNames.length} geometries for CN=${coordinationNumber}`);
+
+    const results = [];
+    for (const name of geometryNames) {
+        const refCoords = geometries[name];
+
+        const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+            centroidCoords,
+            refCoords,
+            mode,
+            null
+        );
+
+        results.push({
+            name,
+            shapeMeasure: measure,
+            alignedCoords,
+            rotationMatrix,
+            pattern: 'piano_stool',
+            usedCentroids: true,
+            centroidCount: coordinationNumber,
+            pointBasedCN: pointBasedCN
+        });
+    }
+
+    results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
+    return results;
 }
 
 /**

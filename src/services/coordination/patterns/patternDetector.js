@@ -136,7 +136,8 @@ export function detectSandwichPattern(atoms, metalIndex, ligandGroups) {
         patternType: 'sandwich',
         metadata: {
             ringSize: ring1.size,
-            coordinationNumber: ring1.size + ring2.size,
+            pointBasedCN: ring1.size + ring2.size,  // Original point-based CN (10 for ferrocene)
+            coordinationNumber: 2,  // Centroid-based CN for geometry analysis
             ring1,
             ring2,
             ring1Coords,
@@ -183,7 +184,8 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
         metadata: {
             ringSize: ring.size,
             monodentateCount: monodentate.length,
-            coordinationNumber: totalCN,
+            pointBasedCN: totalCN,  // Original point-based CN
+            coordinationNumber: 1 + monodentate.length,  // Centroid-based CN (1 ring + monodentates)
             ring,
             ringCoords,
             monoCoords
@@ -247,7 +249,8 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
         metadata: {
             ringSize: ring.size,
             axialCount: axialLigands.length,
-            coordinationNumber: ring.size + axialLigands.length,
+            pointBasedCN: ring.size + axialLigands.length,  // Original point-based CN
+            coordinationNumber: ring.size + axialLigands.length,  // For macrocycles, keep point-based (atoms coordinate directly)
             ring,
             ringCoords,
             axialLigands
