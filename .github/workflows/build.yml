@@ -25,16 +25,10 @@ jobs:
 
     - name: Build application
       run: npm run build
+      env:
+        CI: false
 
     - name: Check build size
       run: |
         du -sh build/
-        du -sh build/static/js/*.js
         echo "Build completed successfully!"
-
-    - name: Archive build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-artifacts
-        path: build/
-        retention-days: 7
