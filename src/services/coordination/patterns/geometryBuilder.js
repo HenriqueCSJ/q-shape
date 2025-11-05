@@ -58,6 +58,7 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
         results.push({
             name,
             shapeMeasure: measure,
+            refCoords,  // ADD: Needed for polyhedron rendering
             alignedCoords,
             rotationMatrix,
             pattern: 'sandwich'
@@ -135,6 +136,7 @@ export function buildMacrocycleGeometry(actualCoords, pattern, mode = 'intensive
         results.push({
             name,
             shapeMeasure: measure,
+            refCoords,  // ADD: Needed for polyhedron rendering
             alignedCoords,
             rotationMatrix,
             pattern: 'macrocycle'
@@ -178,6 +180,7 @@ export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'i
         results.push({
             name,
             shapeMeasure: measure,
+            refCoords,  // ADD: Needed for polyhedron rendering
             alignedCoords,
             rotationMatrix,
             pattern: 'general'
