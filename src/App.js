@@ -224,9 +224,8 @@ export default function CoordinationGeometryAnalyzer() {
             const currentWarnings = warnings;
             const currentFileName = fileName;
             const currentAnalysisMode = analysisParams.mode;
-            // eslint-disable-next-line no-unused-vars
-            const currentIntensiveMetadata = intensiveMetadata; // TODO: Add to report HTML
-            
+            const currentIntensiveMetadata = intensiveMetadata;
+
             const canvas = canvasRef.current;
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
@@ -705,6 +704,54 @@ footer strong {
       <div class="metric-label">Number of L-M-L Angles</div>
       <div class="metric-value">${currentAdditionalMetrics.angleStats.count}</div>
     </div>
+  </div>
+  ` : ''}
+
+  ${currentIntensiveMetadata && currentIntensiveMetadata.metadata && currentIntensiveMetadata.ligandGroups ? `
+  <h2>🔬 Pattern-Based Intensive Analysis</h2>
+  <div class="info-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #10b981;">
+    <h3 style="margin-top: 0; color: #15803d;">Detected Structural Pattern</h3>
+
+    ${currentIntensiveMetadata.metadata.patternDetected ? `
+    <div style="padding: 1rem; background: white; border-radius: 8px; margin: 1rem 0;">
+      <p style="margin: 0.5rem 0;"><strong>Pattern:</strong> <span style="text-transform: capitalize;">${currentIntensiveMetadata.metadata.patternDetected.replace('_', ' ')}</span></p>
+      <p style="margin: 0.5rem 0;"><strong>Confidence:</strong> ${Math.round(currentIntensiveMetadata.metadata.patternConfidence * 100)}%</p>
+      <p style="margin: 0.5rem 0;"><strong>Coordination Number:</strong> ${currentIntensiveMetadata.metadata.coordinationNumber}</p>
+    </div>
+    ` : ''}
+
+    <h4>Ligand Groups Analysis</h4>
+    <p><strong>${currentIntensiveMetadata.ligandGroups.summary}</strong></p>
+
+    ${currentIntensiveMetadata.ligandGroups.rings && currentIntensiveMetadata.ligandGroups.rings.length > 0 ? `
+    <div style="margin-top: 1rem;">
+      <p style="font-weight: 600; color: #15803d;">Detected Rings:</p>
+      <ul style="list-style: none; padding-left: 1rem;">
+        ${currentIntensiveMetadata.ligandGroups.rings.map((ring, i) => `
+        <li style="margin: 0.5rem 0;">
+          <strong>Ring ${i+1}:</strong> ${ring.hapticity || 'Unknown'} (${ring.size} atoms, ${ring.distanceToMetal ? ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
+        </li>
+        `).join('')}
+      </ul>
+    </div>
+    ` : ''}
+
+    ${currentIntensiveMetadata.ligandGroups.hasSandwichStructure ? `
+    <div style="margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 8px; border-left: 4px solid #3b82f6;">
+      <p style="margin: 0; font-weight: 700; color: #1e40af;">🥪 Sandwich Structure Detected</p>
+      <p style="margin: 0.5rem 0 0; color: #1e3a8a; font-size: 0.9rem;">
+        This complex features parallel π-coordinated rings characteristic of sandwich compounds like ferrocene.
+        The intensive analysis treats ring centroids as coordination sites for accurate geometry determination.
+      </p>
+    </div>
+    ` : ''}
+
+    ${currentIntensiveMetadata.metadata.bestGeometry ? `
+    <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px;">
+      <p style="margin: 0;"><strong>Best Geometry:</strong> ${currentIntensiveMetadata.metadata.bestGeometry}</p>
+      <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${currentIntensiveMetadata.metadata.bestCShM ? currentIntensiveMetadata.metadata.bestCShM.toFixed(4) : 'N/A'}</p>
+    </div>
+    ` : ''}
   </div>
   ` : ''}
 
