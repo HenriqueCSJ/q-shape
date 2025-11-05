@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.x, 18.x, 20.x]
+        node-version: [18.x, 20.x]
 
     steps:
     - name: Checkout code
@@ -28,30 +28,7 @@ jobs:
       run: npm ci
 
     - name: Run tests
-      run: npm test -- --watchAll=false --passWithNoTests
+      run: npm test -- --watchAll=false
       env:
         CI: true
 
-    - name: Run tests with coverage (Node 18 only)
-      if: matrix.node-version == '18.x'
-      run: npm test -- --coverage --watchAll=false --passWithNoTests
-      env:
-        CI: true
-
-    - name: Upload coverage to Codecov
-      if: matrix.node-version == '18.x' && always()
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./coverage
-        flags: unittests
-        name: codecov-umbrella
-      continue-on-error: true
-
-    - name: Archive test results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results-${{ matrix.node-version }}
-        path: |
-          coverage/
-      continue-on-error: true
