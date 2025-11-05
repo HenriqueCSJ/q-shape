@@ -191,6 +191,8 @@ export default function CoordinationGeometryAnalyzer() {
             setWarnings([]);
             setSelectedMetal(null);
             setAnalysisParams({ mode: 'default', key: 0 });
+            setIntensiveMetadata(null);
+            setIntensiveProgress(null);
 
             // Reset file input to allow re-uploading the same file
             if (fileInputRef.current) {
