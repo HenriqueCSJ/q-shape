@@ -1,0 +1,48 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: CI=true npm test -- --coverage --watchAll=false
+
+    - name: Upload coverage to Codecov
+      if: matrix.node-version == '18.x'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/coverage-final.json
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: |
+          coverage/
+          test-results/
