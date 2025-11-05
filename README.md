@@ -4,7 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.2.1)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.3.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17448252.svg)](https://doi.org/10.5281/zenodo.17448252)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![React Version](https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
@@ -26,27 +26,39 @@
 
 ---
 
-## 🎉 What's New in v1.2.1
+## 🎉 What's New in v1.3.0
 
 <div align="center">
 
 | Feature | Description |
 |---------|-------------|
-| 📚 **Zenodo DOI** | Official DOI for permanent archival and citation: [10.5281/zenodo.17448252](https://doi.org/10.5281/zenodo.17448252) |
-| 🐛 **Critical Fixes** | Fixed infinite loops, auto-radius toggle, and button states that broke v1.1.0 |
-| 🏗️ **Modular Architecture** | Refactored into clean, maintainable modules with comprehensive documentation |
-| 🎯 **Precise Radius Control** | Text input with adjustable step size (±0.50, ±0.10, ±0.05, ±0.01 Å) for fine-tuned radius adjustments |
-| 🔍 **Find Radius by CN** | Automatically finds optimal radius for target coordination number using gap detection algorithm |
+| 🐛 **Critical Bug Fixes** | Fixed 3 critical bugs: ALL_METALS included nonmetals (H,C,N,O), metal detection selected ligands over metals, polyhedron vanishing after intensive analysis |
+| 🧪 **Test Suite** | Added 116 comprehensive automated tests ensuring code quality and preventing regressions |
+| 🔄 **CI/CD Pipeline** | GitHub Actions automatically test every commit on Node.js 18 and 20 |
+| 📄 **Enhanced PDF Reports** | Intensive analysis metadata now included in generated reports |
+| 🏗️ **Clean Architecture** | Development documentation organized in `docs/development/` |
 
-[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.2.1)
+[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.3.0) · [View Full Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
+## ⚠️ Important Notice - v1.3.0 Critical Fixes
+
+**This release fixes critical bugs that prevented Q-Shape from working correctly:**
+
+1. **🐛 ALL_METALS Bug:** H, C, N, O and other nonmetals were incorrectly classified as metals. **Now fixed!**
+2. **🐛 Metal Detection Bug:** Lanthanides and actinides were not properly detected - ligands could be selected instead. **Now fixed!**
+3. **🐛 Polyhedron Bug:** Ideal geometry overlay disappeared after intensive analysis. **Now fixed!**
+
+**All users should upgrade to v1.3.0.** See [CHANGELOG.md](CHANGELOG.md) for complete details.
+
+---
+
 ## 📑 Table of Contents
 
-- [🎉 What's New](#-whats-new-in-v110)
+- [🎉 What's New](#-whats-new-in-v130)
 - [✨ Features](#-features)
 - [🚀 Quick Start](#-quick-start)
 - [💻 Installation](#-installation)
@@ -1586,7 +1598,7 @@ If you use Q-Shape in your research, please cite:
 
 **APA:**
 ```
-Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.2.1).
+Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.3.0).
 Zenodo. https://doi.org/10.5281/zenodo.17448252
 ```
 
@@ -1595,7 +1607,7 @@ Zenodo. https://doi.org/10.5281/zenodo.17448252
 @software{qshape2025,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
-  version = {1.2.1},
+  version = {1.3.0},
   year = {2025},
   doi = {10.5281/zenodo.17448252},
   url = {https://doi.org/10.5281/zenodo.17448252},
