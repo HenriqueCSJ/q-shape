@@ -123,9 +123,15 @@ export const ATOMIC_DATA = {
 /**
  * Set of all metal elements (transition metals, alkali metals, alkaline earth metals, lanthanides, actinides)
  * Used for automatic metal center detection
+ *
+ * Note: We check for types ending with ' Metal' to avoid matching 'Nonmetal' and 'Metalloid'
  */
 export const ALL_METALS = new Set(
     Object.entries(ATOMIC_DATA)
-        .filter(([, data]) => data.type && (data.type.toLowerCase().includes('metal') || ['Lanthanide', 'Actinide'].includes(data.type)))
+        .filter(([, data]) => {
+            if (!data.type) return false;
+            // Match types ending with ' Metal' (with space) to exclude 'Nonmetal' and 'Metalloid'
+            return data.type.endsWith(' Metal') || ['Lanthanide', 'Actinide'].includes(data.type);
+        })
         .map(([symbol]) => symbol)
 );
