@@ -106,13 +106,13 @@ export function detectSandwichPattern(atoms, metalIndex, ligandGroups) {
     }
 
     // Get coordinates for each ring
-    const ring1Coords = ring1.atomIndices.map(idx => [
+    const ring1Coords = ring1.indices.map(idx => [
         atoms[idx].x - atoms[metalIndex].x,
         atoms[idx].y - atoms[metalIndex].y,
         atoms[idx].z - atoms[metalIndex].z
     ]);
 
-    const ring2Coords = ring2.atomIndices.map(idx => [
+    const ring2Coords = ring2.indices.map(idx => [
         atoms[idx].x - atoms[metalIndex].x,
         atoms[idx].y - atoms[metalIndex].y,
         atoms[idx].z - atoms[metalIndex].z
@@ -164,7 +164,7 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
     const totalCN = ring.size + monodentate.length;
 
     // Get ring coordinates
-    const ringCoords = ring.atomIndices.map(idx => [
+    const ringCoords = ring.indices.map(idx => [
         atoms[idx].x - atoms[metalIndex].x,
         atoms[idx].y - atoms[metalIndex].y,
         atoms[idx].z - atoms[metalIndex].z
@@ -212,7 +212,7 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
     }
 
     // Get ring coordinates
-    const ringCoords = ring.atomIndices.map(idx => [
+    const ringCoords = ring.indices.map(idx => [
         atoms[idx].x - atoms[metalIndex].x,
         atoms[idx].y - atoms[metalIndex].y,
         atoms[idx].z - atoms[metalIndex].z
