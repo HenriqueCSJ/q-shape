@@ -1446,8 +1446,9 @@ footer strong {
            </p>
           </div>
 
-          {/* Intensive Analysis Progress */}
-          {intensiveProgress && (
+          <div>
+            {/* Intensive Analysis Progress */}
+            {intensiveProgress && (
             <div style={{
               marginBottom: '1.5rem',
               padding: '1rem',
@@ -1607,7 +1608,6 @@ footer strong {
             </div>
           )}
 
-          <div>
             <h3 style={{ 
                 margin: '0 0 1rem 0', 
                 color: '#1e293b',
