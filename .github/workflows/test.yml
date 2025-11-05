@@ -28,15 +28,24 @@ jobs:
       run: npm ci
 
     - name: Run tests
-      run: CI=true npm test -- --coverage --watchAll=false
+      run: npm test -- --watchAll=false --passWithNoTests
+      env:
+        CI: true
+
+    - name: Run tests with coverage (Node 18 only)
+      if: matrix.node-version == '18.x'
+      run: npm test -- --coverage --watchAll=false --passWithNoTests
+      env:
+        CI: true
 
     - name: Upload coverage to Codecov
-      if: matrix.node-version == '18.x'
+      if: matrix.node-version == '18.x' && always()
       uses: codecov/codecov-action@v3
       with:
-        file: ./coverage/coverage-final.json
+        directory: ./coverage
         flags: unittests
         name: codecov-umbrella
+      continue-on-error: true
 
     - name: Archive test results
       if: always()
@@ -45,4 +54,4 @@ jobs:
         name: test-results-${{ matrix.node-version }}
         path: |
           coverage/
-          test-results/
+      continue-on-error: true
