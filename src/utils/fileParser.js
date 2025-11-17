@@ -6,6 +6,7 @@
  */
 
 import { ATOMIC_DATA } from '../constants/atomicData';
+import { FILE_PARSING } from '../constants/algorithmConstants';
 
 /**
  * Validates XYZ file content before parsing
@@ -48,7 +49,7 @@ export function validateXYZ(content) {
             throw new Error('Invalid atom count in XYZ header - must be a positive integer');
         }
 
-        if (nAtoms > 1000) {
+        if (nAtoms > FILE_PARSING.LARGE_STRUCTURE_WARNING) {
             warnings.push(`Large structure detected (${nAtoms} atoms) - analysis may be slow`);
         }
 
@@ -80,7 +81,8 @@ export function validateXYZ(content) {
                 invalidCoords.push(`Line ${i + 1}: non-numeric coordinates`);
             }
 
-            if (Math.abs(xVal) > 1000 || Math.abs(yVal) > 1000 || Math.abs(zVal) > 1000) {
+            const maxCoord = FILE_PARSING.MAX_COORD_MAGNITUDE;
+            if (Math.abs(xVal) > maxCoord || Math.abs(yVal) > maxCoord || Math.abs(zVal) > maxCoord) {
                 warnings.push(`Line ${i + 1}: Very large coordinates detected (may indicate unit mismatch)`);
             }
         }
