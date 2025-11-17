@@ -15,11 +15,12 @@
  */
 
 import * as vec3 from '../../../utils/vec3';
+import { PATTERN_DETECTION } from '../../../constants/algorithmConstants';
 
 /**
  * Detect if two rings are parallel within tolerance
  */
-function areRingsParallel(ring1Coords, ring2Coords, tolerance = 0.2) {
+function areRingsParallel(ring1Coords, ring2Coords, tolerance = PATTERN_DETECTION.PARALLELISM_TOLERANCE) {
     // Calculate normal vectors for each ring using first 3 non-collinear points
     const normal1 = calculateRingNormal(ring1Coords);
     const normal2 = calculateRingNormal(ring2Coords);
@@ -48,7 +49,7 @@ function calculateRingNormal(coords) {
 /**
  * Check if ring coordinates are approximately coplanar
  */
-function areCoplanar(coords, tolerance = 0.15) {
+function areCoplanar(coords, tolerance = PATTERN_DETECTION.COPLANARITY_TOLERANCE) {
     if (coords.length < 4) return true; // 3 or fewer points always coplanar
 
     const normal = calculateRingNormal(coords);
@@ -126,7 +127,7 @@ export function detectSandwichPattern(atoms, metalIndex, ligandGroups) {
 
     // Check reasonable distance (not too close, not too far)
     const dist = ringDistance(ring1Coords, ring2Coords);
-    if (dist < 2.0 || dist > 5.0) {
+    if (dist < PATTERN_DETECTION.MIN_SANDWICH_DISTANCE || dist > PATTERN_DETECTION.MAX_SANDWICH_DISTANCE) {
         return { confidence: 0.5, patternType: 'sandwich', metadata: null };
     }
 
@@ -207,7 +208,7 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
     const ring = rings[0];
 
     // Macrocycle typically has 4+ donors (porphyrin = 4N)
-    if (ring.size < 4) {
+    if (ring.size < PATTERN_DETECTION.MIN_MACROCYCLE_SIZE) {
         return { confidence: 0, patternType: 'macrocycle', metadata: null };
     }
 
@@ -237,8 +238,8 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
         const normalized = vec3.normalize(coord);
         const dot = Math.abs(vec3.dot(normalized, normal));
 
-        // Axial if aligned with normal (dot product > 0.7)
-        return dot > 0.7;
+        // Axial if aligned with normal (dot product > threshold)
+        return dot > PATTERN_DETECTION.AXIAL_ALIGNMENT_THRESHOLD;
     });
 
     return {
@@ -275,8 +276,8 @@ export function detectPattern(atoms, metalIndex, ligandGroups) {
         console.log(`  ${p.patternType}: ${(p.confidence * 100).toFixed(1)}% confidence`);
     });
 
-    // Only use pattern if confidence > 0.7
-    if (best.confidence > 0.7) {
+    // Only use pattern if confidence exceeds minimum threshold
+    if (best.confidence > PATTERN_DETECTION.MIN_PATTERN_CONFIDENCE) {
         console.log(`✓ Selected pattern: ${best.patternType} (${(best.confidence * 100).toFixed(1)}%)`);
         return best;
     }

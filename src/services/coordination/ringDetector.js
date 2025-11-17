@@ -8,6 +8,8 @@
  * and other π-coordinated ligands that traditional point-based algorithms fail to handle.
  */
 
+import { RING_DETECTION } from '../../constants/algorithmConstants';
+
 /**
  * Calculate distance between two 3D points
  */
@@ -65,7 +67,7 @@ function magnitude(v) {
  * @param {number} tolerance - Maximum deviation from plane (Å)
  * @returns {boolean} True if atoms are coplanar within tolerance
  */
-function isPlanar(atoms, tolerance = 0.3) {
+function isPlanar(atoms, tolerance = RING_DETECTION.PLANARITY_TOLERANCE) {
     if (atoms.length < 3) return false;
 
     // Use first three atoms to define plane
@@ -85,7 +87,8 @@ function isPlanar(atoms, tolerance = 0.3) {
     const normal = cross(v1, v2);
     const normMag = magnitude(normal);
 
-    if (normMag < 1e-6) return false; // Collinear points
+    const MIN_MAGNITUDE = 1e-6; // From KABSCH.MIN_MAGNITUDE - collinear points detection
+    if (normMag < MIN_MAGNITUDE) return false; // Collinear points
 
     // Normalize
     normal.x /= normMag;
@@ -119,9 +122,9 @@ function isPlanar(atoms, tolerance = 0.3) {
  * @param {number} maxRingSize - Maximum ring size to detect (default: 8)
  * @returns {Array<Array<number>>} Array of rings (each ring is array of atom indices)
  */
-function findRings(atoms, coordIndices, maxRingSize = 8) {
+function findRings(atoms, coordIndices, maxRingSize = RING_DETECTION.MAX_RING_SIZE) {
     const rings = [];
-    const bondThreshold = 1.8; // Å - typical C-C bond length + tolerance
+    const bondThreshold = RING_DETECTION.BOND_THRESHOLD;
 
     // Build adjacency list for coordinated atoms only
     const adjList = new Map();
@@ -224,7 +227,7 @@ function detectHapticity(ringSize, ringAtoms) {
  * @param {number} minRingSize - Minimum ring size to detect (default: 3)
  * @returns {Object} Detected ligand groups with rings and centroids
  */
-export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize = 3) {
+export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize = RING_DETECTION.MIN_RING_SIZE) {
     const rings = findRings(atoms, coordIndices);
 
     // Filter by minimum ring size
