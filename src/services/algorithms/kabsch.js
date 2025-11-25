@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { KABSCH } from '../../constants/algorithmConstants';
 
 /**
  * IMPROVED Kabsch Algorithm with robust numerical SVD
@@ -115,8 +116,8 @@ export default function kabschAlignment(P, Q) {
  *          Object containing U and V matrices from SVD decomposition
  */
 export function jacobiSVD(A) {
-    const maxIterations = 100;
-    const tolerance = 1e-10;
+    const maxIterations = KABSCH.MAX_ITERATIONS;
+    const tolerance = KABSCH.TOLERANCE;
 
     // Initialize U and V as identity matrices
     const U = [
@@ -166,7 +167,7 @@ export function jacobiSVD(A) {
         const Spq = S[p][q];
 
         let c, s;
-        if (Math.abs(Spq) < tolerance) {
+        if (Math.abs(Spq) < KABSCH.TOLERANCE) {
             c = 1;
             s = 0;
         } else {

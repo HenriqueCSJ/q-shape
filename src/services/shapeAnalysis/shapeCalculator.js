@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import kabschAlignment from '../algorithms/kabsch.js';
 import hungarianAlgorithm from '../algorithms/hungarian.js';
+import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
 
 /**
  * Calculates the shape measure between actual and reference coordinates using
@@ -53,30 +54,15 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
     }
 
-    const params = {
-        default: {
-            gridSteps: 18,        // Reduced from 20
-            gridStride: 3,
-            numRestarts: 6,         // Reduced from 8
-            stepsPerRun: 3000,      // Reduced from 5000
-            refinementSteps: 2000,  // Reduced from 4000
-            useKabsch: true,
-        },
-        intensive: {
-            gridSteps: 30,          // Reduced from 36
-            gridStride: 2,
-            numRestarts: 12,        // Reduced from 16
-            stepsPerRun: 8000,     // Reduced from 12000
-            refinementSteps: 6000,  // Reduced from 10000
-            useKabsch: true,
-        }
-    };
-    const currentParams = params[mode] || params.default;
+    // Load parameters from constants (documented with scientific justification)
+    const currentParams = mode === 'intensive'
+        ? SHAPE_MEASURE.INTENSIVE
+        : SHAPE_MEASURE.DEFAULT;
 
     try {
         // Normalize actual coordinates
         const P_vecs = actualCoords.map(c => new THREE.Vector3(...c));
-        if (P_vecs.some(v => v.lengthSq() < 1e-8)) {
+        if (P_vecs.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
             console.warn("Found coordinating atom at the same position as the center.");
             return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
         }
@@ -107,10 +93,11 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         let globalBestMatching = [];
 
         let totalSteps = 0;
-        const estimatedTotalSteps = (currentParams.useKabsch ? 1 : 0) + 18 +
-            Math.ceil(currentParams.gridSteps / currentParams.gridStride) ** 3 +
-            currentParams.numRestarts * currentParams.stepsPerRun +
-            currentParams.refinementSteps;
+        const estimatedTotalSteps = (currentParams.USE_KABSCH ? 1 : 0) +
+            SHAPE_MEASURE.NUM_KEY_ORIENTATIONS +
+            Math.ceil(currentParams.GRID_STEPS / currentParams.GRID_STRIDE) ** 3 +
+            currentParams.NUM_RESTARTS * currentParams.STEPS_PER_RUN +
+            currentParams.REFINEMENT_STEPS;
 
         const reportProgress = (stage, current, total, extra = '') => {
             if (progressCallback) {
@@ -120,7 +107,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         };
 
         // STAGE 0: Kabsch Initial Alignment (IMPROVED)
-        if (currentParams.useKabsch) {
+        if (currentParams.USE_KABSCH) {
             reportProgress('Kabsch Alignment', 0, 1);
             try {
                 const initialCostMatrix = P_vecs.map(p => Q_vecs.map(q => p.distanceToSquared(q)));
@@ -144,8 +131,9 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             }
         }
 
-        // STAGE 1: Reduced key orientations (18 instead of 24)
-        reportProgress('Key Orientations', 0, 18);
+        // STAGE 1: Key orientations test
+        const numKeyOrientations = SHAPE_MEASURE.NUM_KEY_ORIENTATIONS;
+        reportProgress('Key Orientations', 0, numKeyOrientations);
         const keyOrientations = [
             [0, 0, 0],
             [Math.PI/2, 0, 0], [0, Math.PI/2, 0], [0, 0, Math.PI/2],
@@ -166,11 +154,13 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 globalBestMatching = result.matching;
             }
             totalSteps++;
-            if (idx % 6 === 0) reportProgress('Key Orientations', idx, 18, `Best: ${globalBestMeasure.toFixed(4)}`);
+            if (idx % PROGRESS.KEY_ORIENTATIONS_UPDATE_FREQUENCY === 0) {
+                reportProgress('Key Orientations', idx, numKeyOrientations, `Best: ${globalBestMeasure.toFixed(4)}`);
+            }
         });
 
         // Early termination if already excellent
-        if (globalBestMeasure < 0.01) {
+        if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_KEY_ORIENTATIONS) {
             reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
             const finalAlignedCoords = new Array(N);
@@ -186,8 +176,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         // STAGE 2: Grid search (optimized)
         reportProgress('Grid Search', 0, 100);
-        const gridSteps = currentParams.gridSteps;
-        const gridStride = currentParams.gridStride;
+        const gridSteps = currentParams.GRID_STEPS;
+        const gridStride = currentParams.GRID_STRIDE;
         const angleStep = (2 * Math.PI) / gridSteps;
 
         let gridCount = 0;
@@ -206,7 +196,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                     }
                     totalSteps++;
                     gridCount++;
-                    if (gridCount % 50 === 0) {
+                    if (gridCount % PROGRESS.GRID_UPDATE_FREQUENCY === 0) {
                         reportProgress('Grid Search', gridCount, totalGridPoints, `Best: ${globalBestMeasure.toFixed(4)}`);
                     }
                 }
@@ -214,7 +204,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         }
 
         // Early termination check
-        if (globalBestMeasure < 0.05) {
+        if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_GRID_SEARCH) {
             reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
             const finalAlignedCoords = new Array(N);
@@ -229,8 +219,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         }
 
         // STAGE 3: Simulated annealing (optimized)
-        const numRestarts = currentParams.numRestarts;
-        const stepsPerRun = currentParams.stepsPerRun;
+        const numRestarts = currentParams.NUM_RESTARTS;
+        const stepsPerRun = currentParams.STEPS_PER_RUN;
 
         for (let restart = 0; restart < numRestarts; restart++) {
             reportProgress('Annealing', restart, numRestarts, `Best: ${globalBestMeasure.toFixed(4)}`);
@@ -256,12 +246,16 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             let bestMatchingInRun = currentResult.matching;
 
             // Adaptive temperature schedule
-            let temp = 20.0;  // Reduced from 30.0
-            const minTemp = 0.001;
+            const initialTemp = mode === 'intensive'
+                ? SHAPE_MEASURE.ANNEALING.INITIAL_TEMP_INTENSIVE
+                : SHAPE_MEASURE.ANNEALING.INITIAL_TEMP_DEFAULT;
+            let temp = initialTemp;
+            const minTemp = SHAPE_MEASURE.ANNEALING.MIN_TEMP;
             const alpha = Math.pow(minTemp / temp, 1 / stepsPerRun);
 
             for (let step = 0; step < stepsPerRun; step++) {
-                const stepSize = temp * 0.12 * (1 + 0.2 * Math.random());
+                const stepSize = temp * SHAPE_MEASURE.ANNEALING.STEP_SIZE_FACTOR *
+                    (1 + SHAPE_MEASURE.ANNEALING.STEP_SIZE_RANDOMNESS * Math.random());
                 const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
                 const angle = (Math.random() - 0.5) * 2 * stepSize;
 
@@ -287,7 +281,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 totalSteps++;
 
                 // Early termination for this run
-                if (bestInRun < 0.001) break;
+                if (bestInRun < SHAPE_MEASURE.EARLY_STOP.DURING_ANNEALING_RUN) break;
             }
 
             if (bestInRun < globalBestMeasure) {
@@ -297,19 +291,19 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             }
 
             // Early termination if excellent result
-            if (globalBestMeasure < 0.01) break;
+            if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_ANNEALING) break;
         }
 
         // STAGE 4: Final refinement (optimized)
         reportProgress('Refinement', 0, 100);
         let currentRotation = globalBestRotation.clone();
         let currentMeasure = globalBestMeasure;
-        let temp = 3.0;  // Reduced from 5.0
-        const refinementSteps = currentParams.refinementSteps;
+        let temp = SHAPE_MEASURE.REFINEMENT.INITIAL_TEMP;
+        const refinementSteps = currentParams.REFINEMENT_STEPS;
         let noImprovementCount = 0;
 
         for (let step = 0; step < refinementSteps; step++) {
-            const stepSize = temp * 0.02;
+            const stepSize = temp * SHAPE_MEASURE.REFINEMENT.STEP_SIZE_FACTOR;
             const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
             const angle = (Math.random() - 0.5) * 2 * stepSize;
 
@@ -331,15 +325,18 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 noImprovementCount++;
             }
 
-            temp *= 0.999;
+            temp *= SHAPE_MEASURE.REFINEMENT.TEMP_DECAY;
             totalSteps++;
 
-            if (step % 500 === 0) {
+            if (step % PROGRESS.REFINEMENT_UPDATE_FREQUENCY === 0) {
                 reportProgress('Refinement', step, refinementSteps, `Best: ${globalBestMeasure.toFixed(4)}`);
             }
 
             // Early termination
-            if (noImprovementCount > 500 && globalBestMeasure < 0.01) break;
+            if (noImprovementCount > SHAPE_MEASURE.REFINEMENT.NO_IMPROVEMENT_LIMIT &&
+                globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.DURING_REFINEMENT) {
+                break;
+            }
         }
 
         reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);

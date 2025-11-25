@@ -7,6 +7,8 @@
  * coordination shells.
  */
 
+import { GAP_DETECTION } from '../../constants/algorithmConstants';
+
 /**
  * Find optimal radius for a target coordination number
  *
@@ -50,9 +52,11 @@
  */
 export default function findOptimalRadiusForCN({ atoms, metalIndex, targetCN, THREE }) {
     // Validate input
-    if (!Number.isFinite(targetCN) || targetCN < 2 || targetCN > 60) {
+    const MIN_CN = 2; // Minimum meaningful coordination number
+    const MAX_CN = GAP_DETECTION.MAX_AUTO_CN;
+    if (!Number.isFinite(targetCN) || targetCN < MIN_CN || targetCN > MAX_CN) {
         return {
-            error: "Target CN must be between 2 and 60",
+            error: `Target CN must be between ${MIN_CN} and ${MAX_CN}`,
             optimalRadius: null,
             gap: null,
             isLastAtom: false,
@@ -75,6 +79,7 @@ export default function findOptimalRadiusForCN({ atoms, metalIndex, targetCN, TH
         const center = new THREE.Vector3(metal.x, metal.y, metal.z);
 
         // Calculate distances to all neighbors
+        const MIN_DISTANCE = 0.1; // Å - filter out overlapping/bonded atoms
         const allNeighbors = atoms
             .map((atom, idx) => {
                 if (idx === metalIndex) return null;
@@ -83,7 +88,7 @@ export default function findOptimalRadiusForCN({ atoms, metalIndex, targetCN, TH
                 if (!isFinite(distance)) return null;
                 return { atom, idx, distance, vec: pos.sub(center) };
             })
-            .filter((x) => x && x.distance > 0.1) // Filter out very close atoms (likely overlapping)
+            .filter((x) => x && x.distance > MIN_DISTANCE) // Filter out very close atoms (likely overlapping)
             .sort((a, b) => a.distance - b.distance); // Sort by distance
 
         // Check if we have enough neighbors
@@ -107,11 +112,13 @@ export default function findOptimalRadiusForCN({ atoms, metalIndex, targetCN, TH
         if (allNeighbors.length > targetCN) {
             const firstExcluded = allNeighbors[targetCN];
             // Set radius at midpoint between last included and first excluded
+            // Set radius at midpoint of gap
             optimalRadius = (lastIncluded.distance + firstExcluded.distance) / 2.0;
             gap = firstExcluded.distance - lastIncluded.distance;
         } else {
             // No more neighbors, add safety margin
-            optimalRadius = lastIncluded.distance + 0.4;
+            const DEFAULT_GAP_EXTENSION = 0.4; // Å - default extension when no next neighbor
+            optimalRadius = lastIncluded.distance + DEFAULT_GAP_EXTENSION;
             isLastAtom = true;
         }
 
