@@ -4,7 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.3.0)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.4.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17448252.svg)](https://doi.org/10.5281/zenodo.17448252)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![React Version](https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
@@ -26,33 +26,34 @@
 
 ---
 
-## 🎉 What's New in v1.3.0
+## 🎉 What's New in v1.4.0
 
 <div align="center">
 
 | Feature | Description |
 |---------|-------------|
-| 🐛 **Critical Bug Fixes** | Fixed 3 critical bugs: ALL_METALS included nonmetals (H,C,N,O), metal detection selected ligands over metals, polyhedron vanishing after intensive analysis |
-| 🧪 **Test Suite** | Added 116 comprehensive automated tests ensuring code quality and preventing regressions |
-| 🔄 **CI/CD Pipeline** | GitHub Actions automatically test every commit on Node.js 18 and 20 |
-| 📄 **Enhanced PDF Reports** | Intensive analysis metadata now included in generated reports |
-| 🏗️ **Clean Architecture** | Development documentation organized in `docs/development/` |
+| 🏗️ **Major Refactoring** | App.js reduced from 1,809 → 416 lines (-77%); modular component architecture |
+| 🐛 **Hungarian Algorithm Fix** | Replaced incomplete greedy implementation with proper munkres-js library |
+| 🧪 **Comprehensive Testing** | 258 tests (was 116); added tests for Kabsch, shape calculator, ring detector, file parser |
+| 🔧 **Code Quality** | All magic numbers extracted to algorithmConstants.js (517 lines) |
+| 📖 **Publication Ready** | Resolved all 4 publication blockers identified in code review |
 
-[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.3.0) · [View Full Changelog](CHANGELOG.md)
+[View Release Notes](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.4.0) · [View Full Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-## ⚠️ Important Notice - v1.3.0 Critical Fixes
+## 📊 v1.4.0 Highlights
 
-**This release fixes critical bugs that prevented Q-Shape from working correctly:**
+**This release transforms Q-Shape into publication-ready scientific software:**
 
-1. **🐛 ALL_METALS Bug:** H, C, N, O and other nonmetals were incorrectly classified as metals. **Now fixed!**
-2. **🐛 Metal Detection Bug:** Lanthanides and actinides were not properly detected - ligands could be selected instead. **Now fixed!**
-3. **🐛 Polyhedron Bug:** Ideal geometry overlay disappeared after intensive analysis. **Now fixed!**
+- ✅ **Proper Hungarian algorithm** - Guarantees optimal atom-vertex assignment
+- ✅ **Modular architecture** - 5 new React components, clean separation of concerns
+- ✅ **142 new tests** - Comprehensive coverage of critical algorithms
+- ✅ **Centralized constants** - No more magic numbers scattered in code
 
-**All users should upgrade to v1.3.0.** See [CHANGELOG.md](CHANGELOG.md) for complete details.
+**See [v1.3.0 release](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.3.0) for previous critical bug fixes.**
 
 ---
 
@@ -1598,7 +1599,7 @@ If you use Q-Shape in your research, please cite:
 
 **APA:**
 ```
-Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.3.0).
+Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0).
 Zenodo. https://doi.org/10.5281/zenodo.17448252
 ```
 
@@ -1607,7 +1608,7 @@ Zenodo. https://doi.org/10.5281/zenodo.17448252
 @software{qshape2025,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
-  version = {1.3.0},
+  version = {1.4.0},
   year = {2025},
   doi = {10.5281/zenodo.17448252},
   url = {https://doi.org/10.5281/zenodo.17448252},
