@@ -415,7 +415,7 @@ footer strong {
   <p><strong>Analysis Mode:</strong> ${analysisMode === 'intensive' ? 'Intensive (High Precision) with Kabsch Alignment' : 'Standard with Improved Kabsch Alignment'}</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
     Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo.
-    <a href="https://doi.org/10.5281/zenodo.17448252" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17448252</a>
+    <a href="https://doi.org/10.5281/zenodo.17717110" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17717110</a>
   </p>
 </header>
 
@@ -632,7 +632,7 @@ footer strong {
   <p style="margin-top: 1rem;">Comprehensive analysis with ${totalAvailableGeometries} reference geometries • Optimized Kabsch alignment with Jacobi SVD • Enhanced Hungarian algorithm</p>
   <p style="margin-top: 1rem; font-size: 0.85em;">
     Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo.
-    <a href="https://doi.org/10.5281/zenodo.17448252" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17448252</a>
+    <a href="https://doi.org/10.5281/zenodo.17717110" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17717110</a>
   </p>
   <p style="margin-top: 0.5rem; font-size: 0.85em; color: #64748b;">
     Based on Continuous Shape Measures methodology: Pinsky & Avnir (1998), Alvarez et al. (2002)

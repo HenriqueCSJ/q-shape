@@ -5,7 +5,7 @@
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
 [![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.4.0)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17448252.svg)](https://doi.org/10.5281/zenodo.17448252)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17717110.svg)](https://doi.org/10.5281/zenodo.17717110)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![React Version](https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-r147-black?style=flat-square&logo=three.js)](https://threejs.org/)
@@ -1600,7 +1600,7 @@ If you use Q-Shape in your research, please cite:
 **APA:**
 ```
 Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0).
-Zenodo. https://doi.org/10.5281/zenodo.17448252
+Zenodo. https://doi.org/10.5281/zenodo.17717110
 ```
 
 **BibTeX:**
@@ -1610,8 +1610,8 @@ Zenodo. https://doi.org/10.5281/zenodo.17448252
   title = {Q-Shape - Quantitative Shape Analyzer},
   version = {1.4.0},
   year = {2025},
-  doi = {10.5281/zenodo.17448252},
-  url = {https://doi.org/10.5281/zenodo.17448252},
+  doi = {10.5281/zenodo.17717110},
+  url = {https://doi.org/10.5281/zenodo.17717110},
   publisher = {Zenodo}
 }
 ```
