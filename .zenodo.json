@@ -1,7 +1,7 @@
 {
   "title": "Q-Shape - Quantitative Shape Analyzer",
   "version": "v1.4.0",
-  "description": "Q-Shape: Advanced coordination geometry analysis using Continuous Shape Measures (CShM). A web-based tool for analyzing molecular coordination geometries with 80+ reference structures, real-time 3D visualization, and comprehensive quality metrics.",
+  "description": "Q-Shape: Advanced coordination geometry analysis using Continuous Shape Measures (CShM). A web-based tool for analyzing molecular coordination geometries with 92 reference geometries (CN 2-12, 20, 24, 48, 60), real-time 3D visualization, and comprehensive quality metrics.",
   "creators": [
     {
       "name": "Castro Silva Junior, Henrique",

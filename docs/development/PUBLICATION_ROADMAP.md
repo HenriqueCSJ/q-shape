@@ -197,7 +197,7 @@
 - [ ] Figure 7: UI screenshots
 
 **Required Tables:**
-- [ ] Table 1: Reference geometries (all 87)
+- [ ] Table 1: Reference geometries (all 92)
 - [ ] Table 2: Validation statistics by CN
 - [ ] Table 3: Benchmark results (top 20 structures)
 - [ ] Table 4: Performance comparison

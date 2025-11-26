@@ -81,7 +81,7 @@
 <td width="50%">
 
 ### 🎯 Core Features
-- ✅ **87 Reference Geometries** (CN 2-12)
+- ✅ **92 Reference Geometries** (CN 2-12, 20, 24, 48, 60)
 - ✅ **Improved Kabsch Alignment**
 - ✅ **Optimized Hungarian Algorithm**
 - ✅ **Multi-stage Optimization**
@@ -764,7 +764,7 @@ q-shape/
 │   │   ├── matrix.js               # Linear algebra utilities
 │   │   └── optimization.js         # Simulated annealing, gradient descent
 │   ├── data/               # Reference geometries
-│   │   └── referenceGeometries.js  # 87 SHAPE 2.1 geometries (2000+ lines)
+│   │   └── referenceGeometries.js  # 92 reference geometries (87 from SHAPE 2.1 + 5 high-CN geometries)
 │   └── components/         # (Planned modularization)
 │       ├── FileUpload.jsx
 │       ├── ControlPanel.jsx
@@ -951,7 +951,7 @@ T(12) = 0.12 × 13 × 1728 + 2.5 ≈ 65 sec ✓
 #### Memory Usage Analysis
 
 **Static Allocations:**
-- Reference geometries: ~500 KB (87 geometries × ~6 KB each)
+- Reference geometries: ~500 KB (92 geometries × ~5.5 KB each)
 - Three.js scene graph: ~50 MB (WebGL buffers, textures)
 - React component tree: ~20 MB
 
@@ -1196,7 +1196,7 @@ All 87 reference geometries were:
 #### 8. Quality Assurance Checklist
 
 For each release:
-- [x] All 87 geometries load correctly
+- [x] All 92 geometries load correctly
 - [x] Perfect test structures return S ≈ 0
 - [x] No console errors or warnings
 - [x] Build succeeds without errors
@@ -1477,7 +1477,7 @@ try {
 
 </details>
 
-### Reference Geometries (SHAPE 2.1)
+### Reference Geometries
 
 | CN | Count | Examples |
 |----|-------|----------|
@@ -1492,8 +1492,12 @@ try {
 | 10 | 13 | Pentagonal prism/antiprism, Bicapped cube |
 | 11 | 7 | Various capped structures |
 | 12 | 13 | Icosahedron, Cuboctahedron, Hexagonal prism |
+| **20** | **1** | **Dodecahedron (Platonic solid)** |
+| **24** | **2** | **Truncated Cube, Truncated Octahedron** |
+| **48** | **1** | **Truncated Cuboctahedron (Archimedean solid)** |
+| **60** | **1** | **Truncated Icosahedron (C₆₀ fullerene/"buckyball")** |
 
-**Total: 87 reference geometries**
+**Total: 92 reference geometries** (87 from SHAPE 2.1 + 5 high-CN from CoSyMlib)
 
 ---
 

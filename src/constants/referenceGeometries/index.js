@@ -1,12 +1,14 @@
 /**
  * @fileoverview Reference Geometries for SHAPE Analysis
  *
- * This module contains the complete SHAPE 2.1 reference geometry library used for
+ * This module contains reference geometries from SHAPE 2.1 and CoSyMlib used for
  * continuous shape measure calculations in coordination chemistry.
  *
  * The module provides:
  * - normalize(): Helper function to normalize 3D coordinate vectors
- * - REFERENCE_GEOMETRIES: Complete library of 82 ideal polyhedra for CN 2-12
+ * - REFERENCE_GEOMETRIES: Library of 92 ideal polyhedra:
+ *   - 87 geometries for CN 2-12 (SHAPE 2.1)
+ *   - 5 high-coordination geometries for CN 20, 24, 48, 60 (CoSyMlib)
  *
  * Each geometry is defined by normalized 3D coordinates representing the ideal
  * vertices of the polyhedron. These reference structures are used to calculate
