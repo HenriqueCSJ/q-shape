@@ -256,7 +256,7 @@ All 116 tests pass ✅
 - Precise radius control with text input
 - Adjustable step size (±0.50, ±0.10, ±0.05, ±0.01 Å)
 - Find Radius by CN feature with gap detection algorithm
-- Official Zenodo DOI: [10.5281/zenodo.17448252](https://doi.org/10.5281/zenodo.17448252)
+- Official Zenodo DOI: [10.5281/zenodo.17717110](https://doi.org/10.5281/zenodo.17717110)
 
 ---
 
@@ -288,6 +288,6 @@ All 116 tests pass ✅
 
 - **Repository:** https://github.com/HenriqueCSJ/q-shape
 - **Live Demo:** https://henriquecsj.github.io/q-shape
-- **DOI:** https://doi.org/10.5281/zenodo.17448252
+- **DOI:** https://doi.org/10.5281/zenodo.17717110
 - **Issues:** https://github.com/HenriqueCSJ/q-shape/issues
 - **Changelog:** https://github.com/HenriqueCSJ/q-shape/blob/main/CHANGELOG.md
