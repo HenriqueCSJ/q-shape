@@ -749,39 +749,39 @@ q-shape/
 │   ├── UFRRJ.png           # University logo
 │   └── manifest.json        # PWA manifest
 ├── src/
-│   ├── App.js              # Main application component (1400+ lines)
+│   ├── App.js              # Main application component (416 lines, refactored)
 │   ├── App.css             # Global styles
 │   ├── index.js            # React entry point
-│   ├── hooks/              # Custom React hooks
-│   │   ├── useShapeAnalysis.js    # Core analysis logic (350 lines)
-│   │   ├── useRadiusControl.js    # Coordination radius management
-│   │   ├── useFileUpload.js       # XYZ file parsing
-│   │   └── useMetalDetection.js   # Automatic metal center detection
+│   ├── components/         # Modular React components (v1.4.0)
+│   │   ├── AnalysisControls.jsx      # Analysis mode and settings (185 lines)
+│   │   ├── CoordinationSummary.jsx   # Coordination sphere display (351 lines)
+│   │   ├── FileUploadSection.jsx     # File upload handling (26 lines)
+│   │   ├── ResultsDisplay.jsx        # Shape analysis results (192 lines)
+│   │   └── Visualization3D.jsx       # 3D molecular viewer (100 lines)
+│   ├── services/           # Business logic and services
+│   │   └── reportGenerator.js        # PDF report generation (711 lines)
 │   ├── utils/              # Algorithm implementations
 │   │   ├── kabsch.js               # Kabsch alignment (150 lines)
-│   │   ├── hungarian.js            # Hungarian algorithm (200 lines)
 │   │   ├── shapeMeasure.js         # CShM calculation (100 lines)
 │   │   ├── matrix.js               # Linear algebra utilities
 │   │   └── optimization.js         # Simulated annealing, gradient descent
-│   ├── data/               # Reference geometries
-│   │   └── referenceGeometries.js  # 92 reference geometries (87 from SHAPE 2.1 + 5 high-CN geometries)
-│   └── components/         # (Planned modularization)
-│       ├── FileUpload.jsx
-│       ├── ControlPanel.jsx
-│       ├── Viewer3D.jsx
-│       └── ResultsDisplay.jsx
-└── package.json            # Dependencies and scripts
+│   └── constants/          # Configuration and data
+│       ├── algorithmConstants.js     # All magic numbers centralized (517 lines)
+│       ├── atomicData.js             # Element properties
+│       └── referenceGeometries/
+│           └── index.js              # 92 reference geometries (87 from SHAPE 2.1 + 5 high-CN)
+└── package.json            # Dependencies (munkres-js v1.2.2 for Hungarian algorithm)
 ```
 
-#### Component Architecture
+#### Component Architecture (v1.4.0 Refactored)
 
 ```
-<App>
-├── <FileUploadSection>
+<App> (416 lines, orchestration layer)
+├── <FileUploadSection>           # File input component
 │   ├── Drag-and-drop zone
 │   ├── File validation
 │   └── XYZ parsing
-├── <ControlPanel>
+├── <AnalysisControls>             # Analysis settings component
 │   ├── Metal selection dropdown
 │   ├── Radius controls
 │   │   ├── Auto-detection toggle
@@ -789,20 +789,31 @@ q-shape/
 │   │   ├── Step size selector
 │   │   └── Find by CN
 │   └── Analysis mode toggle
-├── <Viewer3D> (Three.js)
+├── <CoordinationSummary>          # Coordination sphere info component
+│   ├── Selected atoms display
+│   ├── Bond distance statistics
+│   ├── Coordination number
+│   └── Quality metrics
+├── <Visualization3D>              # Three.js viewer component
 │   ├── Molecule renderer
 │   ├── Ideal geometry overlay
 │   ├── Coordination sphere
 │   ├── Atom labels
 │   └── OrbitControls
-├── <ResultsPanel>
+├── <ResultsDisplay>               # Results table component
 │   ├── Shape measure table
 │   ├── Quality interpretation
 │   ├── Bond statistics
 │   └── Generate report button
-└── <WarningsPanel>
-    └── User feedback messages
+└── Warnings & Error Messages
+    └── Inline validation feedback
 ```
+
+**Key Architectural Changes:**
+- App.js reduced from 1,809 → 416 lines (-77%)
+- 5 new modular components extracted (854 lines total)
+- reportGenerator.js service layer (711 lines)
+- Improved separation of concerns and testability
 
 #### State Management
 
@@ -858,7 +869,8 @@ User generates report → HTML string with embedded data
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "three": "^0.147.0"          // 3D visualization
+    "three": "^0.147.0",         // 3D visualization
+    "munkres-js": "^1.2.2"       // Hungarian algorithm (v1.4.0)
   },
   "devDependencies": {
     "react-scripts": "5.0.1",    // Build tooling
@@ -873,9 +885,15 @@ User generates report → HTML string with embedded data
 - Main JS: ~180 KB (gzipped)
 - Three.js: ~150 KB (gzipped)
 
+#### Recent Improvements (v1.4.0)
+
+- [x] **Refactor App.js into smaller components** - Completed! (1,809 → 416 lines, 5 new components)
+- [x] **Replace Hungarian algorithm** - Now using munkres-js library
+- [x] **Extract magic numbers** - Centralized in algorithmConstants.js
+- [x] **Comprehensive testing** - 258 tests covering critical algorithms
+
 #### Future Improvements
 
-- [ ] Refactor App.js into smaller components
 - [ ] Implement Web Workers for background computation
 - [ ] Add service worker for offline PWA functionality
 - [ ] Migrate to TypeScript for type safety
@@ -1239,23 +1257,28 @@ console.log(rotation);  // 3×3 rotation matrix
 console.log(rmsd);      // ≈ 0 for perfect alignment
 ```
 
-**2. Hungarian Algorithm**
+**2. Hungarian Algorithm (munkres-js)**
 
 ```javascript
-import { hungarianAlgorithm } from './utils/hungarian.js';
+import { Munkres } from 'munkres-js';  // v1.4.0: Using production library
 
 /**
  * Solves assignment problem (optimal bipartite matching)
  * @param {number[][]} costMatrix - N × N cost matrix
- * @returns {number[]} assignment - Optimal permutation [0...N-1]
+ * @returns {number[][]} assignment - Optimal matching as [row, col] pairs
  */
 const costMatrix = [
     [4, 2, 8],
     [4, 3, 7],
     [3, 1, 6]
 ];
-const assignment = hungarianAlgorithm(costMatrix);
-console.log(assignment);  // [1, 2, 0] (optimal matching)
+const munkres = new Munkres();
+const assignment = munkres.compute(costMatrix);
+console.log(assignment);  // [[0,1], [1,2], [2,0]] (optimal matching)
+
+// Convert to permutation array for shape analysis
+const permutation = assignment.map(pair => pair[1]);
+console.log(permutation);  // [1, 2, 0]
 ```
 
 **3. Shape Measure Calculation**
