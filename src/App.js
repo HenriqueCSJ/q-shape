@@ -285,10 +285,10 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.3.0 | Built: January 5, 2025
+            Version 1.4.0 | Built: November 25, 2025
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.3.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17448252" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17448252</a>
+            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17448252" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17448252</a>
         </p>
       </header>
 
