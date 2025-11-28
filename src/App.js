@@ -28,6 +28,7 @@ export default function CoordinationGeometryAnalyzer() {
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
+    const [selectedGeometryIndex, setSelectedGeometryIndex] = useState(0); // Index of geometry to visualize
 
     // Intensive Analysis State
     const [intensiveMetadata, setIntensiveMetadata] = useState(null);
@@ -167,13 +168,25 @@ export default function CoordinationGeometryAnalyzer() {
         onError: handleError
     });
 
+    // Reset selected geometry to best match when new results arrive
+    useEffect(() => {
+        if (geometryResults && geometryResults.length > 0) {
+            setSelectedGeometryIndex(0);
+        }
+    }, [geometryResults]);
+
+    // Determine which geometry to visualize based on user selection
+    const displayGeometry = geometryResults && geometryResults.length > selectedGeometryIndex
+        ? geometryResults[selectedGeometryIndex]
+        : bestGeometry;
+
     // Three.js Scene Hook
     const { sceneRef, rendererRef, cameraRef } = useThreeScene({
         canvasRef,
         atoms,
         selectedMetal,
         coordAtoms,
-        bestGeometry,
+        bestGeometry: displayGeometry, // Use selected geometry instead of always using best
         autoRotate,
         showIdeal,
         showLabels
@@ -386,6 +399,8 @@ export default function CoordinationGeometryAnalyzer() {
             analysisParams={analysisParams}
             progress={progress}
             selectedMetal={selectedMetal}
+            selectedGeometryIndex={selectedGeometryIndex}
+            onGeometrySelect={setSelectedGeometryIndex}
           />
         </div>
       </>

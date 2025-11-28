@@ -13,18 +13,30 @@ export default function ResultsDisplay({
     geometryResults,
     analysisParams,
     progress,
-    selectedMetal
+    selectedMetal,
+    selectedGeometryIndex = 0,
+    onGeometrySelect
 }) {
     return (
         <div>
             <h3 style={{
-                margin: '0 0 1rem 0',
+                margin: '0 0 0.5rem 0',
                 color: '#1e293b',
                 fontSize: '1.25rem',
                 fontWeight: 700
             }}>
                 📈 Geometry Analysis Results
             </h3>
+            {geometryResults.length > 0 && (
+                <p style={{
+                    margin: '0 0 1rem 0',
+                    color: '#64748b',
+                    fontSize: '0.85rem',
+                    fontStyle: 'italic'
+                }}>
+                    💡 Click on any geometry to visualize it in 3D
+                </p>
+            )}
             {isLoading ? (
                 <div style={{
                     padding: '3rem 2rem',
@@ -62,20 +74,38 @@ export default function ResultsDisplay({
                 <div className="results-container">
                     {geometryResults.slice(0, 15).map((r, i) => {
                         const inter = interpretShapeMeasure(r.shapeMeasure);
+                        const isSelected = i === selectedGeometryIndex;
+                        const isBest = i === 0;
                         return (
                             <div
                                 key={i}
+                                onClick={() => onGeometrySelect && onGeometrySelect(i)}
                                 style={{
                                     padding: '1rem',
-                                    background: i === 0
+                                    background: isSelected
+                                        ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                                        : isBest
                                         ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'
                                         : i % 2 === 0 ? '#f9fafb' : '#fff',
                                     borderBottom: i < 14 ? '1px solid #e2e8f0' : 'none',
-                                    borderLeft: i === 0 ? '4px solid #10b981' : '4px solid transparent',
-                                    transition: 'all 0.2s'
+                                    borderLeft: isSelected
+                                        ? '4px solid #3b82f6'
+                                        : isBest ? '4px solid #10b981' : '4px solid transparent',
+                                    transition: 'all 0.2s',
+                                    cursor: 'pointer'
                                 }}
-                                onMouseOver={(e) => e.currentTarget.style.background = i === 0 ? 'linear-gradient(135deg, #bbf7d0 0%, #86efac 100%)' : '#f1f5f9'}
-                                onMouseOut={(e) => e.currentTarget.style.background = i === 0 ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)' : i % 2 === 0 ? '#f9fafb' : '#fff'}
+                                onMouseOver={(e) => {
+                                    if (!isSelected) {
+                                        e.currentTarget.style.background = isBest ? 'linear-gradient(135deg, #bbf7d0 0%, #86efac 100%)' : '#f1f5f9';
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.background = isSelected
+                                        ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                                        : isBest
+                                        ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'
+                                        : i % 2 === 0 ? '#f9fafb' : '#fff';
+                                }}
                             >
                                 <div style={{
                                     display: 'flex',
@@ -86,10 +116,12 @@ export default function ResultsDisplay({
                                     <div style={{ flex: 1 }}>
                                         <strong style={{
                                             fontSize: '0.95rem',
-                                            color: i === 0 ? '#15803d' : '#1e293b',
+                                            color: isSelected ? '#1e40af' : isBest ? '#15803d' : '#1e293b',
                                             display: 'block'
                                         }}>
+                                            {isSelected && '👁️ '}
                                             {i + 1}. {r.name}
+                                            {isBest && ' ⭐'}
                                         </strong>
                                         <span style={{
                                             fontSize: '0.8rem',
