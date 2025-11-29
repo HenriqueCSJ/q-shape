@@ -12,10 +12,11 @@ import calculateShapeMeasure from '../../shapeAnalysis/shapeCalculator';
 /**
  * Build geometry analysis for sandwich structures
  *
- * Sandwich structures (2 parallel rings) map to specific geometries:
- * - CN=10 (2×η⁵): PPR-10 (pentagonal prism), PAPR-10 (pentagonal antiprism)
- * - CN=12 (2×η⁶): Hexagonal prism/antiprism
- * - CN=14 (2×η⁷): Heptagonal prism/antiprism
+ * Sandwich structures (2 parallel rings) analyzed with actual atom coordinates:
+ * - CN=10 (2×η⁵-Cp): PPR-10 (pentagonal prism), PAPR-10 (pentagonal antiprism)
+ * - CN=12 (2×η⁶-benzene): Hexagonal prism/antiprism
+ *
+ * Uses all coordinating atoms (not centroids) for accurate CShM calculation.
  */
 export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive') {
     const { coordinationNumber, ringSize } = pattern.metadata;
@@ -28,14 +29,8 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
         throw new Error(`No reference geometries for CN=${coordinationNumber}`);
     }
 
-    // Filter to sandwich-like geometries (prisms, antiprisms)
-    const sandwichGeometries = Object.keys(geometries).filter(name => {
-        const lower = name.toLowerCase();
-        return lower.includes('prism') ||
-               lower.includes('antiprism') ||
-               lower.includes('ppr') ||
-               lower.includes('papr');
-    });
+    // Evaluate all geometries for sandwich (prisms/antiprisms are typical)
+    const sandwichGeometries = Object.keys(geometries);
 
     if (sandwichGeometries.length === 0) {
         console.warn(`No sandwich geometries found for CN=${coordinationNumber}, using all geometries`);
@@ -77,8 +72,8 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
 /**
  * Build geometry analysis for piano stool structures
  *
- * Half-sandwich + monodentate ligands
- * Maps to three-legged piano stool geometries
+ * Half-sandwich + monodentate ligands analyzed with actual atom coordinates.
+ * Filters to geometries appropriate for piano stool (three-legged) structures.
  *
  * Piano stool complexes (also called half-sandwich complexes) have a
  * characteristic structure:
@@ -86,11 +81,11 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
  * - Multiple monodentate ligands forming the "legs" of the stool
  *
  * Examples:
- * - [CpMn(CO)₃]: η⁵-Cp + 3 CO → CN=4 → vTBPY-4 (vacant trigonal bipyramid)
- * - [CpFe(CO)₂I]: η⁵-Cp + 2 CO + I → CN=4 → vTBPY-4 or SS-4 (seesaw)
- * - [(η⁶-C₆H₆)Ru(en)Cl]⁺: η⁶-benzene + en + Cl → CN=5 → SPY-5 (square pyramidal)
+ * - [CpMn(CO)₃]: η⁵-Cp + 3 CO → CN=8 (5 C + 3 O) → vTBPY, SS, or other CN=8 geometries
+ * - [CpFe(CO)₂I]: η⁵-Cp + 2 CO + I → CN=8 (5 C + 2 O + 1 I)
+ * - [(η⁶-C₆H₆)RuCl₃]: η⁶-benzene + 3 Cl → CN=9 (6 C + 3 Cl)
  *
- * @param {Array<Array<number>>} actualCoords - Centered coordinates (ring centroid + ligands)
+ * @param {Array<Array<number>>} actualCoords - Centered coordinates (all coordinating atoms)
  * @param {Object} pattern - Pattern detection result with metadata
  * @param {string} mode - 'intensive' or 'default'
  * @returns {Array<Object>} Sorted geometry results with CShM values
