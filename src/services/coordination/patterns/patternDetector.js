@@ -200,6 +200,9 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
  * - Single large ring (typically 4+ donors in plane)
  * - Coplanar coordination
  * - Optional axial ligands
+ *
+ * NOTE: Small aromatic rings (η5-Cp, η6-benzene) with multiple monodentate
+ * ligands are piano stool complexes, NOT macrocycles!
  */
 export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
     const { rings, monodentate } = ligandGroups;
@@ -212,6 +215,13 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
 
     // Macrocycle typically has 4+ donors (porphyrin = 4N)
     if (ring.size < PATTERN_DETECTION.MIN_MACROCYCLE_SIZE) {
+        return { confidence: 0, patternType: 'macrocycle', metadata: null };
+    }
+
+    // If ring is small (≤7 atoms, like Cp or benzene) AND has multiple monodentate ligands,
+    // this is a piano stool complex, NOT a macrocycle!
+    // Macrocycles are large chelating ligands (porphyrins, corrins, crown ethers)
+    if (ring.size <= 7 && monodentate.length > 0) {
         return { confidence: 0, patternType: 'macrocycle', metadata: null };
     }
 
