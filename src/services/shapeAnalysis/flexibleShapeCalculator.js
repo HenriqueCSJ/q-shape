@@ -134,6 +134,11 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
             ? (delta / computedRigidResult.measure) * 100
             : 0;
 
+        // Debug logging
+        if (delta > 0.5) { // Only log significant improvements
+            console.log(`[Flexible] Rigid=${computedRigidResult.measure.toFixed(2)}, Flex=${flexibleResult.measure.toFixed(2)}, Δ=${delta.toFixed(2)} (${improvement.toFixed(0)}% improvement)`);
+        }
+
         if (progressCallback) {
             progressCallback({
                 stage: 'complete',
