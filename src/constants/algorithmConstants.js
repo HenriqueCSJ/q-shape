@@ -167,7 +167,39 @@ export const PATTERN_DETECTION = {
      *
      * Smallest ring considered a macrocycle (e.g., porphyrin = 4N donors).
      */
-    MIN_MACROCYCLE_SIZE: 4
+    MIN_MACROCYCLE_SIZE: 4,
+
+    /**
+     * Piano Stool Geometry Mappings
+     *
+     * Maps piano stool structures (ring + monodentate ligands) to
+     * appropriate reference geometries based on coordination number.
+     *
+     * Piano stool complexes have a characteristic "three-legged stool" shape:
+     * - One ring (η⁵-Cp or η⁶-benzene) at the top
+     * - Monodentate ligands (CO, Cl, etc.) forming the "legs"
+     *
+     * Common examples:
+     * - [CpMn(CO)₃]: η⁵-Cp + 3 CO → CN=4 (1 centroid + 3 ligands)
+     * - [CpRu(CO)₂Cl]: η⁵-Cp + 2 CO + 1 Cl → CN=4
+     * - [(η⁶-C₆H₆)Ru(Cl)₃]⁺: η⁶-benzene + 3 Cl → CN=4
+     *
+     * Reference geometries selected based on structural considerations:
+     * - CN=3: T-shaped or trigonal planar (ring + 2 ligands)
+     * - CN=4: vTBPY-4 (vacant trigonal bipyramid) or SS-4 (seesaw)
+     * - CN=5: SPY-5 (square pyramidal) - ring at apex, 4 ligands at base
+     *
+     * References:
+     * - Cotton, F. A. et al. (1999). Advanced Inorganic Chemistry, 6th ed.
+     * - Housecroft, C. E. & Sharpe, A. G. (2012). Inorganic Chemistry, 4th ed.
+     */
+    PIANO_STOOL_GEOMETRIES: {
+        3: ['vT-3', 'TP-3'],  // T-shaped, trigonal planar
+        4: ['vTBPY-4', 'SS-4', 'T-4'],  // Vacant trigonal bipyramid (preferred), seesaw, tetrahedral
+        5: ['SPY-5', 'TBPY-5', 'vOC-5'],  // Square pyramidal (preferred), trigonal bipyramid, vacant octahedron
+        6: ['vPBP-6', 'OC-6'],  // Vacant pentagonal bipyramid, octahedral
+        7: ['PBPY-7', 'COC-7']  // Pentagonal bipyramid, capped octahedron
+    }
 };
 
 /**
