@@ -161,8 +161,11 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
 
     const ring = rings[0];
 
-    // Typical piano stool: η5-Cp (5) + 3 CO or η6-benzene (6) + 3 ligands
-    const totalCN = ring.size + monodentate.length;
+    // For geometry matching, we use centroid-based CN (1 ring centroid + N ligands)
+    // NOT the chemical CN (ring.size + monodentate.length)
+    // Example: benzene (6 atoms) + 3 ligands = CN=4 for geometry (1 centroid + 3)
+    const geometryCN = 1 + monodentate.length;
+    const chemicalCN = ring.size + monodentate.length;
 
     // Get ring coordinates
     const ringCoords = ring.indices.map(idx => [
@@ -187,7 +190,8 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
         metadata: {
             ringSize: ring.size,
             monodentateCount: monodentate.length,
-            coordinationNumber: totalCN,
+            coordinationNumber: geometryCN,  // Use centroid-based CN for geometry matching
+            chemicalCN: chemicalCN,  // Store actual chemical CN for reference
             ring,
             ringCoords,
             monoCoords
