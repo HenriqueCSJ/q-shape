@@ -11,7 +11,7 @@
  * - Intensive: Pattern-aware analysis using structural information
  */
 
-import { detectLigandGroups } from './ringDetector';
+import { detectLigandGroups, createCentroidAtoms } from './ringDetector';
 import { detectPattern } from './patterns/patternDetector';
 import { buildPatternGeometry, buildGeneralGeometry } from './patterns/geometryBuilder';
 
@@ -88,15 +88,13 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        // Extract centered coordinates
-        const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
-
         reportProgress('pattern', 0.3, 'Analyzing structural patterns...');
 
         // *** PATTERN DETECTION: Use chemical knowledge to identify structure type ***
         const pattern = detectPattern(atoms, metalIndex, ligandGroups);
 
         let results = [];
+        let actualCoords;
 
         if (pattern && pattern.confidence > 0.7) {
             // High-confidence pattern detected - use pattern-based analysis
@@ -106,6 +104,24 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
 
             // Allow UI to update
             await new Promise(resolve => setTimeout(resolve, 0));
+
+            // For patterns with rings, use centroid-based coordinates
+            if (pattern.patternType === 'piano_stool' || pattern.patternType === 'sandwich' || pattern.patternType === 'macrocycle') {
+                console.log('Creating centroid-based coordinates for pattern analysis...');
+                const centroidAtoms = createCentroidAtoms(ligandGroups);
+
+                // Convert centroid atoms to coordinate array (metal-centered)
+                actualCoords = centroidAtoms.map(atom => [
+                    atom.x - atoms[metalIndex].x,
+                    atom.y - atoms[metalIndex].y,
+                    atom.z - atoms[metalIndex].z
+                ]);
+
+                console.log(`  Centroid-based CN = ${actualCoords.length} (${ligandGroups.ringCount} ring(s) + ${ligandGroups.monodentate.length} ligand(s))`);
+            } else {
+                // Use raw atom coordinates for other patterns
+                actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
+            }
 
             // Build geometry using pattern-specific logic
             results = buildPatternGeometry(actualCoords, pattern, 'intensive');
@@ -119,6 +135,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             // Allow UI to update
             await new Promise(resolve => setTimeout(resolve, 0));
 
+            // Use raw atom coordinates for general analysis
+            actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
+
             results = buildGeneralGeometry(actualCoords, CN, 'intensive');
         }
 
@@ -128,6 +147,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
 
         console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${results[0].shapeMeasure.toFixed(4)})`);
 
+        // Determine effective CN (centroid-based for patterns, raw for general)
+        const effectiveCN = actualCoords ? actualCoords.length : CN;
+
         return {
             geometryResults: results,
             ligandGroups,
@@ -135,7 +157,8 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 metalElement: atoms[metalIndex].element,
                 metalIndex,
                 radius,
-                coordinationNumber: CN,
+                coordinationNumber: effectiveCN,
+                rawCoordinationNumber: CN, // Original atom count
                 intensiveMode: true,
                 patternDetected: pattern?.patternType || null,
                 patternConfidence: pattern?.confidence || 0,
