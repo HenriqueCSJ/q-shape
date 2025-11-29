@@ -256,7 +256,7 @@ export function buildMacrocycleGeometry(actualCoords, pattern, mode = 'intensive
  * Used when no specific pattern is detected
  * Evaluates all reference geometries for the CN
  */
-export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'intensive') {
+export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'intensive', onProgress = null) {
     console.log(`Building general geometry for CN=${coordinationNumber}`);
 
     const geometries = REFERENCE_GEOMETRIES[coordinationNumber];
@@ -268,7 +268,8 @@ export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'i
     console.log(`Evaluating ${geometryNames.length} geometries`);
 
     const results = [];
-    for (const name of geometryNames) {
+    for (let i = 0; i < geometryNames.length; i++) {
+        const name = geometryNames[i];
         const refCoords = geometries[name];
 
         const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
@@ -286,6 +287,12 @@ export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'i
             rotationMatrix,
             pattern: 'general'
         });
+
+        // Report progress
+        if (onProgress) {
+            const progress = (i + 1) / geometryNames.length;
+            onProgress(progress);
+        }
     }
 
     results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
