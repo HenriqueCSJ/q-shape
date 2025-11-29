@@ -228,11 +228,12 @@ export function detectMacrocyclePattern(atoms, metalIndex, ligandGroups) {
     }
 
     // Get axial ligands (monodentate perpendicular to plane)
-    const axialLigands = monodentate.filter(idx => {
+    const axialLigands = monodentate.filter(group => {
+        const atom = group.atoms[0]; // Each monodentate group has one atom
         const coord = [
-            atoms[idx].x - atoms[metalIndex].x,
-            atoms[idx].y - atoms[metalIndex].y,
-            atoms[idx].z - atoms[metalIndex].z
+            atom.x - atoms[metalIndex].x,
+            atom.y - atoms[metalIndex].y,
+            atom.z - atoms[metalIndex].z
         ];
 
         const normal = calculateRingNormal(ringCoords);
