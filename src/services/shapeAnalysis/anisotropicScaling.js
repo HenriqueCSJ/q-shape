@@ -236,15 +236,13 @@ export function optimizeScalingAnnealing(getMeasure, options = {}) {
     let globalBest = { sx: 1, sy: 1, sz: 1, measure: Infinity };
 
     for (let restart = 0; restart < restarts; restart++) {
-        // Try different initialization strategies for better coverage
+        // Initialize with different strategies for global search
         let sx, sy, sz;
         if (restart === 0) {
-            sx = sy = sz = 1.0; // Start with no scaling
-        } else if (restart === 1) {
-            sx = sy = 1.0; sz = 0.7; // Try compressed along Z (common for piano stools)
-        } else if (restart === 2) {
-            sx = sy = 1.0; sz = 1.5; // Try elongated along Z
+            // Start with no scaling (isotropic)
+            sx = sy = sz = 1.0;
         } else {
+            // Random initialization for broad exploration
             sx = minScale + Math.random() * (maxScale - minScale);
             sy = minScale + Math.random() * (maxScale - minScale);
             sz = minScale + Math.random() * (maxScale - minScale);
