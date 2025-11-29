@@ -1,19 +1,18 @@
 /**
  * Intensive Analysis Service
  *
- * Pattern-based geometry detection using chemical knowledge:
- * 1. Detects structural patterns (sandwich, piano stool, macrocycle, etc.)
- * 2. Applies pattern-specific geometry analysis
- * 3. Uses intensive CShM optimization for better results
+ * Ab initio geometry analysis using intensive CShM optimization:
+ * 1. Identifies all coordinating atoms within radius
+ * 2. Evaluates ALL reference geometries for that coordination number
+ * 3. Uses intensive CShM optimization for accurate results
  *
- * This provides TWO approaches:
- * - Default: Pure CShM (matches other software)
- * - Intensive: Pattern-aware analysis using structural information
+ * This is a purely ab initio approach - no pattern matching, no geometry filtering,
+ * no special cases. All atoms are treated equally and the best geometry is found
+ * through comprehensive CShM evaluation.
  */
 
-import { detectLigandGroups, createCentroidAtoms } from './ringDetector';
-import { detectPattern } from './patterns/patternDetector';
-import { buildPatternGeometry, buildGeneralGeometry } from './patterns/geometryBuilder';
+import { detectLigandGroups } from './ringDetector';
+import { buildGeneralGeometry } from './patterns/geometryBuilder';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -83,47 +82,37 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             throw new Error('No coordinated atoms found within radius');
         }
 
-        reportProgress('rings', 0.2, 'Detecting rings and ligand groups...');
+        reportProgress('rings', 0.2, 'Detecting ligand groups (for info only)...');
 
+        // Detect ligand groups for informational purposes only
+        // This doesn't affect the ab initio CShM calculation
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        // Extract centered coordinates (ALWAYS use actual atoms, not centroids)
+        reportProgress('geometry', 0.3, 'Starting ab initio CShM analysis...');
+
+        // Extract centered coordinates - use ALL coordinating atoms
         const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
 
-        reportProgress('pattern', 0.3, 'Analyzing structural patterns...');
+        console.log(`Running ab initio analysis: evaluating ALL geometries for CN=${CN}`);
 
-        // *** PATTERN DETECTION: Use chemical knowledge to filter appropriate geometries ***
-        const pattern = detectPattern(atoms, metalIndex, ligandGroups);
+        // Allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-        let results = [];
+        // *** AB INITIO APPROACH ***
+        // Evaluate ALL reference geometries for this CN
+        // No pattern detection, no geometry filtering, no special cases
+        const results = buildGeneralGeometry(
+            actualCoords,
+            CN,
+            'intensive',
+            (progress) => {
+                // Forward CShM calculation progress to UI
+                reportProgress('geometry', 0.3 + (progress * 0.6), `Evaluating geometries... ${Math.round(progress * 100)}%`);
+            }
+        );
 
-        if (pattern && pattern.confidence > 0.7) {
-            // High-confidence pattern detected - use pattern-based geometry filtering
-            console.log(`✓ Pattern detected: ${pattern.patternType} (${(pattern.confidence * 100).toFixed(1)}% confidence)`);
-            console.log(`  Analyzing CN=${CN} with pattern-specific geometry filtering`);
-
-            reportProgress('geometry', 0.4, `Analyzing ${pattern.patternType} structure...`);
-
-            // Allow UI to update
-            await new Promise(resolve => setTimeout(resolve, 0));
-
-            // Build geometry using pattern-specific filtering (but ALWAYS with actual coordinates)
-            results = buildPatternGeometry(actualCoords, pattern, 'intensive');
-
-        } else {
-            // No pattern or low confidence - fall back to general analysis
-            console.log('No high-confidence pattern, using general CShM analysis');
-
-            reportProgress('geometry', 0.4, 'Calculating geometries with intensive CShM...');
-
-            // Allow UI to update
-            await new Promise(resolve => setTimeout(resolve, 0));
-
-            results = buildGeneralGeometry(actualCoords, CN, 'intensive');
-        }
-
-        reportProgress('complete', 1.0, 'Intensive analysis complete!');
+        reportProgress('complete', 1.0, 'Analysis complete!');
 
         const elapsed = Date.now() - startTime;
 
@@ -136,10 +125,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 metalElement: atoms[metalIndex].element,
                 metalIndex,
                 radius,
-                coordinationNumber: CN, // ALWAYS the chemical CN (actual coordinating atoms)
+                coordinationNumber: CN,
                 intensiveMode: true,
-                patternDetected: pattern?.patternType || null,
-                patternConfidence: pattern?.confidence || 0,
+                abInitio: true, // Pure ab initio - no pattern matching
                 geometryCount: results.length,
                 bestGeometry: results[0].name,
                 bestCShM: results[0].shapeMeasure,
