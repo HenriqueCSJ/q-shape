@@ -172,11 +172,14 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
     ]);
 
     // Get monodentate coordinates
-    const monoCoords = monodentate.map(idx => [
-        atoms[idx].x - atoms[metalIndex].x,
-        atoms[idx].y - atoms[metalIndex].y,
-        atoms[idx].z - atoms[metalIndex].z
-    ]);
+    const monoCoords = monodentate.map(group => {
+        const atom = group.atoms[0]; // Each monodentate group has one atom
+        return [
+            atom.x - atoms[metalIndex].x,
+            atom.y - atoms[metalIndex].y,
+            atom.z - atoms[metalIndex].z
+        ];
+    });
 
     return {
         confidence: 0.85,
