@@ -316,18 +316,31 @@ export default function CoordinationSummary({
                     fontSize: '0.9rem'
                 }}>
                     <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>🔬</span> Pattern-Based Analysis Applied (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
+                        <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
-                    {intensiveMetadata.metadata?.patternDetected && (
-                        <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem' }}>
-                            ✓ Detected: <span style={{ textTransform: 'capitalize' }}>
-                                {intensiveMetadata.metadata.patternDetected.replace('_', ' ')}
-                            </span> structure ({Math.round(intensiveMetadata.metadata.patternConfidence * 100)}% confidence)
-                        </div>
-                    )}
+                    {/* Structure type identification (for info only) */}
+                    {(() => {
+                        const rings = intensiveMetadata.ligandGroups?.rings?.length || 0;
+                        const mono = intensiveMetadata.ligandGroups?.monodentate?.length || 0;
+                        let structureType = '';
 
-                    <div style={{ color: '#166534' }}>
+                        if (rings === 1 && mono > 0) {
+                            structureType = '🎹 Piano Stool Structure';
+                        } else if (rings === 2) {
+                            structureType = '🥪 Sandwich Structure';
+                        } else if (rings === 1 && mono === 0) {
+                            structureType = '⭕ Macrocyclic Structure';
+                        }
+
+                        return structureType ? (
+                            <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                {structureType}
+                            </div>
+                        ) : null;
+                    })()}
+
+                    <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
                         {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
                     </div>
 
