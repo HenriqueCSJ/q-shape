@@ -88,43 +88,27 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
+        // Extract centered coordinates (ALWAYS use actual atoms, not centroids)
+        const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
+
         reportProgress('pattern', 0.3, 'Analyzing structural patterns...');
 
-        // *** PATTERN DETECTION: Use chemical knowledge to identify structure type ***
+        // *** PATTERN DETECTION: Use chemical knowledge to filter appropriate geometries ***
         const pattern = detectPattern(atoms, metalIndex, ligandGroups);
 
         let results = [];
-        let actualCoords;
 
         if (pattern && pattern.confidence > 0.7) {
-            // High-confidence pattern detected - use pattern-based analysis
+            // High-confidence pattern detected - use pattern-based geometry filtering
             console.log(`✓ Pattern detected: ${pattern.patternType} (${(pattern.confidence * 100).toFixed(1)}% confidence)`);
+            console.log(`  Analyzing CN=${CN} with pattern-specific geometry filtering`);
 
             reportProgress('geometry', 0.4, `Analyzing ${pattern.patternType} structure...`);
 
             // Allow UI to update
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            // For patterns with rings, use centroid-based coordinates
-            if (pattern.patternType === 'piano_stool' || pattern.patternType === 'sandwich' || pattern.patternType === 'macrocycle') {
-                console.log('Creating centroid-based coordinates for pattern analysis...');
-                const centroidAtoms = createCentroidAtoms(ligandGroups);
-
-                // Convert centroid atoms to coordinate array (metal-centered)
-                actualCoords = centroidAtoms.map(atom => [
-                    atom.x - atoms[metalIndex].x,
-                    atom.y - atoms[metalIndex].y,
-                    atom.z - atoms[metalIndex].z
-                ]);
-
-                console.log(`  Centroid-based representation: ${actualCoords.length} points (${ligandGroups.ringCount} ring centroid(s) + ${ligandGroups.monodentate.length} ligand(s))`);
-                console.log(`  Chemical CN = ${CN} (actual coordinating atoms)`);
-            } else {
-                // Use raw atom coordinates for other patterns
-                actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
-            }
-
-            // Build geometry using pattern-specific logic
+            // Build geometry using pattern-specific filtering (but ALWAYS with actual coordinates)
             results = buildPatternGeometry(actualCoords, pattern, 'intensive');
 
         } else {
@@ -135,9 +119,6 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
 
             // Allow UI to update
             await new Promise(resolve => setTimeout(resolve, 0));
-
-            // Use raw atom coordinates for general analysis
-            actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
 
             results = buildGeneralGeometry(actualCoords, CN, 'intensive');
         }

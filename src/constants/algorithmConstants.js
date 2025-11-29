@@ -179,15 +179,14 @@ export const PATTERN_DETECTION = {
      * - One ring (η⁵-Cp or η⁶-benzene) at the top
      * - Monodentate ligands (CO, Cl, etc.) forming the "legs"
      *
-     * Common examples:
-     * - [CpMn(CO)₃]: η⁵-Cp + 3 CO → CN=4 (1 centroid + 3 ligands)
-     * - [CpRu(CO)₂Cl]: η⁵-Cp + 2 CO + 1 Cl → CN=4
-     * - [(η⁶-C₆H₆)Ru(Cl)₃]⁺: η⁶-benzene + 3 Cl → CN=4
+     * Common examples (using actual chemical CN):
+     * - [CpMn(CO)₃]: η⁵-Cp + 3 CO → CN=8 (5 C + 3 O)
+     * - [CpRu(CO)₂Cl]: η⁵-Cp + 2 CO + 1 Cl → CN=8 (5 C + 2 O + 1 Cl)
+     * - [(η⁶-C₆H₆)RuCl₃]: η⁶-benzene + 3 Cl → CN=9 (6 C + 3 Cl)
      *
-     * Reference geometries selected based on structural considerations:
-     * - CN=3: T-shaped or trigonal planar (ring + 2 ligands)
-     * - CN=4: vTBPY-4 (vacant trigonal bipyramid) or SS-4 (seesaw)
-     * - CN=5: SPY-5 (square pyramidal) - ring at apex, 4 ligands at base
+     * NOTE: For CN=8 and CN=9, no specific geometries are pre-filtered.
+     * The system evaluates all available geometries for these CNs and
+     * selects the best match via CShM optimization.
      *
      * References:
      * - Cotton, F. A. et al. (1999). Advanced Inorganic Chemistry, 6th ed.
@@ -198,7 +197,10 @@ export const PATTERN_DETECTION = {
         4: ['vTBPY-4', 'SS-4', 'T-4'],  // Vacant trigonal bipyramid (preferred), seesaw, tetrahedral
         5: ['SPY-5', 'TBPY-5', 'vOC-5'],  // Square pyramidal (preferred), trigonal bipyramid, vacant octahedron
         6: ['vPBP-6', 'OC-6'],  // Vacant pentagonal bipyramid, octahedral
-        7: ['PBPY-7', 'COC-7']  // Pentagonal bipyramid, capped octahedron
+        7: ['PBPY-7', 'COC-7'],  // Pentagonal bipyramid, capped octahedron
+        // CN=8 and CN=9: All geometries evaluated (no pre-filtering)
+        8: [],  // Uses all CN=8 geometries (SAPR-8, TDD-8, CU-8, etc.)
+        9: []   // Uses all CN=9 geometries (TCTPR-9, CSAPR-9, CCU-9, etc.)
     }
 };
 

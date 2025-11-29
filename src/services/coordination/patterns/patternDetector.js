@@ -137,8 +137,7 @@ export function detectSandwichPattern(atoms, metalIndex, ligandGroups) {
         patternType: 'sandwich',
         metadata: {
             ringSize: ring1.size,
-            coordinationNumber: 2,  // ALWAYS 2 for sandwich (2 ring centroids for geometry matching)
-            chemicalCN: ring1.size + ring2.size,  // Actual chemical CN (e.g., 10 for ferrocene)
+            coordinationNumber: ring1.size + ring2.size,  // Actual chemical CN (e.g., 10 for ferrocene = 2×η⁵)
             ring1,
             ring2,
             ring1Coords,
@@ -191,8 +190,7 @@ export function detectPianoStoolPattern(atoms, metalIndex, ligandGroups) {
         metadata: {
             ringSize: ring.size,
             monodentateCount: monodentate.length,
-            coordinationNumber: geometryCN,  // Use centroid-based CN for geometry matching
-            chemicalCN: chemicalCN,  // Store actual chemical CN for reference
+            coordinationNumber: chemicalCN,  // Actual chemical CN (e.g., 9 for η⁶-benzene + 3 ligands)
             ring,
             ringCoords,
             monoCoords
