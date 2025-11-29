@@ -102,7 +102,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         // *** AB INITIO APPROACH ***
         // Evaluate ALL reference geometries for this CN
         // No pattern detection, no geometry filtering, no special cases
-        const results = await buildGeneralGeometry(
+        const results = buildGeneralGeometry(
             actualCoords,
             CN,
             'intensive',

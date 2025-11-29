@@ -256,7 +256,7 @@ export function buildMacrocycleGeometry(actualCoords, pattern, mode = 'intensive
  * Used when no specific pattern is detected
  * Evaluates all reference geometries for the CN
  */
-export async function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'intensive', onProgress = null) {
+export function buildGeneralGeometry(actualCoords, coordinationNumber, mode = 'intensive', onProgress = null) {
     console.log(`Building general geometry for CN=${coordinationNumber}`);
 
     const geometries = REFERENCE_GEOMETRIES[coordinationNumber];
@@ -288,13 +288,10 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
             pattern: 'general'
         });
 
-        // Report progress and yield to event loop every iteration
+        // Report progress
         if (onProgress) {
             const progress = (i + 1) / geometryNames.length;
             onProgress(progress);
-
-            // Yield to event loop every iteration for smooth UI updates
-            await new Promise(resolve => setTimeout(resolve, 0));
         }
     }
 
