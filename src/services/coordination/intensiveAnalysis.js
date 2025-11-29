@@ -117,7 +117,8 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                     atom.z - atoms[metalIndex].z
                 ]);
 
-                console.log(`  Centroid-based CN = ${actualCoords.length} (${ligandGroups.ringCount} ring(s) + ${ligandGroups.monodentate.length} ligand(s))`);
+                console.log(`  Centroid-based representation: ${actualCoords.length} points (${ligandGroups.ringCount} ring centroid(s) + ${ligandGroups.monodentate.length} ligand(s))`);
+                console.log(`  Chemical CN = ${CN} (actual coordinating atoms)`);
             } else {
                 // Use raw atom coordinates for other patterns
                 actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
@@ -147,9 +148,6 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
 
         console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${results[0].shapeMeasure.toFixed(4)})`);
 
-        // Determine effective CN (centroid-based for patterns, raw for general)
-        const effectiveCN = actualCoords ? actualCoords.length : CN;
-
         return {
             geometryResults: results,
             ligandGroups,
@@ -157,8 +155,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 metalElement: atoms[metalIndex].element,
                 metalIndex,
                 radius,
-                coordinationNumber: effectiveCN,
-                rawCoordinationNumber: CN, // Original atom count
+                coordinationNumber: CN, // ALWAYS the chemical CN (actual coordinating atoms)
                 intensiveMode: true,
                 patternDetected: pattern?.patternType || null,
                 patternConfidence: pattern?.confidence || 0,
