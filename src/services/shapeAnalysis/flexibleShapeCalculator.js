@@ -1,22 +1,26 @@
 /**
  * Flexible Shape Measure Calculator
  *
- * Extends the rigid CShM calculation with anisotropic scaling support.
+ * Extends rigid CShM with anisotropic scaling (ab initio approach).
+ *
  * Computes both:
  * - Rigid CShM: Traditional shape measure (no scaling)
- * - Flexible CShM: Shape measure with optimized anisotropic scaling
+ * - Flexible CShM: Optimizes scaling along XYZ axes after rigid alignment
  *
- * This allows distinguishing between:
+ * Method:
+ * 1. Perform rigid alignment (rotation only)
+ * 2. Optimize independent scaling factors (sx, sy, sz) along XYZ axes
+ * 3. Use simulated annealing for global search (no geometry-specific assumptions)
+ *
+ * This distinguishes:
  * - "Wrong geometry" (high CShM even with scaling)
- * - "Distorted correct geometry" (low flexible CShM, but with distortion)
+ * - "Distorted correct geometry" (low flexible CShM with reasonable distortion)
  */
 
 import * as THREE from 'three';
 import calculateShapeMeasure from './shapeCalculator.js';
 import hungarianAlgorithm from '../algorithms/hungarian.js';
 import {
-    computeReferenceAxes,
-    applyAnisotropicScaling,
     optimizeScalingAnnealing,
     calculateDistortionIndex,
     formatScalingDescription
@@ -134,6 +138,11 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
             ? (delta / computedRigidResult.measure) * 100
             : 0;
 
+        // Debug logging
+        if (delta > 0.5) { // Only log significant improvements
+            console.log(`[Flexible] Rigid=${computedRigidResult.measure.toFixed(2)}, Flex=${flexibleResult.measure.toFixed(2)}, Δ=${delta.toFixed(2)} (${improvement.toFixed(0)}% improvement)`);
+        }
+
         if (progressCallback) {
             progressCallback({
                 stage: 'complete',
@@ -165,7 +174,11 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
 
 /**
  * Calculate flexible CShM with anisotropic scaling optimization
- * Internal function - uses rigid alignment as starting point
+ *
+ * Ab initio approach:
+ * - After rigid alignment, optimizes scaling along XYZ axes
+ * - No PCA, no geometry-specific heuristics
+ * - Pure simulated annealing global search over (sx, sy, sz)
  */
 function calculateFlexibleCShM(actualCoords, referenceCoords, rigidRotation, mode, progressCallback) {
     const N = actualCoords.length;
@@ -179,16 +192,16 @@ function calculateFlexibleCShM(actualCoords, referenceCoords, rigidRotation, mod
 
     const Q_vecs = referenceCoords.map(c => new THREE.Vector3(...c));
 
-    // Pre-compute reference geometry principal axes
-    const refAxes = computeReferenceAxes(Q_vecs);
+    // Apply rigid rotation to actual coordinates once
+    const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(rigidRotation));
 
     // Define measure function for scaling optimization
+    // Scales reference geometry along standard XYZ axes (ab initio, no PCA)
     const getMeasureForScaling = (sx, sy, sz) => {
-        // Apply anisotropic scaling to reference
-        const scaledQ = applyAnisotropicScaling(Q_vecs, refAxes, sx, sy, sz);
-
-        // Apply rigid rotation to actual coordinates
-        const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(rigidRotation));
+        // Apply anisotropic scaling to reference in XYZ frame
+        const scaledQ = Q_vecs.map(q => {
+            return new THREE.Vector3(q.x * sx, q.y * sy, q.z * sz);
+        });
 
         // Compute cost matrix
         const costMatrix = [];
@@ -207,21 +220,24 @@ function calculateFlexibleCShM(actualCoords, referenceCoords, rigidRotation, mod
     };
 
     // Optimize scaling parameters using simulated annealing
+    // Pure ab initio approach: no PCA, no geometry-specific assumptions
+    // Scales along XYZ axes in the coordinate frame established by rigid alignment
     const scalingOptions = {
         minScale: 0.4,
         maxScale: 2.5,
-        preserveVolume: false, // Allow volume changes for now
-        initialTemp: mode === 'intensive' ? 0.8 : 0.5,
+        preserveVolume: false,
+        initialTemp: mode === 'intensive' ? 1.0 : 0.6,
         coolingRate: mode === 'intensive' ? 0.96 : 0.94,
-        iterations: mode === 'intensive' ? 2000 : 1000,
-        restarts: mode === 'intensive' ? 5 : 3
+        iterations: mode === 'intensive' ? 3000 : 1500,
+        restarts: mode === 'intensive' ? 8 : 5  // More restarts for global search
     };
 
     const optimalScaling = optimizeScalingAnnealing(getMeasureForScaling, scalingOptions);
 
-    // Apply optimal scaling to get final result
-    const scaledQ = applyAnisotropicScaling(Q_vecs, refAxes, optimalScaling.sx, optimalScaling.sy, optimalScaling.sz);
-    const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(rigidRotation));
+    // Apply optimal scaling to get final result (simple XYZ scaling, no rotation needed)
+    const scaledQ = Q_vecs.map(q => {
+        return new THREE.Vector3(q.x * optimalScaling.sx, q.y * optimalScaling.sy, q.z * optimalScaling.sz);
+    });
 
     // Final cost matrix and matching
     const costMatrix = [];

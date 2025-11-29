@@ -168,6 +168,14 @@ export function useShapeAnalysis({
                         const finiteResults = results.filter(r => isFinite(r.shapeMeasure));
 
                         if (finiteResults.length > 0) {
+                            // Debug logging for flexible mode
+                            if (analysisParams.flexible && finiteResults.length > 0) {
+                                console.log('[Results] Top 5 geometries (flexible mode):');
+                                finiteResults.slice(0, 5).forEach((r, i) => {
+                                    console.log(`  ${i+1}. ${r.name}: Rigid=${r.rigidMeasure?.toFixed(2)}, Flex=${r.flexibleMeasure?.toFixed(2)}, Δ=${r.delta?.toFixed(2)}`);
+                                });
+                            }
+
                             setGeometryResults(finiteResults);
                             const best = finiteResults[0];
                             setBestGeometry(best);

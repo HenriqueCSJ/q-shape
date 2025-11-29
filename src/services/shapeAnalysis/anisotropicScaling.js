@@ -236,10 +236,17 @@ export function optimizeScalingAnnealing(getMeasure, options = {}) {
     let globalBest = { sx: 1, sy: 1, sz: 1, measure: Infinity };
 
     for (let restart = 0; restart < restarts; restart++) {
-        // Random initialization (or start from [1,1,1] on first restart)
-        let sx = restart === 0 ? 1.0 : minScale + Math.random() * (maxScale - minScale);
-        let sy = restart === 0 ? 1.0 : minScale + Math.random() * (maxScale - minScale);
-        let sz = restart === 0 ? 1.0 : minScale + Math.random() * (maxScale - minScale);
+        // Initialize with different strategies for global search
+        let sx, sy, sz;
+        if (restart === 0) {
+            // Start with no scaling (isotropic)
+            sx = sy = sz = 1.0;
+        } else {
+            // Random initialization for broad exploration
+            sx = minScale + Math.random() * (maxScale - minScale);
+            sy = minScale + Math.random() * (maxScale - minScale);
+            sz = minScale + Math.random() * (maxScale - minScale);
+        }
 
         if (preserveVolume) {
             sz = 1.0 / (sx * sy); // Ensure volume = 1
@@ -297,6 +304,11 @@ export function optimizeScalingAnnealing(getMeasure, options = {}) {
         if (bestMeasure < globalBest.measure) {
             globalBest = { ...bestScales, measure: bestMeasure };
         }
+    }
+
+    // Debug logging
+    if (globalBest.measure < 100) { // Only log if we found something reasonable
+        console.log(`[Scaling] Optimized: sx=${globalBest.sx.toFixed(3)}, sy=${globalBest.sy.toFixed(3)}, sz=${globalBest.sz.toFixed(3)} → CShM=${globalBest.measure.toFixed(3)}`);
     }
 
     return globalBest;
