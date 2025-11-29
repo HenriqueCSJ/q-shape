@@ -319,6 +319,27 @@ export default function CoordinationSummary({
                         <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
+                    {/* Structure type identification (for info only) */}
+                    {(() => {
+                        const rings = intensiveMetadata.ligandGroups?.rings?.length || 0;
+                        const mono = intensiveMetadata.ligandGroups?.monodentate?.length || 0;
+                        let structureType = '';
+
+                        if (rings === 1 && mono > 0) {
+                            structureType = '🎹 Piano Stool Structure';
+                        } else if (rings === 2) {
+                            structureType = '🥪 Sandwich Structure';
+                        } else if (rings === 1 && mono === 0) {
+                            structureType = '⭕ Macrocyclic Structure';
+                        }
+
+                        return structureType ? (
+                            <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                {structureType}
+                            </div>
+                        ) : null;
+                    })()}
+
                     <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
                         {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
                     </div>
