@@ -85,18 +85,18 @@ export default function AnalysisControls({
                                 fontSize: '0.95rem',
                                 marginBottom: '0.25rem'
                             }}>
-                                {flexibleMode ? '✨ Flexible (Anisotropic Scaling)' : '📐 Rigid (Standard)'}
+                                {flexibleMode ? '✨ Flexible (Anisotropic)' : '📐 Rigid (Standard)'}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: '1.4' }}>
                                 {flexibleMode
-                                    ? 'Allows reference geometries to scale along principal axes'
-                                    : 'Uses fixed reference geometries (traditional CShM)'}
+                                    ? 'Scales reference along principal axes'
+                                    : 'Fixed reference geometries'}
                             </div>
                         </div>
                     </label>
                 </div>
                 <div style={{
-                    fontSize: '0.8rem',
+                    fontSize: '0.75rem',
                     color: '#64748b',
                     marginTop: '0.5rem',
                     padding: '0.5rem',
@@ -104,7 +104,7 @@ export default function AnalysisControls({
                     borderRadius: '6px',
                     lineHeight: '1.4'
                 }}>
-                    💡 <strong>Flexible mode</strong> helps identify distorted geometries (piano stools, compressed structures) by showing both rigid and flexible CShM values with delta.
+                    💡 Shows both rigid and flexible CShM with Δ for distorted geometries
                 </div>
             </div>
 

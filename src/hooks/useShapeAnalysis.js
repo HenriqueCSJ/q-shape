@@ -54,13 +54,14 @@ export function useShapeAnalysis({
     const resultsCache = useRef(new Map());
 
     // Generate cache key
-    const getCacheKey = useCallback((atoms, mode) => {
+    const getCacheKey = useCallback((atoms, mode, flexible = false) => {
         if (!atoms || atoms.length === 0) return null;
         try {
             const coordKey = atoms.map(c =>
                 `${c.atom.element}${c.distance.toFixed(3)}`
             ).join('-');
-            return `${mode}-cn${atoms.length}-${coordKey}`;
+            const flexFlag = flexible ? '-flex' : '-rigid';
+            return `${mode}-cn${atoms.length}${flexFlag}-${coordKey}`;
         } catch (error) {
             console.error("Error generating cache key:", error);
             return null;
@@ -108,7 +109,7 @@ export function useShapeAnalysis({
         }
 
         const cn = coordAtoms.length;
-        const cacheKey = getCacheKey(coordAtoms, analysisParams.mode);
+        const cacheKey = getCacheKey(coordAtoms, analysisParams.mode, analysisParams.flexible);
 
         // Check cache
         if (cacheKey && resultsCache.current.has(cacheKey)) {
@@ -219,7 +220,7 @@ export function useShapeAnalysis({
 
                             if (useFlexible) {
                                 // Check if we have cached rigid results to reuse
-                                const rigidCacheKey = getCacheKey(coordAtoms, analysisParams.mode);
+                                const rigidCacheKey = getCacheKey(coordAtoms, analysisParams.mode, false); // false = rigid cache
                                 const cachedRigid = rigidCacheKey ? resultsCache.current.get(rigidCacheKey) : null;
                                 const existingRigidResult = cachedRigid?.results?.find(r => r.name === name);
 
