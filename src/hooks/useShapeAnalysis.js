@@ -31,6 +31,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
+import calculateFlexibleShapeMeasure from '../services/shapeAnalysis/flexibleShapeCalculator';
 import { calculateAdditionalMetrics, calculateQualityMetrics } from '../services/shapeAnalysis/qualityMetrics';
 
 export function useShapeAnalysis({
@@ -213,32 +214,72 @@ export function useShapeAnalysis({
                         if (isCancelled) return;
 
                         try {
-                            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-                                actualCoords,
-                                refCoords,
-                                analysisParams.mode,
-                                (progressInfo) => {
-                                    if (!isCancelled) {
-                                        setProgress({
-                                            geometry: name,
-                                            current: index + 1,
-                                            total: geometryNames.length,
-                                            ...progressInfo
-                                        });
-                                    }
-                                }
-                            );
+                            // Check if flexible mode is enabled
+                            const useFlexible = analysisParams.flexible === true;
 
-                            if (!isCancelled) {
-                                results.push({
-                                    name,
-                                    shapeMeasure: measure,
+                            if (useFlexible) {
+                                // Calculate both rigid and flexible CShM
+                                const flexibleResults = calculateFlexibleShapeMeasure(
+                                    actualCoords,
                                     refCoords,
-                                    alignedCoords,
-                                    rotationMatrix
-                                });
+                                    analysisParams.mode,
+                                    (progressInfo) => {
+                                        if (!isCancelled) {
+                                            setProgress({
+                                                geometry: name,
+                                                current: index + 1,
+                                                total: geometryNames.length,
+                                                ...progressInfo
+                                            });
+                                        }
+                                    }
+                                );
 
-                                processGeometry(index + 1);
+                                if (!isCancelled) {
+                                    results.push({
+                                        name,
+                                        shapeMeasure: flexibleResults.flexible.measure,
+                                        rigidMeasure: flexibleResults.rigid.measure,
+                                        flexibleMeasure: flexibleResults.flexible.measure,
+                                        delta: flexibleResults.delta,
+                                        improvement: flexibleResults.improvement,
+                                        scaling: flexibleResults.flexible.scaling,
+                                        refCoords,
+                                        alignedCoords: flexibleResults.flexible.alignedCoords,
+                                        rotationMatrix: flexibleResults.flexible.rotationMatrix
+                                    });
+
+                                    processGeometry(index + 1);
+                                }
+                            } else {
+                                // Standard rigid-only calculation
+                                const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+                                    actualCoords,
+                                    refCoords,
+                                    analysisParams.mode,
+                                    (progressInfo) => {
+                                        if (!isCancelled) {
+                                            setProgress({
+                                                geometry: name,
+                                                current: index + 1,
+                                                total: geometryNames.length,
+                                                ...progressInfo
+                                            });
+                                        }
+                                    }
+                                );
+
+                                if (!isCancelled) {
+                                    results.push({
+                                        name,
+                                        shapeMeasure: measure,
+                                        refCoords,
+                                        alignedCoords,
+                                        rotationMatrix
+                                    });
+
+                                    processGeometry(index + 1);
+                                }
                             }
                         } catch (error) {
                             if (!isCancelled) {
