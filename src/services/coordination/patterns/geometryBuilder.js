@@ -12,30 +12,26 @@ import calculateShapeMeasure from '../../shapeAnalysis/shapeCalculator';
 /**
  * Build geometry analysis for sandwich structures
  *
- * Sandwich structures (2 parallel rings) map to specific geometries:
+ * Sandwich structures (2 parallel rings) with centroid-based analysis:
+ * - 2 ring centroids → CN=2 → L-2 (Linear) for perfect sandwich alignment
+ *
+ * For point-based analysis (not centroid), would be:
  * - CN=10 (2×η⁵): PPR-10 (pentagonal prism), PAPR-10 (pentagonal antiprism)
  * - CN=12 (2×η⁶): Hexagonal prism/antiprism
- * - CN=14 (2×η⁷): Heptagonal prism/antiprism
  */
 export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive') {
     const { coordinationNumber, ringSize } = pattern.metadata;
 
     console.log(`Building sandwich geometry for CN=${coordinationNumber} (2×η${ringSize})`);
 
-    // Get all reference geometries for this CN
+    // For centroid-based sandwich (2 ring centroids), use Linear geometry
     const geometries = REFERENCE_GEOMETRIES[coordinationNumber];
     if (!geometries) {
         throw new Error(`No reference geometries for CN=${coordinationNumber}`);
     }
 
-    // Filter to sandwich-like geometries (prisms, antiprisms)
-    const sandwichGeometries = Object.keys(geometries).filter(name => {
-        const lower = name.toLowerCase();
-        return lower.includes('prism') ||
-               lower.includes('antiprism') ||
-               lower.includes('ppr') ||
-               lower.includes('papr');
-    });
+    // For CN=2 (centroid-based), all geometries are sandwich-appropriate (L-2, vT-2, etc.)
+    const sandwichGeometries = Object.keys(geometries);
 
     if (sandwichGeometries.length === 0) {
         console.warn(`No sandwich geometries found for CN=${coordinationNumber}, using all geometries`);

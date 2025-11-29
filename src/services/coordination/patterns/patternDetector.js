@@ -137,7 +137,8 @@ export function detectSandwichPattern(atoms, metalIndex, ligandGroups) {
         patternType: 'sandwich',
         metadata: {
             ringSize: ring1.size,
-            coordinationNumber: ring1.size + ring2.size,
+            coordinationNumber: 2,  // ALWAYS 2 for sandwich (2 ring centroids for geometry matching)
+            chemicalCN: ring1.size + ring2.size,  // Actual chemical CN (e.g., 10 for ferrocene)
             ring1,
             ring2,
             ring1Coords,
