@@ -316,18 +316,10 @@ export default function CoordinationSummary({
                     fontSize: '0.9rem'
                 }}>
                     <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>🔬</span> Pattern-Based Analysis Applied (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
+                        <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
-                    {intensiveMetadata.metadata?.patternDetected && (
-                        <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem' }}>
-                            ✓ Detected: <span style={{ textTransform: 'capitalize' }}>
-                                {intensiveMetadata.metadata.patternDetected.replace('_', ' ')}
-                            </span> structure ({Math.round(intensiveMetadata.metadata.patternConfidence * 100)}% confidence)
-                        </div>
-                    )}
-
-                    <div style={{ color: '#166534' }}>
+                    <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
                         {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
                     </div>
 

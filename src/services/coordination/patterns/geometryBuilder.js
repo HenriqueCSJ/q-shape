@@ -288,15 +288,13 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
             pattern: 'general'
         });
 
-        // Report progress and yield to event loop
+        // Report progress and yield to event loop every iteration
         if (onProgress) {
             const progress = (i + 1) / geometryNames.length;
             onProgress(progress);
 
-            // Yield to event loop every few iterations to allow UI updates
-            if (i % 3 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
+            // Yield to event loop every iteration for smooth UI updates
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
     }
 
