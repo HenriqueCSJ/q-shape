@@ -30,6 +30,7 @@ import { KABSCH } from '../../constants/algorithmConstants.js';
  * @param {Array<Array<number>>} referenceCoords - Reference polyhedron coordinates
  * @param {string} mode - 'default' or 'intensive'
  * @param {Function} progressCallback - Progress reporting function
+ * @param {Object} rigidResult - Optional pre-computed rigid result to reuse
  * @returns {Object} {
  *   rigid: { measure, alignedCoords, rotationMatrix },
  *   flexible: { measure, alignedCoords, rotationMatrix, scaling: { sx, sy, sz, distortion, description } },
@@ -37,7 +38,7 @@ import { KABSCH } from '../../constants/algorithmConstants.js';
  *   improvement: number (percentage)
  * }
  */
-export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null) {
+export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null, rigidResult = null) {
     const N = actualCoords.length;
     if (N !== referenceCoords.length || N === 0) {
         return {
@@ -48,32 +49,49 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
         };
     }
 
-    // Stage 1: Calculate rigid CShM (standard algorithm)
-    if (progressCallback) {
-        progressCallback({
-            stage: 'rigid_alignment',
-            percentage: 0,
-            current: 0,
-            total: 100,
-            extra: 'Calculating rigid shape measure...'
+    // Stage 1: Calculate rigid CShM (standard algorithm) or use provided result
+    let computedRigidResult;
+
+    if (rigidResult) {
+        // Reuse pre-computed rigid result (efficient when toggling from rigid to flexible mode)
+        computedRigidResult = rigidResult;
+        if (progressCallback) {
+            progressCallback({
+                stage: 'rigid_reuse',
+                percentage: 50,
+                current: 50,
+                total: 100,
+                extra: 'Reusing rigid CShM calculation...'
+            });
+        }
+    } else {
+        // Calculate rigid CShM from scratch
+        if (progressCallback) {
+            progressCallback({
+                stage: 'rigid_alignment',
+                percentage: 0,
+                current: 0,
+                total: 100,
+                extra: 'Calculating rigid shape measure...'
+            });
+        }
+
+        computedRigidResult = calculateShapeMeasure(actualCoords, referenceCoords, mode, (progress) => {
+            if (progressCallback) {
+                // Map rigid calculation to 0-50% of overall progress
+                progressCallback({
+                    ...progress,
+                    percentage: progress.percentage * 0.5,
+                    stage: `rigid_${progress.stage}`
+                });
+            }
         });
     }
 
-    const rigidResult = calculateShapeMeasure(actualCoords, referenceCoords, mode, (progress) => {
-        if (progressCallback) {
-            // Map rigid calculation to 0-50% of overall progress
-            progressCallback({
-                ...progress,
-                percentage: progress.percentage * 0.5,
-                stage: `rigid_${progress.stage}`
-            });
-        }
-    });
-
-    if (rigidResult.measure === Infinity) {
+    if (computedRigidResult.measure === Infinity) {
         return {
-            rigid: rigidResult,
-            flexible: { ...rigidResult, scaling: null },
+            rigid: computedRigidResult,
+            flexible: { ...computedRigidResult, scaling: null },
             delta: 0,
             improvement: 0
         };
@@ -94,7 +112,7 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
         const flexibleResult = calculateFlexibleCShM(
             actualCoords,
             referenceCoords,
-            rigidResult.rotationMatrix,
+            computedRigidResult.rotationMatrix,
             mode,
             (progress) => {
                 if (progressCallback) {
@@ -111,9 +129,9 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
         );
 
         // Calculate delta and improvement
-        const delta = rigidResult.measure - flexibleResult.measure;
-        const improvement = rigidResult.measure > 0
-            ? (delta / rigidResult.measure) * 100
+        const delta = computedRigidResult.measure - flexibleResult.measure;
+        const improvement = computedRigidResult.measure > 0
+            ? (delta / computedRigidResult.measure) * 100
             : 0;
 
         if (progressCallback) {
@@ -127,7 +145,7 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
         }
 
         return {
-            rigid: rigidResult,
+            rigid: computedRigidResult,
             flexible: flexibleResult,
             delta,
             improvement
@@ -137,8 +155,8 @@ export function calculateFlexibleShapeMeasure(actualCoords, referenceCoords, mod
         console.error('Error in flexible shape calculation:', error);
         // Fallback to rigid-only results
         return {
-            rigid: rigidResult,
-            flexible: { ...rigidResult, scaling: null },
+            rigid: computedRigidResult,
+            flexible: { ...computedRigidResult, scaling: null },
             delta: 0,
             improvement: 0
         };

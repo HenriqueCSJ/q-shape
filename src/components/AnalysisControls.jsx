@@ -53,43 +53,58 @@ export default function AnalysisControls({
                 <label className="control-label">
                     🔧 Geometry Matching Mode
                 </label>
-                <label className="checkbox-label" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
+                <div style={{
                     padding: '0.75rem',
                     background: flexibleMode ? '#f0f9ff' : '#f9fafb',
                     border: flexibleMode ? '2px solid #3b82f6' : '2px solid #e2e8f0',
                     borderRadius: '8px',
-                    cursor: 'pointer',
                     transition: 'all 0.2s'
                 }}>
-                    <input
-                        type="checkbox"
-                        checked={flexibleMode}
-                        onChange={(e) => onFlexibleModeChange && onFlexibleModeChange(e.target.checked)}
-                        style={{ cursor: 'pointer' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: flexibleMode ? '#1e40af' : '#475569' }}>
-                            {flexibleMode ? '✨ Flexible (Anisotropic Scaling)' : '📐 Rigid (Standard)'}
+                    <label style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.75rem',
+                        cursor: 'pointer'
+                    }}>
+                        <input
+                            type="checkbox"
+                            checked={flexibleMode}
+                            onChange={(e) => onFlexibleModeChange && onFlexibleModeChange(e.target.checked)}
+                            style={{
+                                cursor: 'pointer',
+                                marginTop: '0.25rem',
+                                width: '18px',
+                                height: '18px',
+                                flexShrink: 0
+                            }}
+                        />
+                        <div style={{ flex: 1 }}>
+                            <div style={{
+                                fontWeight: 600,
+                                color: flexibleMode ? '#1e40af' : '#475569',
+                                fontSize: '0.95rem',
+                                marginBottom: '0.25rem'
+                            }}>
+                                {flexibleMode ? '✨ Flexible (Anisotropic Scaling)' : '📐 Rigid (Standard)'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: '1.4' }}>
+                                {flexibleMode
+                                    ? 'Allows reference geometries to scale along principal axes'
+                                    : 'Uses fixed reference geometries (traditional CShM)'}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-                            {flexibleMode
-                                ? 'Allows reference geometries to scale along principal axes'
-                                : 'Uses fixed reference geometries (traditional CShM)'}
-                        </div>
-                    </div>
-                </label>
+                    </label>
+                </div>
                 <div style={{
                     fontSize: '0.8rem',
                     color: '#64748b',
                     marginTop: '0.5rem',
                     padding: '0.5rem',
                     background: '#f8fafc',
-                    borderRadius: '6px'
+                    borderRadius: '6px',
+                    lineHeight: '1.4'
                 }}>
-                    <strong>Flexible mode</strong> helps identify distorted geometries (e.g., piano stools, compressed/elongated structures) by reporting both rigid and flexible CShM values.
+                    💡 <strong>Flexible mode</strong> helps identify distorted geometries (piano stools, compressed structures) by showing both rigid and flexible CShM values with delta.
                 </div>
             </div>
 

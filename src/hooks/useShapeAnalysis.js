@@ -218,7 +218,19 @@ export function useShapeAnalysis({
                             const useFlexible = analysisParams.flexible === true;
 
                             if (useFlexible) {
-                                // Calculate both rigid and flexible CShM
+                                // Check if we have cached rigid results to reuse
+                                const rigidCacheKey = getCacheKey(coordAtoms, analysisParams.mode);
+                                const cachedRigid = rigidCacheKey ? resultsCache.current.get(rigidCacheKey) : null;
+                                const existingRigidResult = cachedRigid?.results?.find(r => r.name === name);
+
+                                // Prepare rigid result for reuse (if available)
+                                const rigidResultToReuse = existingRigidResult ? {
+                                    measure: existingRigidResult.shapeMeasure,
+                                    alignedCoords: existingRigidResult.alignedCoords,
+                                    rotationMatrix: existingRigidResult.rotationMatrix
+                                } : null;
+
+                                // Calculate both rigid and flexible CShM (reusing rigid if available)
                                 const flexibleResults = calculateFlexibleShapeMeasure(
                                     actualCoords,
                                     refCoords,
@@ -232,7 +244,8 @@ export function useShapeAnalysis({
                                                 ...progressInfo
                                             });
                                         }
-                                    }
+                                    },
+                                    rigidResultToReuse
                                 );
 
                                 if (!isCancelled) {
