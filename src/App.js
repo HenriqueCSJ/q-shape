@@ -23,12 +23,13 @@ import ResultsDisplay from './components/ResultsDisplay';
 export default function CoordinationGeometryAnalyzer() {
     // UI State (managed locally)
     const [selectedMetal, setSelectedMetal] = useState(null);
-    const [analysisParams, setAnalysisParams] = useState({ mode: 'default', key: 0 });
+    const [analysisParams, setAnalysisParams] = useState({ mode: 'default', key: 0, flexible: false });
     const [autoRotate, setAutoRotate] = useState(false);
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
     const [selectedGeometryIndex, setSelectedGeometryIndex] = useState(0); // Index of geometry to visualize
+    const [flexibleMode, setFlexibleMode] = useState(false); // Flexible geometry matching mode
 
     // Intensive Analysis State
     const [intensiveMetadata, setIntensiveMetadata] = useState(null);
@@ -54,6 +55,15 @@ export default function CoordinationGeometryAnalyzer() {
 
     const handleError = useCallback((msg) => {
         setWarnings(prev => [...prev, `Error: ${msg}`]);
+    }, []);
+
+    const handleFlexibleModeChange = useCallback((enabled) => {
+        setFlexibleMode(enabled);
+        setAnalysisParams(prev => ({
+            ...prev,
+            flexible: enabled,
+            key: Date.now() // Trigger re-analysis
+        }));
     }, []);
 
     // Radius Control Hook (v1.1.0) - defined before use
@@ -361,6 +371,8 @@ export default function CoordinationGeometryAnalyzer() {
           onCoordRadiusChange={setCoordRadius}
           onAutoRadiusChange={setAutoRadius}
           onTargetCNInputChange={setTargetCNInput}
+          flexibleMode={flexibleMode}
+          onFlexibleModeChange={handleFlexibleModeChange}
         />
 
         <CoordinationSummary

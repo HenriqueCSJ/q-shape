@@ -132,13 +132,47 @@ export default function ResultsDisplay({
                                             {POINT_GROUPS[r.name] || ''}
                                         </span>
                                     </div>
-                                    <div style={{
-                                        fontSize: '1.1rem',
-                                        fontWeight: 800,
-                                        color: inter.color,
-                                        fontFamily: 'monospace'
-                                    }}>
-                                        {r.shapeMeasure.toFixed(4)}
+                                    <div style={{ textAlign: 'right' }}>
+                                        {r.rigidMeasure != null ? (
+                                            // Flexible mode: show both values
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                <div style={{
+                                                    fontSize: '0.75rem',
+                                                    color: '#64748b',
+                                                    fontFamily: 'monospace'
+                                                }}>
+                                                    Rigid: {r.rigidMeasure.toFixed(3)}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '1.05rem',
+                                                    fontWeight: 800,
+                                                    color: inter.color,
+                                                    fontFamily: 'monospace'
+                                                }}>
+                                                    Flex: {r.flexibleMeasure.toFixed(3)}
+                                                </div>
+                                                {r.delta > 0.1 && (
+                                                    <div style={{
+                                                        fontSize: '0.7rem',
+                                                        color: '#10b981',
+                                                        fontFamily: 'monospace',
+                                                        fontWeight: 600
+                                                    }}>
+                                                        Δ = -{r.delta.toFixed(2)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            // Rigid-only mode: show single value
+                                            <div style={{
+                                                fontSize: '1.1rem',
+                                                fontWeight: 800,
+                                                color: inter.color,
+                                                fontFamily: 'monospace'
+                                            }}>
+                                                {r.shapeMeasure.toFixed(4)}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{
@@ -157,6 +191,31 @@ export default function ResultsDisplay({
                                         {inter.confidence}%
                                     </span>
                                 </div>
+                                {r.scaling && (
+                                    <div style={{
+                                        marginTop: '0.5rem',
+                                        paddingTop: '0.5rem',
+                                        borderTop: '1px dashed #e2e8f0',
+                                        fontSize: '0.75rem',
+                                        color: '#64748b'
+                                    }}>
+                                        <div style={{ marginBottom: '0.25rem' }}>
+                                            <strong>Scaling:</strong> {r.scaling.description}
+                                        </div>
+                                        <div style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                            sx={r.scaling.sx.toFixed(2)}, sy={r.scaling.sy.toFixed(2)}, sz={r.scaling.sz.toFixed(2)}
+                                            {r.scaling.distortion != null && (
+                                                <span style={{
+                                                    marginLeft: '0.5rem',
+                                                    color: r.scaling.distortion < 5 ? '#10b981' : r.scaling.distortion < 15 ? '#f59e0b' : '#dc2626',
+                                                    fontWeight: 600
+                                                }}>
+                                                    • Distortion: {r.scaling.distortion.toFixed(1)}%
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

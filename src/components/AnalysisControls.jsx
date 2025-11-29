@@ -23,7 +23,9 @@ export default function AnalysisControls({
     onDecrementRadius,
     onCoordRadiusChange,
     onAutoRadiusChange,
-    onTargetCNInputChange
+    onTargetCNInputChange,
+    flexibleMode,
+    onFlexibleModeChange
 }) {
     return (
         <div className="controls-section">
@@ -44,6 +46,51 @@ export default function AnalysisControls({
                         </option>
                     ))}
                 </select>
+            </div>
+
+            {/* Flexible Geometry Matching Toggle */}
+            <div className="card">
+                <label className="control-label">
+                    🔧 Geometry Matching Mode
+                </label>
+                <label className="checkbox-label" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    background: flexibleMode ? '#f0f9ff' : '#f9fafb',
+                    border: flexibleMode ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                }}>
+                    <input
+                        type="checkbox"
+                        checked={flexibleMode}
+                        onChange={(e) => onFlexibleModeChange && onFlexibleModeChange(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: flexibleMode ? '#1e40af' : '#475569' }}>
+                            {flexibleMode ? '✨ Flexible (Anisotropic Scaling)' : '📐 Rigid (Standard)'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                            {flexibleMode
+                                ? 'Allows reference geometries to scale along principal axes'
+                                : 'Uses fixed reference geometries (traditional CShM)'}
+                        </div>
+                    </div>
+                </label>
+                <div style={{
+                    fontSize: '0.8rem',
+                    color: '#64748b',
+                    marginTop: '0.5rem',
+                    padding: '0.5rem',
+                    background: '#f8fafc',
+                    borderRadius: '6px'
+                }}>
+                    <strong>Flexible mode</strong> helps identify distorted geometries (e.g., piano stools, compressed/elongated structures) by reporting both rigid and flexible CShM values.
+                </div>
             </div>
 
             {/* Coordination Radius Control */}
