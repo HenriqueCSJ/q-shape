@@ -11,6 +11,7 @@ import { useThreeScene } from './hooks/useThreeScene';
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
 import { generatePDFReport, generateCSVReport } from './services/reportGenerator';
+import { terminateWorkerPool } from './services/shapeAnalysis/workerPool';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -38,6 +39,13 @@ export default function CoordinationGeometryAnalyzer() {
     // Refs
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    // CRITICAL FIX: Cleanup worker pool on component unmount to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            terminateWorkerPool();
+        };
+    }, []);
 
     // File Upload Hook
     const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
@@ -263,8 +271,8 @@ export default function CoordinationGeometryAnalyzer() {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata]);
+    // FIXED: Added missing ref dependencies
+    }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata, canvasRef, rendererRef, cameraRef, sceneRef]);
 
     // CSV Export using service
     const handleGenerateCSV = useCallback(() => {

@@ -290,15 +290,37 @@ export function useThreeScene({
             cancelAnimationFrame(animationFrameId);
             resizeObserver.disconnect();
             controls.dispose();
+
+            // CRITICAL FIX: Properly dispose all Three.js resources including textures
             scene.traverse(object => {
-                if (object.geometry) object.geometry.dispose();
+                if (object.geometry) {
+                    object.geometry.dispose();
+                }
                 if (object.material) {
-                    if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                    else object.material.dispose();
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+                    materials.forEach(material => {
+                        // Dispose textures explicitly to prevent memory leaks
+                        if (material.map) material.map.dispose();
+                        if (material.lightMap) material.lightMap.dispose();
+                        if (material.bumpMap) material.bumpMap.dispose();
+                        if (material.normalMap) material.normalMap.dispose();
+                        if (material.specularMap) material.specularMap.dispose();
+                        if (material.envMap) material.envMap.dispose();
+                        if (material.alphaMap) material.alphaMap.dispose();
+                        if (material.aoMap) material.aoMap.dispose();
+                        if (material.displacementMap) material.displacementMap.dispose();
+                        if (material.emissiveMap) material.emissiveMap.dispose();
+                        if (material.gradientMap) material.gradientMap.dispose();
+                        if (material.metalnessMap) material.metalnessMap.dispose();
+                        if (material.roughnessMap) material.roughnessMap.dispose();
+                        material.dispose();
+                    });
                 }
             });
             renderer.dispose();
         };
+    // Note: canvasRef is intentionally excluded from dependencies as refs are stable
+    // and we only want to rebuild the scene when the actual data changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [atoms, selectedMetal, coordAtoms, bestGeometry, autoRotate, showIdeal, showLabels]);
 
