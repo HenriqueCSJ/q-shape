@@ -49,6 +49,11 @@ export function validateXYZ(content) {
             throw new Error('Invalid atom count in XYZ header - must be a positive integer');
         }
 
+        // CRITICAL FIX: Hard limit to prevent browser crashes
+        if (nAtoms > FILE_PARSING.MAX_ATOMS) {
+            throw new Error(`File contains too many atoms (${nAtoms}). Maximum supported is ${FILE_PARSING.MAX_ATOMS} atoms.`);
+        }
+
         if (nAtoms > FILE_PARSING.LARGE_STRUCTURE_WARNING) {
             warnings.push(`Large structure detected (${nAtoms} atoms) - analysis may be slow`);
         }

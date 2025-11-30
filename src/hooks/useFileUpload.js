@@ -23,6 +23,7 @@ import { useState, useCallback } from 'react';
 import { parseXYZ, validateXYZ } from '../utils/fileParser';
 import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
+import { FILE_PARSING } from '../constants/algorithmConstants';
 
 export function useFileUpload() {
     const [atoms, setAtoms] = useState([]);
@@ -39,6 +40,16 @@ export function useFileUpload() {
         setError(null);
         setWarnings([]);
         setFileName(file.name.replace(/\.xyz$/i, ""));
+
+        // CRITICAL FIX: Validate file size before reading to prevent browser crashes
+        if (file.size > FILE_PARSING.MAX_FILE_SIZE) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const maxSizeMB = (FILE_PARSING.MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+            setError(`File too large: ${sizeMB} MB. Maximum allowed size is ${maxSizeMB} MB.`);
+            setAtoms([]);
+            setUploadMetadata(null);
+            return;
+        }
 
         const reader = new FileReader();
 

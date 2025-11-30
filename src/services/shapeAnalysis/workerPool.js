@@ -45,6 +45,10 @@ class WorkerPool {
 
                 const worker = new Worker(workerUrl);
 
+                // CRITICAL FIX: Revoke blob URL immediately after worker creation to prevent memory leak
+                // The worker has already loaded the code, so the URL is no longer needed
+                URL.revokeObjectURL(workerUrl);
+
                 worker.onmessage = (e) => this.handleWorkerMessage(i, e);
                 worker.onerror = (error) => this.handleWorkerError(i, error);
 
@@ -79,7 +83,26 @@ class WorkerPool {
      * Handle message from worker
      */
     handleWorkerMessage(workerId, event) {
+        // SECURITY FIX: Validate message structure and worker ID
+        if (!event || !event.data) {
+            console.warn(`Invalid message received from worker ${workerId}`);
+            return;
+        }
+
         const { type, shapeName, ...data } = event.data;
+
+        // Validate worker ID is within bounds
+        if (workerId < 0 || workerId >= this.workers.length) {
+            console.error(`Invalid worker ID ${workerId}`);
+            return;
+        }
+
+        // Validate message type
+        const validTypes = ['progress', 'result', 'error'];
+        if (!validTypes.includes(type)) {
+            console.warn(`Unknown message type '${type}' from worker ${workerId}`);
+            return;
+        }
 
         if (type === 'progress') {
             this.workerStatus[workerId].progress = data.percentage || 0;
@@ -88,6 +111,12 @@ class WorkerPool {
         }
 
         if (type === 'result') {
+            // Validate required fields for result messages
+            if (!shapeName || typeof data.measure !== 'number' || !data.alignedCoords) {
+                console.error(`Invalid result message from worker ${workerId}: missing required fields`);
+                return;
+            }
+
             this.workerStatus[workerId].busy = false;
             this.workerStatus[workerId].currentShape = null;
             this.workerStatus[workerId].progress = 100;
@@ -108,6 +137,12 @@ class WorkerPool {
         }
 
         if (type === 'error') {
+            // Validate required fields for error messages
+            if (!shapeName) {
+                console.error(`Invalid error message from worker ${workerId}: missing shapeName`);
+                return;
+            }
+
             this.workerStatus[workerId].busy = false;
             this.workerStatus[workerId].error = data.error;
             this.workerStatus[workerId].stage = 'error';

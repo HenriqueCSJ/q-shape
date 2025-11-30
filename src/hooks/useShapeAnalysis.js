@@ -52,6 +52,10 @@ export function useShapeAnalysis({
     // Results cache
     const resultsCache = useRef(new Map());
 
+    // RACE CONDITION FIX: Track running analysis to prevent overlapping executions
+    const runningAnalysisId = useRef(0);
+    const currentAnalysisId = useRef(0);
+
     // Generate cache key
     const getCacheKey = useCallback((atoms, mode) => {
         if (!atoms || atoms.length === 0) return null;
@@ -73,6 +77,10 @@ export function useShapeAnalysis({
 
     // Main analysis effect
     useEffect(() => {
+        // RACE CONDITION FIX: Assign unique ID to this analysis run
+        // Only this analysis should update state if it's still the current one
+        const thisAnalysisId = ++currentAnalysisId.current;
+
         // Cancellation flag to prevent state updates after unmount or re-run
         let isCancelled = false;
 
@@ -160,7 +168,8 @@ export function useShapeAnalysis({
 
                     if (index >= geometryNames.length) {
                         // All geometries processed
-                        if (isCancelled) return;
+                        // RACE CONDITION FIX: Only update state if this is still the current analysis
+                        if (isCancelled || thisAnalysisId !== currentAnalysisId.current) return;
 
                         results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
                         const finiteResults = results.filter(r => isFinite(r.shapeMeasure));
@@ -199,7 +208,8 @@ export function useShapeAnalysis({
                     const name = geometryNames[index];
                     const refCoords = geometries[name];
 
-                    if (!isCancelled) {
+                    // RACE CONDITION FIX: Only update progress if this is still the current analysis
+                    if (!isCancelled && thisAnalysisId === currentAnalysisId.current) {
                         setProgress({
                             geometry: name,
                             current: index + 1,
@@ -210,7 +220,7 @@ export function useShapeAnalysis({
 
                     // Process geometry asynchronously
                     const timeout = setTimeout(() => {
-                        if (isCancelled) return;
+                        if (isCancelled || thisAnalysisId !== currentAnalysisId.current) return;
 
                         try {
                             const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
@@ -218,7 +228,8 @@ export function useShapeAnalysis({
                                 refCoords,
                                 analysisParams.mode,
                                 (progressInfo) => {
-                                    if (!isCancelled) {
+                                    // RACE CONDITION FIX: Only update progress if this is still the current analysis
+                                    if (!isCancelled && thisAnalysisId === currentAnalysisId.current) {
                                         setProgress({
                                             geometry: name,
                                             current: index + 1,
@@ -229,7 +240,7 @@ export function useShapeAnalysis({
                                 }
                             );
 
-                            if (!isCancelled) {
+                            if (!isCancelled && thisAnalysisId === currentAnalysisId.current) {
                                 results.push({
                                     name,
                                     shapeMeasure: measure,

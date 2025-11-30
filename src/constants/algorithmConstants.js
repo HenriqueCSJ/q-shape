@@ -484,6 +484,21 @@ export const GAP_DETECTION = {
  */
 export const FILE_PARSING = {
     /**
+     * Maximum file size in bytes (10 MB)
+     *
+     * Prevents browser crashes from extremely large files.
+     * 10 MB is generous for typical XYZ files (1000 atoms ≈ 50 KB).
+     */
+    MAX_FILE_SIZE: 10 * 1024 * 1024,
+
+    /**
+     * Maximum number of atoms before hard limit
+     *
+     * Prevents browser crashes. Analysis becomes impractical above this limit.
+     */
+    MAX_ATOMS: 10000,
+
+    /**
      * Maximum number of atoms before warning
      *
      * Large structures may have slow analysis.
