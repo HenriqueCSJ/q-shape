@@ -8,6 +8,8 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17717110.svg)](https://doi.org/10.5281/zenodo.17717110)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
+[![Tests](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml/badge.svg)](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/HenriqueCSJ/q-shape/graph/badge.svg)](https://codecov.io/gh/HenriqueCSJ/q-shape)
 
 **🔬 Advanced Coordination Geometry Analysis for Inorganic Chemistry**
 

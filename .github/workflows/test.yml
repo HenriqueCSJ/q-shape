@@ -16,10 +16,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -27,8 +27,39 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Run tests
-      run: npm test -- --watchAll=false
+    - name: Run tests with coverage
+      run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary
       env:
         CI: true
 
+    - name: Upload coverage to Codecov
+      if: matrix.node-version == '20.x'
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage/lcov.info
+        flags: unittests
+        name: q-shape-coverage
+        fail_ci_if_error: false
+
+    - name: Coverage Summary
+      if: matrix.node-version == '20.x'
+      run: |
+        echo "## 📊 Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -f coverage/coverage-summary.json ]; then
+          # Extract coverage percentages
+          LINES=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+          STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+          FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
+          BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
+
+          echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Coverage report not found" >> $GITHUB_STEP_SUMMARY
+        fi
