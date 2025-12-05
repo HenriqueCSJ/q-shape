@@ -9,6 +9,22 @@ import { REFERENCE_GEOMETRIES, POINT_GROUPS } from '../constants/referenceGeomet
 import { interpretShapeMeasure } from '../utils/geometry';
 
 /**
+ * Escapes HTML special characters to prevent XSS attacks
+ *
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string safe for HTML insertion
+ */
+function escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
  * Generate PDF report (opens in new window)
  *
  * @param {Object} params - Report generation parameters
@@ -65,7 +81,7 @@ export function generatePDFReport({
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Q-Shape Report: ${fileName}</title>
+<title>Q-Shape Report: ${escapeHtml(fileName)}</title>
 <style>
 @media print {
   body { margin: 0; padding: 20px; background: white !important; }
@@ -410,7 +426,7 @@ footer strong {
 <header>
   <h1>🔬 Q-Shape (Quantitative Shape Analyzer)</h1>
   <p><strong>Coordination Geometry Analysis Report</strong></p>
-  <p><strong>File:</strong> ${fileName}.xyz</p>
+  <p><strong>File:</strong> ${escapeHtml(fileName)}.xyz</p>
   <p><strong>Generated on:</strong> ${date}</p>
   <p><strong>Analysis Mode:</strong> ${analysisMode === 'intensive' ? 'Intensive (High Precision) with Kabsch Alignment' : 'Standard with Improved Kabsch Alignment'}</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
@@ -621,7 +637,7 @@ footer strong {
   <div class="warning-box">
     <h3>⚠️ Warnings</h3>
     <ul>
-      ${warnings.map(w => `<li>${w}</li>`).join('')}
+      ${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}
     </ul>
   </div>
   ` : ''}
@@ -702,7 +718,9 @@ export function generateCSVReport({ geometryResults, fileName }) {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute('href', url);
-    link.setAttribute('download', `${fileName || 'shape-analysis'}_results.csv`);
+    // Sanitize filename for download (remove potentially dangerous characters)
+    const safeFileName = (fileName || 'shape-analysis').replace(/[<>:"/\\|?*]/g, '_');
+    link.setAttribute('download', `${safeFileName}_results.csv`);
     link.style.visibility = 'hidden';
 
     document.body.appendChild(link);
