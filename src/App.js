@@ -80,8 +80,6 @@ export default function CoordinationGeometryAnalyzer() {
 
     // Intensive Analysis Handler (after coordRadius is defined)
     const handleIntensiveAnalysis = useCallback(async () => {
-        console.log('=== INTENSIVE ANALYSIS BUTTON CLICKED ===');
-
         if (!atoms || selectedMetal === null || !coordRadius) {
             handleWarning('Cannot run intensive analysis: Missing required data');
             return;
@@ -91,22 +89,14 @@ export default function CoordinationGeometryAnalyzer() {
         setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
 
         try {
-            console.log('Calling runIntensiveAnalysisAsync...');
-
             const results = await runIntensiveAnalysisAsync(
                 atoms,
                 selectedMetal,
                 coordRadius,
                 (progress) => {
-                    console.log('Progress update:', progress);
                     setIntensiveProgress(progress);
                 }
             );
-
-            console.log('=== INTENSIVE ANALYSIS RESULTS ===', results);
-            console.log('geometryResults:', results?.geometryResults?.length || 0);
-            console.log('ligandGroups:', results?.ligandGroups);
-            console.log('metadata:', results?.metadata);
 
             // Validate results before setting state
             if (!results || !results.geometryResults || !results.ligandGroups || !results.metadata) {
@@ -114,34 +104,26 @@ export default function CoordinationGeometryAnalyzer() {
             }
 
             // Store metadata AND geometry results from intensive analysis
-            console.log('Setting intensive metadata...');
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
                 metadata: results.metadata
             });
 
-            // *** KEY: Use the intensive geometry results instead of running default analysis ***
+            // Use the intensive geometry results instead of running default analysis
             // This ensures the UI shows the improved CShM values from intensive mode
-            console.log('Setting intensive results...');
             setAnalysisParams({
                 mode: 'intensive',
                 key: Date.now(),
-                intensiveResults: results.geometryResults  // <-- Use intensive CShM results
+                intensiveResults: results.geometryResults
             });
 
-            console.log('Clearing progress...');
             setIntensiveProgress(null);
-
-            console.log('=== INTENSIVE ANALYSIS COMPLETED SUCCESSFULLY ===');
 
         } catch (error) {
-            console.error('=== INTENSIVE ANALYSIS ERROR ===', error);
-            console.error('Error stack:', error.stack);
+            console.error('Intensive analysis failed:', error);
             handleError(`Intensive analysis failed: ${error.message}`);
             setIntensiveProgress(null);
-            alert(`Intensive analysis crashed!\n\nError: ${error.message}\n\nCheck browser console (F12) for full error details.`);
         } finally {
-            console.log('Setting isRunningIntensive to false');
             setIsRunningIntensive(false);
         }
     }, [atoms, selectedMetal, coordRadius, handleWarning, handleError]);
@@ -277,10 +259,6 @@ export default function CoordinationGeometryAnalyzer() {
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
     }, [geometryResults, fileName]);
-
-//     const totalGeometries = useMemo(() => {
-//         return Object.values(REFERENCE_GEOMETRIES).reduce((sum, geoms) => sum + Object.keys(geoms).length, 0);
-//     }, []);
 
     return (
     <div className="app-container">

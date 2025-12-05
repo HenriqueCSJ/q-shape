@@ -60,16 +60,17 @@ export function useRadiusControl({
     }, [coordRadius]);
 
     // Track if we've already auto-detected for this combination
-    const lastAutoDetectRef = useRef({ metal: null, atomCount: 0, radius: null });
+    // Structure: { metal, atomCount, autoRadius, radius }
+    const lastAutoDetectRef = useRef({ metal: null, atomCount: 0, autoRadius: true, radius: null });
 
     // Auto-detect radius when metal or atom count changes (not on every render)
     useEffect(() => {
         const atomCount = atoms.length;
 
-        // Skip if already processed this combination
+        // Skip if already processed this exact combination
         if (selectedMetal === lastAutoDetectRef.current.metal &&
             atomCount === lastAutoDetectRef.current.atomCount &&
-            autoRadius === lastAutoDetectRef.current.autoEnabled) {
+            autoRadius === lastAutoDetectRef.current.autoRadius) {
             return;
         }
 
@@ -82,7 +83,7 @@ export function useRadiusControl({
                 lastAutoDetectRef.current = {
                     metal: selectedMetal,
                     atomCount: atomCount,
-                    autoEnabled: autoRadius,
+                    autoRadius: autoRadius,
                     radius: radius
                 };
 
@@ -98,7 +99,7 @@ export function useRadiusControl({
             }
         } else if (!autoRadius) {
             // Reset tracking when auto is disabled
-            lastAutoDetectRef.current = { metal: null, atomCount: 0, radius: null };
+            lastAutoDetectRef.current = { metal: null, atomCount: 0, autoRadius: false, radius: null };
         }
     // Only depend on things that can change without atoms array changing
     // eslint-disable-next-line react-hooks/exhaustive-deps

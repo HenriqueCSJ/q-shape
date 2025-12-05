@@ -24,8 +24,8 @@ import Munkres from 'munkres-js';
  * Finds the assignment that minimizes the total cost across all pairs.
  * Uses the complete Munkres algorithm implementation from munkres-js.
  *
- * For very small matrices (n <= 3), uses an optimized greedy approach
- * which is faster and produces identical results for such small sizes.
+ * Note: Greedy matching is NOT guaranteed optimal for n >= 3.
+ * We use Munkres for all non-trivial cases to ensure correctness.
  *
  * @param {Array<Array<number>>} costMatrix - Square matrix of costs/distances
  * @returns {Array<Array<number>>} Array of [row, column] pairs representing optimal assignment
@@ -44,13 +44,13 @@ export default function hungarianAlgorithm(costMatrix) {
     const n = costMatrix.length;
     if (n === 0) return [];
 
-    // For very small matrices, greedy matching is optimal and faster
-    // This is an optimization for the common case in molecular geometry (CN 2-3)
-    if (n <= 3) {
-        return greedyMatching(costMatrix);
+    // For trivial case (n=1), just return the only possible assignment
+    if (n === 1) {
+        return [[0, 0]];
     }
 
-    // For larger matrices, use the complete Munkres algorithm
+    // For all non-trivial matrices (n >= 2), use the complete Munkres algorithm
+    // to guarantee optimal assignment. Greedy is NOT optimal for n >= 3.
     // munkres-js returns indices directly: [[row, col], ...]
     try {
         const result = Munkres(costMatrix);
@@ -62,15 +62,15 @@ export default function hungarianAlgorithm(costMatrix) {
 }
 
 /**
- * Greedy matching algorithm (fast approximation for small matrices)
+ * Greedy matching algorithm (fallback only)
  *
- * Provides a fast solution by selecting assignments in order of increasing cost.
- * For matrices of size ≤ 3, this greedy approach is guaranteed to find the
- * optimal solution due to the limited number of possible permutations.
+ * WARNING: This is NOT guaranteed to find the optimal solution for n >= 3.
+ * Only used as a fallback if the Munkres algorithm fails.
  *
- * For n=1: Only 1 assignment possible (trivial)
- * For n=2: Only 2 possible permutations, greedy picks the better one
- * For n=3: Among 6 permutations, greedy reliably finds optimal for typical costs
+ * Provides a fast approximation by selecting assignments in order of increasing cost.
+ * - For n=1: Trivially optimal (only 1 assignment possible)
+ * - For n=2: Optimal (greedy works for 2x2)
+ * - For n>=3: NOT guaranteed optimal - can produce suboptimal results
  *
  * Algorithm:
  * 1. Create list of all possible assignments with their costs
@@ -78,7 +78,7 @@ export default function hungarianAlgorithm(costMatrix) {
  * 3. Greedily select assignments ensuring no row/column is used twice
  *
  * @param {Array<Array<number>>} costMatrix - Square matrix of costs/distances
- * @returns {Array<Array<number>>} Array of [row, column] pairs
+ * @returns {Array<Array<number>>} Array of [row, column] pairs (may be suboptimal for n>=3)
  *
  * @example
  * const costs = [[1, 2], [3, 4]];
