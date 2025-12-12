@@ -89,10 +89,14 @@ export default function kabschAlignment(P, Q) {
         // Step 6: Ensure proper rotation (det(R) = 1)
         const det = determinant3x3(R);
         if (det < 0) {
-            V[0][2] *= -1;
-            V[1][2] *= -1;
-            V[2][2] *= -1;
-            const R_corrected = multiplyMatrices3x3(V, transpose3x3(U));
+            // CRITICAL FIX: Create a copy of V instead of mutating it in-place
+            // This prevents side effects if V is used elsewhere
+            const V_corrected = [
+                [V[0][0], V[0][1], -V[0][2]],
+                [V[1][0], V[1][1], -V[1][2]],
+                [V[2][0], V[2][1], -V[2][2]]
+            ];
+            const R_corrected = multiplyMatrices3x3(V_corrected, transpose3x3(U));
             return arrayToMatrix4(R_corrected);
         }
 
