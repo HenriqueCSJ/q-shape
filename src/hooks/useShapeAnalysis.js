@@ -49,8 +49,11 @@ export function useShapeAnalysis({
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(null);
 
-    // Results cache
+    // Results cache with LRU limit to prevent memory leaks
+    // Maximum 10 cached results (typical use case: one structure at a time)
+    const MAX_CACHE_SIZE = 10;
     const resultsCache = useRef(new Map());
+    const cacheOrder = useRef([]); // Track insertion order for LRU
 
     // Generate cache key
     const getCacheKey = useCallback((atoms, mode) => {
@@ -66,9 +69,32 @@ export function useShapeAnalysis({
         }
     }, []);
 
+    // Add to cache with LRU eviction
+    const addToCache = useCallback((key, value) => {
+        if (!key) return;
+
+        // Remove oldest entry if at capacity
+        if (resultsCache.current.size >= MAX_CACHE_SIZE && !resultsCache.current.has(key)) {
+            const oldestKey = cacheOrder.current.shift();
+            if (oldestKey) {
+                resultsCache.current.delete(oldestKey);
+            }
+        }
+
+        // Update cache order (move to end if exists, add if new)
+        const existingIndex = cacheOrder.current.indexOf(key);
+        if (existingIndex !== -1) {
+            cacheOrder.current.splice(existingIndex, 1);
+        }
+        cacheOrder.current.push(key);
+
+        resultsCache.current.set(key, value);
+    }, []);
+
     // Clear cache
     const clearCache = useCallback(() => {
         resultsCache.current.clear();
+        cacheOrder.current = [];
     }, []);
 
     // Main analysis effect
@@ -173,15 +199,13 @@ export function useShapeAnalysis({
                             const quality = calculateQualityMetrics(coordAtoms, best, best.shapeMeasure);
                             setQualityMetrics(quality);
 
-                            // Cache results
-                            if (cacheKey) {
-                                resultsCache.current.set(cacheKey, {
-                                    results: finiteResults,
-                                    best,
-                                    metrics,
-                                    quality
-                                });
-                            }
+                            // Cache results with LRU eviction
+                            addToCache(cacheKey, {
+                                results: finiteResults,
+                                best,
+                                metrics,
+                                quality
+                            });
                         } else {
                             setGeometryResults([]);
                             setBestGeometry(null);
@@ -285,7 +309,7 @@ export function useShapeAnalysis({
     // Don't include onWarning/onError in dependencies - they're stable callbacks
     // Including them causes infinite loops when they're recreated
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [coordAtoms, analysisParams, getCacheKey]);
+    }, [coordAtoms, analysisParams, getCacheKey, addToCache]);
 
     return {
         // Results

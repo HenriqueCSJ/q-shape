@@ -182,11 +182,50 @@ export function calculateQualityMetrics(coordAtoms, bestGeometry, shapeMeasure) 
         const bondLengthUniformity = 100 * (1 - (relativeDeviations.reduce((a, b) => a + b, 0) / relativeDeviations.length));
 
         const volumeRatio = 1.0;
+
+        /**
+         * Shape Deviation Parameter
+         *
+         * Derived from CShM as: √(CShM/100)
+         * This gives a normalized deviation value where:
+         * - 0 = perfect match to ideal geometry
+         * - 1 = severe distortion
+         *
+         * Reference: Pinsky & Avnir (1998), Inorg. Chem., 37, 5575-5582
+         */
         const shapeDeviation = Math.sqrt(shapeMeasure / 100);
 
         const qualityScore = Math.max(0, Math.min(100,
             100 - (shapeMeasure * 2) - (angularDistortion * 0.5) - ((100 - bondLengthUniformity) * 0.3)
         ));
+
+        /**
+         * Approximate RMSD Calculation
+         *
+         * IMPORTANT: This is an APPROXIMATION derived from CShM, not a true RMSD.
+         *
+         * For normalized coordinates on the unit sphere, the relationship is:
+         *   CShM = 100 × (1/N) × Σ|qi - pi|²
+         *   approxRMSD = √(CShM/100) when coordinates are unit-normalized
+         *
+         * This approximation is valid because:
+         * 1. Both actual and reference coordinates are normalized to unit sphere
+         * 2. Optimal rotation and permutation have been applied by the CShM algorithm
+         * 3. For unit-normalized structures, Σ|qi|² = N, so CShM/100 = mean squared deviation
+         *
+         * Limitations:
+         * - Should not be directly compared with RMSD from other software using
+         *   non-normalized coordinates (e.g., Cartesian RMSD in Å)
+         * - Does not account for bond length variations (only angular arrangement)
+         *
+         * For publication: Clearly state this is a normalized RMSD on the unit sphere,
+         * reflecting angular deviation from ideal geometry.
+         *
+         * References:
+         * - Pinsky & Avnir (1998), Inorg. Chem., 37, 5575-5582
+         * - Alvarez et al. (2002), Coord. Chem. Rev., 249, 1693-1708
+         */
+        const approximateRmsd = Math.sqrt(shapeMeasure / 100);
 
         return {
             angularDistortionIndex: angularDistortion,
@@ -194,7 +233,9 @@ export function calculateQualityMetrics(coordAtoms, bestGeometry, shapeMeasure) 
             polyhedralVolumeRatio: volumeRatio,
             shapeDeviationParameter: shapeDeviation,
             overallQualityScore: qualityScore,
-            rmsd: Math.sqrt(shapeMeasure / 100)
+            rmsd: approximateRmsd,
+            // Note for developers: rmsd is derived from CShM, not computed directly
+            _rmsdNote: 'Approximate RMSD derived from CShM for unit-normalized coordinates'
         };
     } catch (error) {
         console.error("Error calculating quality metrics:", error);
