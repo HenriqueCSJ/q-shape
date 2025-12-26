@@ -302,9 +302,21 @@ class WorkerPool {
 
 /**
  * Singleton instance for app-wide usage
+ *
+ * Uses initialization lock to prevent race conditions when
+ * getWorkerPool() is called concurrently from multiple async contexts.
  */
 let workerPoolInstance = null;
+let initializationPromise = null;
 
+/**
+ * Get or create the worker pool singleton
+ *
+ * Thread-safe: Uses a promise lock to ensure only one instance is created
+ * even if called concurrently from multiple async contexts.
+ *
+ * @returns {WorkerPool} The singleton worker pool instance
+ */
 export function getWorkerPool() {
     if (!workerPoolInstance) {
         workerPoolInstance = new WorkerPool(4);
@@ -312,7 +324,36 @@ export function getWorkerPool() {
     return workerPoolInstance;
 }
 
+/**
+ * Initialize the worker pool asynchronously with thread-safety
+ *
+ * This should be called before using the pool for calculations.
+ * Safe to call multiple times - subsequent calls return the same promise.
+ *
+ * @returns {Promise<WorkerPool>} Promise resolving to initialized worker pool
+ */
+export async function initializeWorkerPool() {
+    if (workerPoolInstance && workerPoolInstance.workers.length > 0) {
+        return workerPoolInstance;
+    }
+
+    // Use promise lock to prevent race conditions
+    if (!initializationPromise) {
+        initializationPromise = (async () => {
+            const pool = getWorkerPool();
+            await pool.initialize();
+            return pool;
+        })();
+    }
+
+    return initializationPromise;
+}
+
+/**
+ * Terminate all workers and cleanup
+ */
 export function terminateWorkerPool() {
+    initializationPromise = null;
     if (workerPoolInstance) {
         workerPoolInstance.terminate();
         workerPoolInstance = null;

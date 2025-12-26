@@ -4,6 +4,18 @@
  * Runs shape measure calculations in a background thread to prevent UI freezing.
  * Handles intensive CShM optimization with progress reporting.
  *
+ * IMPORTANT: This worker contains inlined implementations of:
+ * - Vector3, Matrix4, Euler (minimal THREE.js subset)
+ * - Hungarian algorithm (Munkres)
+ * - Kabsch alignment (with Jacobi SVD)
+ * - Shape measure calculation
+ *
+ * Algorithm parameters in this file MUST be kept in sync with:
+ * - src/constants/algorithmConstants.js (SHAPE_MEASURE, KABSCH constants)
+ *
+ * Web Workers cannot import ES modules, so parameters are duplicated here.
+ * Any changes to algorithm constants should be reflected in both files.
+ *
  * Messages received from main thread:
  * - { type: 'calculate', actualCoords, referenceCoords, mode, shapeName, smartAlignments }
  * - { type: 'terminate' }
@@ -12,6 +24,9 @@
  * - { type: 'progress', shapeName, stage, percentage, current, total, extra }
  * - { type: 'result', shapeName, measure, alignedCoords, rotationMatrix }
  * - { type: 'error', shapeName, error }
+ *
+ * @version 1.4.0
+ * @see src/constants/algorithmConstants.js for parameter documentation
  */
 
 // Import THREE.js (needs to be available in worker context)
@@ -327,65 +342,253 @@ function hungarianAlgorithm(costMatrix) {
     return matching;
 }
 
-// Kabsch alignment algorithm
-function kabschAlignment(P_coords, Q_coords) {
-    const N = P_coords.length;
+/**
+ * Jacobi SVD algorithm for 3x3 matrices (worker implementation)
+ *
+ * Uses the two-sided Jacobi method for numerical stability.
+ * This matches the main thread implementation in kabsch.js
+ */
+function jacobiSVD(A) {
+    const TOLERANCE = 1e-10;
+    const MAX_ITERATIONS = 100;
 
-    // Center both sets
-    const P_center = [0, 0, 0];
-    const Q_center = [0, 0, 0];
+    // Initialize U and V as identity matrices
+    const U = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const V = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
-    for (let i = 0; i < N; i++) {
-        P_center[0] += P_coords[i][0];
-        P_center[1] += P_coords[i][1];
-        P_center[2] += P_coords[i][2];
-        Q_center[0] += Q_coords[i][0];
-        Q_center[1] += Q_coords[i][1];
-        Q_center[2] += Q_coords[i][2];
-    }
+    // Copy A to S
+    let S = [
+        [A[0][0], A[0][1], A[0][2]],
+        [A[1][0], A[1][1], A[1][2]],
+        [A[2][0], A[2][1], A[2][2]]
+    ];
 
-    P_center[0] /= N; P_center[1] /= N; P_center[2] /= N;
-    Q_center[0] /= N; Q_center[1] /= N; Q_center[2] /= N;
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+        let maxVal = 0;
+        let p = 0, q = 1;
 
-    const P_centered = P_coords.map(p => [p[0] - P_center[0], p[1] - P_center[1], p[2] - P_center[2]]);
-    const Q_centered = Q_coords.map(q => [q[0] - Q_center[0], q[1] - Q_center[1], q[2] - Q_center[2]]);
-
-    // Compute covariance matrix H = P^T * Q
-    const H = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    for (let i = 0; i < N; i++) {
-        for (let j = 0; j < 3; j++) {
-            for (let k = 0; k < 3; k++) {
-                H[j][k] += P_centered[i][j] * Q_centered[i][k];
+        for (let i = 0; i < 3; i++) {
+            for (let j = i + 1; j < 3; j++) {
+                const val = Math.abs(S[i][j]);
+                if (val > maxVal) {
+                    maxVal = val;
+                    p = i;
+                    q = j;
+                }
             }
+        }
+
+        if (maxVal < TOLERANCE) break;
+
+        const Spp = S[p][p];
+        const Sqq = S[q][q];
+        const Spq = S[p][q];
+
+        let c, s;
+        if (Math.abs(Spq) < TOLERANCE) {
+            c = 1;
+            s = 0;
+        } else {
+            const tau = (Sqq - Spp) / (2 * Spq);
+            const t = Math.sign(tau) / (Math.abs(tau) + Math.sqrt(1 + tau * tau));
+            c = 1 / Math.sqrt(1 + t * t);
+            s = c * t;
+        }
+
+        const Sp = [...S[p]];
+        const Sq = [...S[q]];
+
+        for (let i = 0; i < 3; i++) {
+            S[p][i] = c * Sp[i] - s * Sq[i];
+            S[q][i] = s * Sp[i] + c * Sq[i];
+        }
+
+        for (let i = 0; i < 3; i++) {
+            const Sip = S[i][p];
+            const Siq = S[i][q];
+            S[i][p] = c * Sip - s * Siq;
+            S[i][q] = s * Sip + c * Siq;
+        }
+
+        for (let i = 0; i < 3; i++) {
+            const Uip = U[i][p];
+            const Uiq = U[i][q];
+            U[i][p] = c * Uip - s * Uiq;
+            U[i][q] = s * Uip + c * Uiq;
+
+            const Vip = V[i][p];
+            const Viq = V[i][q];
+            V[i][p] = c * Vip - s * Viq;
+            V[i][q] = s * Vip + c * Viq;
         }
     }
 
-    // Simple approximation: use identity if we can't do proper SVD
-    // In production, would use proper SVD library
-    return new Matrix4(); // Return identity for now
+    return { U, V };
 }
 
-// Main CShM calculation function (adapted for worker)
+/**
+ * Transpose a 3x3 matrix
+ */
+function transpose3x3(M) {
+    return [
+        [M[0][0], M[1][0], M[2][0]],
+        [M[0][1], M[1][1], M[2][1]],
+        [M[0][2], M[1][2], M[2][2]]
+    ];
+}
+
+/**
+ * Multiply two 3x3 matrices
+ */
+function multiplyMatrices3x3(A, B) {
+    const C = [[0,0,0], [0,0,0], [0,0,0]];
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            for (let k = 0; k < 3; k++) {
+                C[i][j] += A[i][k] * B[k][j];
+            }
+        }
+    }
+    return C;
+}
+
+/**
+ * Calculate determinant of a 3x3 matrix
+ */
+function determinant3x3(M) {
+    return M[0][0] * (M[1][1]*M[2][2] - M[1][2]*M[2][1]) -
+           M[0][1] * (M[1][0]*M[2][2] - M[1][2]*M[2][0]) +
+           M[0][2] * (M[1][0]*M[2][1] - M[1][1]*M[2][0]);
+}
+
+/**
+ * Convert 3x3 rotation matrix to Matrix4
+ */
+function rotationToMatrix4(R) {
+    const mat = new Matrix4();
+    mat.set(
+        R[0][0], R[0][1], R[0][2], 0,
+        R[1][0], R[1][1], R[1][2], 0,
+        R[2][0], R[2][1], R[2][2], 0,
+        0, 0, 0, 1
+    );
+    return mat;
+}
+
+/**
+ * Kabsch alignment algorithm - full implementation for web worker
+ *
+ * Finds the optimal rotation matrix that minimizes RMSD between two point sets.
+ * Uses Jacobi SVD for numerical stability.
+ */
+function kabschAlignment(P_coords, Q_coords) {
+    try {
+        const N = P_coords.length;
+        if (N !== Q_coords.length || N === 0) {
+            return new Matrix4(); // Identity on error
+        }
+
+        // Step 1: Center both point sets
+        const P_center = [0, 0, 0];
+        const Q_center = [0, 0, 0];
+
+        for (let i = 0; i < N; i++) {
+            P_center[0] += P_coords[i][0];
+            P_center[1] += P_coords[i][1];
+            P_center[2] += P_coords[i][2];
+            Q_center[0] += Q_coords[i][0];
+            Q_center[1] += Q_coords[i][1];
+            Q_center[2] += Q_coords[i][2];
+        }
+
+        P_center[0] /= N; P_center[1] /= N; P_center[2] /= N;
+        Q_center[0] /= N; Q_center[1] /= N; Q_center[2] /= N;
+
+        const P_centered = P_coords.map(p => [
+            p[0] - P_center[0],
+            p[1] - P_center[1],
+            p[2] - P_center[2]
+        ]);
+        const Q_centered = Q_coords.map(q => [
+            q[0] - Q_center[0],
+            q[1] - Q_center[1],
+            q[2] - Q_center[2]
+        ]);
+
+        // Step 2: Compute covariance matrix H = P^T * Q
+        const H = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        for (let i = 0; i < N; i++) {
+            for (let j = 0; j < 3; j++) {
+                for (let k = 0; k < 3; k++) {
+                    H[j][k] += P_centered[i][j] * Q_centered[i][k];
+                }
+            }
+        }
+
+        // Step 3: Perform SVD using Jacobi algorithm
+        const { U, V } = jacobiSVD(H);
+
+        // Step 4: Compute rotation matrix R = V * U^T
+        const R = multiplyMatrices3x3(V, transpose3x3(U));
+
+        // Step 5: Ensure proper rotation (det(R) = 1, not -1)
+        const det = determinant3x3(R);
+        if (det < 0) {
+            // Flip sign of last column of V and recompute
+            V[0][2] *= -1;
+            V[1][2] *= -1;
+            V[2][2] *= -1;
+            const R_corrected = multiplyMatrices3x3(V, transpose3x3(U));
+            return rotationToMatrix4(R_corrected);
+        }
+
+        return rotationToMatrix4(R);
+
+    } catch (error) {
+        console.warn("Worker Kabsch alignment failed:", error.message);
+        return new Matrix4(); // Return identity on failure
+    }
+}
+
+/**
+ * Main CShM calculation function (adapted for worker)
+ *
+ * SYNC WARNING: Parameters below MUST match algorithmConstants.js
+ * These are duplicated because Web Workers cannot import ES modules.
+ *
+ * Last synced with algorithmConstants.js: 2025-12-26
+ * @see src/constants/algorithmConstants.js - SHAPE_MEASURE
+ */
 function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCallback, smartAlignments = []) {
     const N = actualCoords.length;
     if (N !== referenceCoords.length || N === 0) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new Matrix4() };
     }
 
+    /**
+     * Algorithm parameters - MUST MATCH algorithmConstants.js
+     *
+     * Default mode: Fast computation (~1-3 seconds)
+     * Intensive mode: Thorough search (~5-15 seconds)
+     *
+     * @see SHAPE_MEASURE.DEFAULT and SHAPE_MEASURE.INTENSIVE in algorithmConstants.js
+     */
     const params = {
         default: {
-            gridSteps: 18,
-            gridStride: 3,
-            numRestarts: 6,
-            stepsPerRun: 3000,
-            refinementSteps: 2000,
+            // SHAPE_MEASURE.DEFAULT values
+            gridSteps: 18,       // Grid search angular divisions (360°/18 = 20° step)
+            gridStride: 3,       // Sample every 3rd point
+            numRestarts: 6,      // Number of annealing restarts
+            stepsPerRun: 3000,   // Steps per annealing run
+            refinementSteps: 2000 // Final refinement steps
         },
         intensive: {
-            gridSteps: 24,          // Slightly more than default
-            gridStride: 2,
-            numRestarts: 10,        // More restarts for better exploration
-            stepsPerRun: 6000,      // Longer annealing runs
-            refinementSteps: 4000,
+            // SHAPE_MEASURE.INTENSIVE values
+            gridSteps: 30,       // Finer grid (360°/30 = 12° step)
+            gridStride: 2,       // Denser sampling
+            numRestarts: 12,     // More restarts for thorough exploration
+            stepsPerRun: 8000,   // Longer annealing runs
+            refinementSteps: 6000 // Extended refinement
         }
     };
     const currentParams = params[mode] || params.default;
