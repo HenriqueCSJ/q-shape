@@ -55,9 +55,14 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
     }
 
     // Load parameters from constants (documented with scientific justification)
-    const currentParams = mode === 'intensive'
-        ? SHAPE_MEASURE.INTENSIVE
-        : SHAPE_MEASURE.DEFAULT;
+    let currentParams;
+    if (mode === 'intensive') {
+        currentParams = SHAPE_MEASURE.INTENSIVE;
+    } else if (mode === 'fast') {
+        currentParams = SHAPE_MEASURE.FAST;
+    } else {
+        currentParams = SHAPE_MEASURE.DEFAULT;
+    }
 
     try {
         // Normalize actual coordinates

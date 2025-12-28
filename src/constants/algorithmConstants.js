@@ -216,6 +216,22 @@ export const PATTERN_DETECTION = {
  */
 export const SHAPE_MEASURE = {
     /**
+     * Fast mode: Minimal computation for testing
+     *
+     * Used for unit tests where speed is critical.
+     * May not find optimal alignment for difficult cases.
+     * Typical completion: <100ms.
+     */
+    FAST: {
+        GRID_STEPS: 6,
+        GRID_STRIDE: 2,
+        NUM_RESTARTS: 1,
+        STEPS_PER_RUN: 100,
+        REFINEMENT_STEPS: 50,
+        USE_KABSCH: true
+    },
+
+    /**
      * Default mode: Fast computation with good accuracy
      *
      * Optimized for interactive use. Typical completion: 1-3 seconds.
