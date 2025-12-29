@@ -37,18 +37,22 @@ function generateLinear() {
 }
 
 function generateVShape() {
-    // vT-2: Divacant Tetrahedron (V-shape, 109.47°) - Official CoSyMlib reference (normalized)
+    // vT-2: Divacant Tetrahedron (V-shape, 109.47°) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, -0.534522]
     return [
-        [0.801784, 0.801784, 0.267261],
-        [-0.801784, -0.801784, 0.267261]
+        [0.801784, 0.801784, 0.801784],
+        [-0.801784, -0.801784, 0.801784]
     ].map(normalize);
 }
 
 function generateLShape() {
-    // vOC-2: Tetravacant Octahedron (L-shape, 90°) - Official CoSyMlib reference (normalized)
+    // vOC-2: Tetravacant Octahedron (L-shape, 90°) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [-0.5, -0.5, 0]
     return [
-        [1.000000, -0.500000, 0.000000],
-        [-0.500000, 1.000000, 0.000000]
+        [1.500000, 0.000000, 0.000000],
+        [0.000000, 1.500000, 0.000000]
     ].map(normalize);
 }
 
@@ -63,29 +67,35 @@ function generateTrigonalPlanar() {
 }
 
 function generatePyramid() {
-    // vT-3: Vacant Tetrahedron (Trigonal Pyramid) - Official CoSyMlib reference (normalized)
+    // vT-3: Vacant Tetrahedron (Trigonal Pyramid) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, -0.301511]
     return [
-        [1.137070, -0.000000, 0.100504],
-        [-0.568535, 0.984732, 0.100504],
-        [-0.568535, -0.984732, 0.100504]
+        [1.137070, 0.000000, 0.402015],
+        [-0.568535, 0.984732, 0.402015],
+        [-0.568535, -0.984732, 0.402015]
     ].map(normalize);
 }
 
 function generateFacTrivacantOctahedron() {
-    // fac-vOC-3: fac-Trivacant Octahedron - Official CoSyMlib reference (normalized)
+    // fac-vOC-3: fac-Trivacant Octahedron - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [-0.333333, -0.333333, -0.333333]
     return [
-        [1.000000, -0.333333, -0.333333],
-        [-0.333333, 1.000000, -0.333333],
-        [-0.333333, -0.333333, 1.000000]
+        [1.333333, 0.000000, 0.000000],
+        [0.000000, 1.333333, 0.000000],
+        [0.000000, 0.000000, 1.333333]
     ].map(normalize);
 }
 
 function generateTShaped() {
-    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped) - Official CoSyMlib reference (normalized)
+    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, -0.301511, 0]
     return [
-        [1.206045, -0.301511, 0.000000],
-        [0.000000, 0.904534, 0.000000],
-        [-1.206045, -0.301511, 0.000000]
+        [1.206045, 0.000000, 0.000000],
+        [0.000000, 1.206045, 0.000000],
+        [-1.206045, 0.000000, 0.000000]
     ].map(normalize);
 }
 
@@ -110,22 +120,28 @@ function generateSquarePlanar() {
 }
 
 function generateSeesaw() {
-    // SS-4: Seesaw (cis-divacant octahedron) - Official CoSyMlib reference (normalized)
+    // SS-4: Seesaw (cis-divacant octahedron) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [-0.235702, -0.235702, 0]
+    // After centering: vertices form orthogonal seesaw geometry
     return [
-        [-0.235702, -0.235702, -1.178511],
-        [0.942809, -0.235702, 0.000000],
-        [-0.235702, 0.942809, 0.000000],
-        [-0.235702, -0.235702, 1.178511]
+        [0.000000, 0.000000, -1.178511],  // axial -z
+        [1.178511, 0.000000, 0.000000],   // equatorial +x
+        [0.000000, 1.178511, 0.000000],   // equatorial +y
+        [0.000000, 0.000000, 1.178511]    // axial +z
     ].map(normalize);
 }
 
 function generateAxialVacantTBPY() {
-    // vTBPY-4: Axially Vacant Trigonal Bipyramid - Official CoSyMlib reference (normalized)
+    // vTBPY-4: Axially Vacant Trigonal Bipyramid - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, 0.229416]
+    // After centering: axial at -z, three equatorial in xy-plane
     return [
-        [0.000000, -0.000000, -0.917663],
-        [1.147079, -0.000000, 0.229416],
-        [-0.573539, 0.993399, 0.229416],
-        [-0.573539, -0.993399, 0.229416]
+        [0.000000, 0.000000, -1.147079],   // axial -z
+        [1.147079, 0.000000, 0.000000],    // equatorial +x
+        [-0.573539, 0.993399, 0.000000],   // equatorial 120°
+        [-0.573539, -0.993399, 0.000000]   // equatorial 240°
     ].map(normalize);
 }
 
@@ -141,13 +157,16 @@ function generatePentagon() {
 }
 
 function generateSquarePyramid() {
-    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1) - Official CoSyMlib reference (normalized)
+    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, 0.185695]
+    // After centering: apex at -z, four base vertices in xy-plane
     return [
-        [0.000000, -0.000000, -0.928477],
-        [1.114172, -0.000000, 0.185695],
-        [0.000000, 1.114172, 0.185695],
-        [-1.114172, 0.000000, 0.185695],
-        [-0.000000, -1.114172, 0.185695]
+        [0.000000, 0.000000, -1.114172],   // apex -z
+        [1.114172, 0.000000, 0.000000],    // base +x
+        [0.000000, 1.114172, 0.000000],    // base +y
+        [-1.114172, 0.000000, 0.000000],   // base -x
+        [0.000000, -1.114172, 0.000000]    // base -y
     ].map(normalize);
 }
 
@@ -196,14 +215,16 @@ function generateHexagon() {
 }
 
 function generatePentagonalPyramid() {
-    // PPY-6: Pentagonal Pyramid - Official CoSyMlib reference (normalized)
+    // PPY-6: Pentagonal Pyramid - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, 0.156174]
     return [
-        [0.000000, -0.000000, -0.937043],
-        [1.093216, -0.000000, 0.156174],
-        [0.337822, 1.039711, 0.156174],
-        [-0.884431, 0.642576, 0.156174],
-        [-0.884431, -0.642576, 0.156174],
-        [0.337822, -1.039711, 0.156174]
+        [0.000000, 0.000000, -1.093217],   // apex -z
+        [1.093216, 0.000000, 0.000000],    // base vertex
+        [0.337822, 1.039711, 0.000000],
+        [-0.884431, 0.642576, 0.000000],
+        [-0.884431, -0.642576, 0.000000],
+        [0.337822, -1.039711, 0.000000]
     ].map(normalize);
 }
 
@@ -232,14 +253,16 @@ function generateTrigonalPrism() {
 }
 
 function generateJohnsonPentagonalPyramid6() {
-    // JPPY-6: Johnson Pentagonal Pyramid (J2) - Official CoSyMlib reference (normalized)
+    // JPPY-6: Johnson Pentagonal Pyramid (J2) - Official CoSyMlib reference
+    // CORRECTED: Coordinates centered on metal position before normalization
+    // Metal center in cosymlib: [0, 0, 0.101206]
     return [
-        [1.146282, -0.000000, 0.101206],
-        [0.354221, 1.090179, 0.101206],
-        [-0.927361, 0.673768, 0.101206],
-        [-0.927361, -0.673768, 0.101206],
-        [0.354221, -1.090179, 0.101206],
-        [0.000000, -0.000000, -0.607235]
+        [1.146282, 0.000000, 0.000000],    // base vertex
+        [0.354221, 1.090179, 0.000000],
+        [-0.927361, 0.673768, 0.000000],
+        [-0.927361, -0.673768, 0.000000],
+        [0.354221, -1.090179, 0.000000],
+        [0.000000, 0.000000, -0.708441]    // apex -z
     ].map(normalize);
 }
 
