@@ -1,6 +1,11 @@
 /**
- * CShM Calculation Web Worker (OPTIMIZED)
+ * Handles intensive CShM optimization with progress reporting.
  *
+ * TODO: This worker is currently disconnected from the main application flow (v1.4.0).
+ * It was reverted due to memory issues but has been optimized.
+ * Re-integrate in future versions for parallel processing.
+ *
+ * IMPORTANT: This worker contains inlined implementations of:
  * Runs shape measure calculations in a background thread.
  * Highly optimized for memory usage to prevent GC thrashing during annealing.
  *
