@@ -4,23 +4,60 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
 
 /**
+ * Normalizes a structure by centering on centroid and scaling by RMS distance.
+ * This matches the normalization used by SHAPE software and cshm-cc.
+ *
+ * @param {Array<Array<number>>} coords - Array of [x, y, z] coordinates
+ * @returns {Object} Object with normalized coordinates and normalization factor
+ */
+function normalizeStructure(coords) {
+    const N = coords.length;
+
+    // Calculate centroid
+    let cx = 0, cy = 0, cz = 0;
+    for (const [x, y, z] of coords) {
+        cx += x; cy += y; cz += z;
+    }
+    cx /= N; cy /= N; cz /= N;
+
+    // Center coordinates
+    const centered = coords.map(([x, y, z]) => [x - cx, y - cy, z - cz]);
+
+    // Calculate RMS distance
+    let sumSqDist = 0;
+    for (const [x, y, z] of centered) {
+        sumSqDist += x * x + y * y + z * z;
+    }
+    const rms = Math.sqrt(sumSqDist / N);
+
+    // Normalize by RMS
+    if (rms < 1e-10) {
+        return { normalized: centered, rms: 1 };
+    }
+
+    const normalized = centered.map(([x, y, z]) => [x / rms, y / rms, z / rms]);
+    return { normalized, rms };
+}
+
+/**
  * Calculates the shape measure between actual and reference coordinates using
  * a multi-stage optimization approach.
  *
  * This function implements the Continuous Shape Measure (CShM) algorithm, which:
- * 1. Normalizes coordinates to unit sphere
- * 2. Uses Kabsch algorithm for initial alignment
- * 3. Tests key orientations for coarse search
- * 4. Performs grid search over rotation space
- * 5. Applies simulated annealing for global optimization
- * 6. Refines the solution with local optimization
+ * 1. Adds the central atom at origin to the structure (matching SHAPE convention)
+ * 2. Normalizes coordinates by centering and RMS scaling (not unit vectors)
+ * 3. Uses Kabsch algorithm for initial alignment
+ * 4. Tests key orientations for coarse search
+ * 5. Performs grid search over rotation space
+ * 6. Applies simulated annealing for global optimization
+ * 7. Applies optimal scaling factor
  *
  * The algorithm finds the optimal rotation and atom-to-vertex matching that
  * minimizes the root mean square deviation between the actual and reference
- * geometries.
+ * geometries, matching the original SHAPE software methodology.
  *
- * @param {Array<Array<number>>} actualCoords - Array of [x, y, z] coordinates for actual structure
- * @param {Array<Array<number>>} referenceCoords - Array of [x, y, z] coordinates for reference shape
+ * @param {Array<Array<number>>} actualCoords - Array of [x, y, z] coordinates for actual structure (ligands only, metal at origin)
+ * @param {Array<Array<number>>} referenceCoords - Array of [x, y, z] coordinates for reference shape (ligands only)
  * @param {string} [mode='default'] - Optimization mode: 'default' or 'intensive'
  *   - 'default': Faster computation with good accuracy (18 grid steps, 6 restarts, 3000 steps/run)
  *   - 'intensive': More thorough search with higher accuracy (30 grid steps, 12 restarts, 8000 steps/run)
@@ -60,32 +97,60 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         : SHAPE_MEASURE.DEFAULT;
 
     try {
-        // Normalize actual coordinates
-        const P_vecs = actualCoords.map(c => new THREE.Vector3(...c));
-        if (P_vecs.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
-            console.warn("Found coordinating atom at the same position as the center.");
-            return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
-        }
-        P_vecs.forEach(v => v.normalize());
+        // Add central atom at origin to both structures (matching SHAPE convention)
+        const actualWithCenter = [...actualCoords, [0, 0, 0]];
+        const refWithCenter = [...referenceCoords, [0, 0, 0]];
+        const Ntotal = actualWithCenter.length;
 
-        const Q_vecs = referenceCoords.map(c => new THREE.Vector3(...c));
+        // Normalize ONLY the actual structure using SHAPE-style normalization
+        // (center on centroid, scale by RMS) - matching cshm-cc behavior
+        const { normalized: actualNorm } = normalizeStructure(actualWithCenter);
 
-        // Cached evaluation function
+        // Reference uses RAW coordinates (not normalized) - scale factor adjusts
+        const refRaw = refWithCenter;
+
+        // Calculate sum of squared norms for reference (for optimal scaling)
+        const refSqNorm = refRaw.reduce((sum, [x, y, z]) => sum + x*x + y*y + z*z, 0);
+
+        // Convert to THREE.Vector3 for rotation operations
+        const P_vecs = actualNorm.map(c => new THREE.Vector3(...c));
+        const Q_vecs = refRaw.map(c => new THREE.Vector3(...c));
+
+        // Cached evaluation function with optimal scaling (matching SHAPE formula)
+        // We rotate P (actual) to align with Q (reference), then calculate optimal scale
         const getMeasureForRotation = (rotationMatrix) => {
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(rotationMatrix));
 
             const costMatrix = [];
-            for (let i = 0; i < N; i++) {
+            for (let i = 0; i < Ntotal; i++) {
                 costMatrix[i] = [];
-                for (let j = 0; j < N; j++) {
+                for (let j = 0; j < Ntotal; j++) {
                     costMatrix[i][j] = rotatedP[i].distanceToSquared(Q_vecs[j]);
                 }
             }
 
             const matching = hungarianAlgorithm(costMatrix);
-            const sumSqDiff = matching.reduce((sum, [i, j]) => sum + costMatrix[i][j], 0);
 
-            return { measure: (sumSqDiff / N) * 100, matching };
+            // Calculate optimal scale factor: scale = Σ(Prot·Q) / Σ(Q²)
+            // This finds the scale that minimizes |Prot - scale*Q|²
+            let dotProduct = 0;
+            for (const [i, j] of matching) {
+                dotProduct += rotatedP[i].x * Q_vecs[j].x +
+                              rotatedP[i].y * Q_vecs[j].y +
+                              rotatedP[i].z * Q_vecs[j].z;
+            }
+            const scale = dotProduct / refSqNorm;
+
+            // Calculate CShM with optimal scaling: mean(|Prot - scale*Q|²) * 100
+            let sumSqDiff = 0;
+            for (const [i, j] of matching) {
+                const dx = rotatedP[i].x - scale * Q_vecs[j].x;
+                const dy = rotatedP[i].y - scale * Q_vecs[j].y;
+                const dz = rotatedP[i].z - scale * Q_vecs[j].z;
+                sumSqDiff += dx * dx + dy * dy + dz * dz;
+            }
+
+            return { measure: (sumSqDiff / Ntotal) * 100, matching, scale };
         };
 
         let globalBestMeasure = Infinity;
@@ -341,11 +406,15 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
 
+        // Return aligned coordinates (excluding the central atom we added)
         const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
         const finalAlignedCoords = new Array(N);
 
         for (const [p_idx, q_idx] of globalBestMatching) {
-            finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
+            // Only include ligand positions (indices 0 to N-1), not the central atom (index N)
+            if (q_idx < N && p_idx < N) {
+                finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
+            }
         }
 
         return {
