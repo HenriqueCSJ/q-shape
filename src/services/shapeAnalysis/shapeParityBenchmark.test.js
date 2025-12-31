@@ -229,6 +229,68 @@ describe('SHAPE Parity Benchmark - ML5 Ag Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=3 NH3', () => {
+    // NH3 coordinates (N-centered)
+    // N at (-0.5265, -0.0022, -0.7633), H atoms relative to N
+    const ligandCoords = [
+        [-0.0155 - (-0.5265), -0.8755 - (-0.0022), -0.7216 - (-0.7633)],  // H1
+        [0.1498 - (-0.5265), 0.7509 - (-0.0022), -0.7328 - (-0.7633)],    // H2
+        [-0.9915 - (-0.5265), 0.0389 - (-0.0022), -1.6620 - (-0.7633)]    // H3
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN3 = {
+        'TP-3 (Trigonal Planar)': 3.63858,
+        'vT-3 (Pyramid)': 0.02875,
+        'fac-vOC-3 (fac-Trivacant Octahedron)': 2.17184,
+        'mer-vOC-3 (T-shaped)': 12.51716
+    };
+
+    let cn3Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[3];
+        cn3Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'intensive');
+            cn3Results[name] = measure;
+        }
+    });
+
+    test('Log CN=3 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=3 [NH3] Ammonia ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn3Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN3[name];
+            const diff = qshapeValue - shapeValue;
+            const relErr = Math.abs(diff) / shapeValue * 100;
+
+            console.log(
+                `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+            );
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (vT-3 best for NH3)', () => {
+        const sorted = Object.entries(cn3Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('vT-3 (Pyramid)');
+    });
+
+    test('vT-3 CShM should be very close to SHAPE', () => {
+        const vt3 = cn3Results['vT-3 (Pyramid)'];
+        const shapeValue = SHAPE_REF_CN3['vT-3 (Pyramid)'];
+        // For near-perfect matches, use absolute tolerance
+        expect(Math.abs(vt3 - shapeValue)).toBeLessThan(0.1);
+    });
+});
+
 describe('SHAPE Parity Benchmark - CN=4 Cu Complex', () => {
     // Cu complex coordinates (metal-centered, Cu at origin)
     const ligandCoords = [

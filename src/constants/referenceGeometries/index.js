@@ -41,6 +41,10 @@ function normalize(v) {
  * Per-vertex normalization (the old `normalize`) destroys shape differences
  * between regular and Johnson polyhedra, causing them to appear identical.
  *
+ * NOTE: For CN>=4, this function works correctly because higher CN polyhedra
+ * have their centroid at or near the metal position. For CN=3 pyramidal
+ * geometries (like vT-3), use normalizeScaleFromOrigin instead.
+ *
  * @param {number[][]} coords - Array of 3D coordinate vectors
  * @returns {number[][]} Coordinates centered at origin with unit RMS distance
  */
@@ -76,6 +80,39 @@ function normalizeScale(coords) {
     return centered.map(c => [c[0] / rms, c[1] / rms, c[2] / rms]);
 }
 
+/**
+ * Scale-normalizes coordinates to have unit RMS distance FROM ORIGIN.
+ * Unlike normalizeScale, this does NOT center coordinates on ligand centroid.
+ *
+ * CRITICAL for pyramidal CN=3 geometries:
+ * - The metal is at origin
+ * - Ligand positions encode angular information relative to the metal
+ * - Centering on ligand centroid destroys this angular information
+ *
+ * For vT-3 (vacant tetrahedron / trigonal pyramid):
+ * - L-M-L angle = 109.47° (tetrahedral angle)
+ * - Centering would collapse this to 120° (planar)
+ *
+ * @param {number[][]} coords - Array of 3D coordinate vectors (metal at origin)
+ * @returns {number[][]} Coordinates with unit RMS distance from origin
+ */
+function normalizeScaleFromOrigin(coords) {
+    if (!coords || coords.length === 0) return coords;
+
+    const n = coords.length;
+
+    // Compute RMS distance from origin (metal position)
+    let sumSq = 0;
+    for (const c of coords) {
+        sumSq += c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+    }
+    const rms = Math.sqrt(sumSq / n);
+
+    // Scale to unit RMS (preserves angular relationships to metal)
+    if (rms === 0) return coords;
+    return coords.map(c => [c[0] / rms, c[1] / rms, c[2] / rms]);
+}
+
 // CN=2 Geometries (3 total from SHAPE 2.1)
 function generateLinear() {
     return [[1, 0, 0], [-1, 0, 0]].map(normalize);
@@ -98,48 +135,70 @@ function generateLShape() {
 }
 
 // CN=3 Geometries (4 total from SHAPE 2.1)
+// CRITICAL: CN=3 geometries use normalizeScaleFromOrigin (NOT normalizeScale)
+// because the angular relationship to the metal (at origin) is essential.
+// Centering on ligand centroid would collapse pyramidal geometries to planar.
+
 function generateTrigonalPlanar() {
+    // TP-3: Trigonal Planar (D3h)
+    // Three ligands at 120° angles, all in the xy-plane with metal
+    // L-M-L angle = 120°
     const coords = [];
     for (let i = 0; i < 3; i++) {
         const angle = (i * 2 * Math.PI) / 3;
         coords.push([Math.cos(angle), Math.sin(angle), 0]);
     }
-    return coords.map(normalize);
+    return normalizeScaleFromOrigin(coords);
 }
 
 function generatePyramid() {
-    // vT-3: Vacant Tetrahedron (Trigonal Pyramid) - Official CoSyMlib reference (normalized)
-    return [
-        [1.137070, -0.000000, 0.100504],
-        [-0.568535, 0.984732, 0.100504],
-        [-0.568535, -0.984732, 0.100504]
-    ].map(normalize);
+    // vT-3: Vacant Tetrahedron (Trigonal Pyramid, C3v)
+    // Three base vertices of a regular tetrahedron centered at origin
+    // L-M-L angle = 109.47° (tetrahedral angle = arccos(-1/3))
+    //
+    // For a tetrahedron with center at origin and vertices at unit distance:
+    // - Apex at (0, 0, 1)
+    // - Base vertices at z = -1/3, radial distance sqrt(8/9) from z-axis
+    //
+    // This is the correct geometry for NH3, pyramidal metal complexes, etc.
+    const z_base = -1/3;
+    const r_base = Math.sqrt(8/9);  // ~0.9428
+    return normalizeScaleFromOrigin([
+        [r_base, 0, z_base],
+        [r_base * Math.cos(2*Math.PI/3), r_base * Math.sin(2*Math.PI/3), z_base],
+        [r_base * Math.cos(4*Math.PI/3), r_base * Math.sin(4*Math.PI/3), z_base]
+    ]);
 }
 
 function generateFacTrivacantOctahedron() {
-    // fac-vOC-3: fac-Trivacant Octahedron - Official CoSyMlib reference (normalized)
-    return [
-        [1.000000, -0.333333, -0.333333],
-        [-0.333333, 1.000000, -0.333333],
-        [-0.333333, -0.333333, 1.000000]
-    ].map(normalize);
+    // fac-vOC-3: fac-Trivacant Octahedron (C3v)
+    // Three mutually cis vertices of an octahedron (removing a face)
+    // L-M-L angle = 90° (octahedral angle)
+    // All three ligands are at 90° to each other
+    return normalizeScaleFromOrigin([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ]);
 }
 
 function generateTShaped() {
-    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped) - Official CoSyMlib reference (normalized)
-    return [
-        [1.206045, -0.301511, 0.000000],
-        [0.000000, 0.904534, 0.000000],
-        [-1.206045, -0.301511, 0.000000]
-    ].map(normalize);
+    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped, C2v)
+    // Three mutually mer vertices of an octahedron
+    // Two ligands at 180° (trans), third at 90° to both
+    return normalizeScaleFromOrigin([
+        [1, 0, 0],
+        [0, 1, 0],
+        [-1, 0, 0]
+    ]);
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
-// Updated to use normalizeScale to preserve shape (relative distances)
+// Use normalizeScaleFromOrigin to match shapeCalculator normalization
 function generateTetrahedral() {
     // T-4: Tetrahedral (Td) - Official CoSyMlib reference
     // All vertices equidistant - scale normalization preserves this
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [0.000000, 0.912871, -0.645497],
         [0.000000, -0.912871, -0.645497],
         [0.912871, 0.000000, 0.645497],
@@ -150,7 +209,7 @@ function generateTetrahedral() {
 function generateSquarePlanar() {
     // SP-4: Square Planar (D4h)
     // All vertices equidistant in xy-plane
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [1, 0, 0],
         [0, 1, 0],
         [-1, 0, 0],
@@ -161,7 +220,7 @@ function generateSquarePlanar() {
 function generateSeesaw() {
     // SS-4: Seesaw (C2v) - cis-divacant octahedron
     // Official CoSyMlib reference - vertices at different radial distances
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [-0.235702, -0.235702, -1.178511],
         [0.942809, -0.235702, 0.000000],
         [-0.235702, 0.942809, 0.000000],
@@ -172,7 +231,7 @@ function generateSeesaw() {
 function generateAxialVacantTBPY() {
     // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v)
     // Official CoSyMlib reference - axial position vacant
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [0.000000, 0.000000, -0.917663],
         [1.147079, 0.000000, 0.229416],
         [-0.573539, 0.993399, 0.229416],
@@ -181,7 +240,7 @@ function generateAxialVacantTBPY() {
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
-// All CN=5 geometries use normalizeScale to preserve shape (relative distances)
+// Use normalizeScaleFromOrigin to match shapeCalculator normalization
 function generatePentagon() {
     // PP-5: Planar pentagon (D5h)
     const coords = [];
@@ -189,13 +248,13 @@ function generatePentagon() {
         const angle = (i * 2 * Math.PI) / 5;
         coords.push([Math.cos(angle), Math.sin(angle), 0]);
     }
-    return normalizeScale(coords);
+    return normalizeScaleFromOrigin(coords);
 }
 
 function generateSquarePyramid() {
     // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v)
-    // Official CoSyMlib reference - uses scale normalization
-    return normalizeScale([
+    // Official CoSyMlib reference
+    return normalizeScaleFromOrigin([
         [0.000000, 0.000000, -0.928477],
         [1.114172, 0.000000, 0.185695],
         [0.000000, 1.114172, 0.185695],
@@ -207,8 +266,7 @@ function generateSquarePyramid() {
 function generateTrigonalBipyramidal() {
     // TBPY-5: Trigonal Bipyramidal (D3h) - Official CoSyMlib reference
     // All vertices at equal distance from center (regular geometry)
-    // Uses scale normalization to preserve shape
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [0.000000, 0.000000, -1.095445],
         [1.095445, 0.000000, 0.000000],
         [-0.547723, 0.948683, 0.000000],
@@ -221,8 +279,7 @@ function generateJohnsonTrigonalBipyramid() {
     // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - Official CoSyMlib reference
     // CRITICAL: Axial vertices (z=±1.309) are FARTHER than equatorial (r=0.926)
     // This elongation defines the Johnson J12 character
-    // Uses scale normalization to PRESERVE this shape difference vs TBPY-5
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [0.925820, 0.000000, 0.000000],
         [-0.462910, 0.801784, 0.000000],
         [-0.462910, -0.801784, 0.000000],
@@ -233,8 +290,7 @@ function generateJohnsonTrigonalBipyramid() {
 
 function generateSquarePyramidal() {
     // SPY-5: Square Pyramidal (C4v) - Official CoSyMlib reference
-    // Uses scale normalization to preserve shape
-    return normalizeScale([
+    return normalizeScaleFromOrigin([
         [0.000000, 0.000000, 1.095445],
         [1.060660, 0.000000, -0.273861],
         [0.000000, 1.060660, -0.273861],

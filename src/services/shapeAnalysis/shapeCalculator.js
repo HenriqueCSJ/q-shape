@@ -4,14 +4,18 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
 
 /**
- * Scale-normalizes a set of coordinates to have unit RMS distance from centroid.
- * This preserves the SHAPE of the structure (relative distances) while normalizing scale.
+ * Scale-normalizes coordinates to have unit RMS distance FROM ORIGIN.
+ * This is the correct normalization for CShM calculations because:
  *
- * IMPORTANT: This is the correct normalization for CShM calculations.
- * Per-vertex normalization destroys shape information and causes degeneracy
- * between regular and Johnson polyhedra.
+ * 1. The metal is at origin (input coordinates are metal-centered)
+ * 2. Reference geometries are defined relative to metal position
+ * 3. Centering on ligand centroid would destroy angular information
+ *    (especially critical for pyramidal CN=3 geometries like vT-3)
  *
- * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates
+ * IMPORTANT: This matches the normalization used in reference geometries.
+ * Both must use the same convention for CShM to be meaningful.
+ *
+ * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates (metal at origin)
  * @returns {object} { normalized: THREE.Vector3[], scale: number }
  */
 function scaleNormalize(vectors) {
@@ -21,29 +25,20 @@ function scaleNormalize(vectors) {
 
     const n = vectors.length;
 
-    // Compute centroid (should already be at origin for metal-centered coords)
-    const centroid = new THREE.Vector3(0, 0, 0);
-    for (const v of vectors) {
-        centroid.add(v);
-    }
-    centroid.divideScalar(n);
-
-    // Center coordinates
-    const centered = vectors.map(v => v.clone().sub(centroid));
-
-    // Compute RMS distance from centroid
+    // Compute RMS distance from origin (metal position)
+    // Do NOT center on ligand centroid - this destroys angular information
     let sumSq = 0;
-    for (const v of centered) {
+    for (const v of vectors) {
         sumSq += v.lengthSq();
     }
     const rms = Math.sqrt(sumSq / n);
 
     // Scale to unit RMS
     if (rms < 1e-10) {
-        return { normalized: centered, scale: 1 };
+        return { normalized: vectors.map(v => v.clone()), scale: 1 };
     }
 
-    const normalized = centered.map(v => v.clone().divideScalar(rms));
+    const normalized = vectors.map(v => v.clone().divideScalar(rms));
     return { normalized, scale: rms };
 }
 
