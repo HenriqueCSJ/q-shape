@@ -4,6 +4,50 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
 
 /**
+ * Scale-normalizes a set of coordinates to have unit RMS distance from centroid.
+ * This preserves the SHAPE of the structure (relative distances) while normalizing scale.
+ *
+ * IMPORTANT: This is the correct normalization for CShM calculations.
+ * Per-vertex normalization destroys shape information and causes degeneracy
+ * between regular and Johnson polyhedra.
+ *
+ * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates
+ * @returns {object} { normalized: THREE.Vector3[], scale: number }
+ */
+function scaleNormalize(vectors) {
+    if (!vectors || vectors.length === 0) {
+        return { normalized: [], scale: 1 };
+    }
+
+    const n = vectors.length;
+
+    // Compute centroid (should already be at origin for metal-centered coords)
+    const centroid = new THREE.Vector3(0, 0, 0);
+    for (const v of vectors) {
+        centroid.add(v);
+    }
+    centroid.divideScalar(n);
+
+    // Center coordinates
+    const centered = vectors.map(v => v.clone().sub(centroid));
+
+    // Compute RMS distance from centroid
+    let sumSq = 0;
+    for (const v of centered) {
+        sumSq += v.lengthSq();
+    }
+    const rms = Math.sqrt(sumSq / n);
+
+    // Scale to unit RMS
+    if (rms < 1e-10) {
+        return { normalized: centered, scale: 1 };
+    }
+
+    const normalized = centered.map(v => v.clone().divideScalar(rms));
+    return { normalized, scale: rms };
+}
+
+/**
  * Calculates the shape measure between actual and reference coordinates using
  * a multi-stage optimization approach.
  *
@@ -60,14 +104,21 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         : SHAPE_MEASURE.DEFAULT;
 
     try {
-        // Normalize actual coordinates
-        const P_vecs = actualCoords.map(c => new THREE.Vector3(...c));
-        if (P_vecs.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
+        // Convert actual coordinates to Vector3
+        const P_vecs_raw = actualCoords.map(c => new THREE.Vector3(...c));
+
+        // Check for atoms at center (would cause normalization issues)
+        if (P_vecs_raw.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
             console.warn("Found coordinating atom at the same position as the center.");
             return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
         }
-        P_vecs.forEach(v => v.normalize());
 
+        // FIXED: Use scale normalization instead of per-vertex normalization
+        // This preserves the relative distances (shape) of the coordination polyhedron
+        // Per-vertex normalization destroyed shape differences between regular and Johnson polyhedra
+        const { normalized: P_vecs } = scaleNormalize(P_vecs_raw);
+
+        // Reference coordinates are already scale-normalized in referenceGeometries
         const Q_vecs = referenceCoords.map(c => new THREE.Vector3(...c));
 
         // Cached evaluation function

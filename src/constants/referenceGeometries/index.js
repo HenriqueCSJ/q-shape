@@ -24,11 +24,56 @@
  * Normalizes a 3D vector to unit length
  * @param {number[]} v - A 3D coordinate vector [x, y, z]
  * @returns {number[]} Normalized vector with length 1
+ * @deprecated Use normalizeScale for reference geometries to preserve shape
  */
 function normalize(v) {
     const len = Math.hypot(...v);
     if (len === 0) return [0, 0, 0];
     return [v[0] / len, v[1] / len, v[2] / len];
+}
+
+/**
+ * Scale-normalizes a set of coordinates to have unit RMS distance from centroid.
+ * This preserves the SHAPE of the polyhedron (relative distances) while
+ * normalizing the overall scale.
+ *
+ * CRITICAL: This is the correct normalization for CShM calculations.
+ * Per-vertex normalization (the old `normalize`) destroys shape differences
+ * between regular and Johnson polyhedra, causing them to appear identical.
+ *
+ * @param {number[][]} coords - Array of 3D coordinate vectors
+ * @returns {number[][]} Coordinates centered at origin with unit RMS distance
+ */
+function normalizeScale(coords) {
+    if (!coords || coords.length === 0) return coords;
+
+    const n = coords.length;
+
+    // Compute centroid
+    const centroid = [0, 0, 0];
+    for (const c of coords) {
+        centroid[0] += c[0] / n;
+        centroid[1] += c[1] / n;
+        centroid[2] += c[2] / n;
+    }
+
+    // Center coordinates
+    const centered = coords.map(c => [
+        c[0] - centroid[0],
+        c[1] - centroid[1],
+        c[2] - centroid[2]
+    ]);
+
+    // Compute RMS distance from centroid (which is now origin)
+    let sumSq = 0;
+    for (const c of centered) {
+        sumSq += c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+    }
+    const rms = Math.sqrt(sumSq / n);
+
+    // Scale to unit RMS (preserves relative distances)
+    if (rms === 0) return centered;
+    return centered.map(c => [c[0] / rms, c[1] / rms, c[2] / rms]);
 }
 
 // CN=2 Geometries (3 total from SHAPE 2.1)
@@ -130,58 +175,66 @@ function generateAxialVacantTBPY() {
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
+// All CN=5 geometries use normalizeScale to preserve shape (relative distances)
 function generatePentagon() {
-    // PP-5: Planar pentagon
+    // PP-5: Planar pentagon (D5h)
     const coords = [];
     for (let i = 0; i < 5; i++) {
         const angle = (i * 2 * Math.PI) / 5;
         coords.push([Math.cos(angle), Math.sin(angle), 0]);
     }
-    return coords.map(normalize);
+    return normalizeScale(coords);
 }
 
 function generateSquarePyramid() {
-    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1) - Official CoSyMlib reference (normalized)
-    return [
-        [0.000000, -0.000000, -0.928477],
-        [1.114172, -0.000000, 0.185695],
+    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v)
+    // Official CoSyMlib reference - uses scale normalization
+    return normalizeScale([
+        [0.000000, 0.000000, -0.928477],
+        [1.114172, 0.000000, 0.185695],
         [0.000000, 1.114172, 0.185695],
         [-1.114172, 0.000000, 0.185695],
-        [-0.000000, -1.114172, 0.185695]
-    ].map(normalize);
+        [0.000000, -1.114172, 0.185695]
+    ]);
 }
 
 function generateTrigonalBipyramidal() {
-    // TBPY-5: Trigonal Bipyramidal - Official CoSyMlib reference (normalized)
-    return [
-        [0.000000, -0.000000, -1.095445],
-        [1.095445, -0.000000, 0.000000],
+    // TBPY-5: Trigonal Bipyramidal (D3h) - Official CoSyMlib reference
+    // All vertices at equal distance from center (regular geometry)
+    // Uses scale normalization to preserve shape
+    return normalizeScale([
+        [0.000000, 0.000000, -1.095445],
+        [1.095445, 0.000000, 0.000000],
         [-0.547723, 0.948683, 0.000000],
         [-0.547723, -0.948683, 0.000000],
-        [0.000000, -0.000000, 1.095445]
-    ].map(normalize);
+        [0.000000, 0.000000, 1.095445]
+    ]);
 }
 
 function generateJohnsonTrigonalBipyramid() {
-    // JTBPY-5: Johnson Trigonal Bipyramid (J12) - Official CoSyMlib reference (normalized)
-    return [
-        [0.925820, -0.000000, 0.000000],
+    // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - Official CoSyMlib reference
+    // CRITICAL: Axial vertices (z=±1.309) are FARTHER than equatorial (r=0.926)
+    // This elongation defines the Johnson J12 character
+    // Uses scale normalization to PRESERVE this shape difference vs TBPY-5
+    return normalizeScale([
+        [0.925820, 0.000000, 0.000000],
         [-0.462910, 0.801784, 0.000000],
         [-0.462910, -0.801784, 0.000000],
-        [0.000000, -0.000000, 1.309307],
-        [0.000000, -0.000000, -1.309307]
-    ].map(normalize);
+        [0.000000, 0.000000, 1.309307],
+        [0.000000, 0.000000, -1.309307]
+    ]);
 }
 
 function generateSquarePyramidal() {
-    // SPY-5: Square Pyramidal - Official CoSyMlib reference (normalized)
-    return [
+    // SPY-5: Square Pyramidal (C4v) - Official CoSyMlib reference
+    // Uses scale normalization to preserve shape
+    return normalizeScale([
         [0.000000, 0.000000, 1.095445],
         [1.060660, 0.000000, -0.273861],
         [0.000000, 1.060660, -0.273861],
         [-1.060660, 0.000000, -0.273861],
         [0.000000, -1.060660, -0.273861]
-    ].map(normalize);
+    ]);
 }
 
 // CN=6 Geometries (5 total from SHAPE 2.1)
