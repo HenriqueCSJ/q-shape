@@ -135,43 +135,49 @@ function generateTShaped() {
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
+// Updated to use normalizeScale to preserve shape (relative distances)
 function generateTetrahedral() {
-    // T-4: Tetrahedral - Official CoSyMlib reference (normalized)
-    return [
+    // T-4: Tetrahedral (Td) - Official CoSyMlib reference
+    // All vertices equidistant - scale normalization preserves this
+    return normalizeScale([
         [0.000000, 0.912871, -0.645497],
-        [-0.000000, -0.912871, -0.645497],
-        [0.912871, -0.000000, 0.645497],
+        [0.000000, -0.912871, -0.645497],
+        [0.912871, 0.000000, 0.645497],
         [-0.912871, 0.000000, 0.645497]
-    ].map(normalize);
+    ]);
 }
 
 function generateSquarePlanar() {
-    return [
+    // SP-4: Square Planar (D4h)
+    // All vertices equidistant in xy-plane
+    return normalizeScale([
         [1, 0, 0],
         [0, 1, 0],
         [-1, 0, 0],
         [0, -1, 0]
-    ].map(normalize);
+    ]);
 }
 
 function generateSeesaw() {
-    // SS-4: Seesaw (cis-divacant octahedron) - Official CoSyMlib reference (normalized)
-    return [
+    // SS-4: Seesaw (C2v) - cis-divacant octahedron
+    // Official CoSyMlib reference - vertices at different radial distances
+    return normalizeScale([
         [-0.235702, -0.235702, -1.178511],
         [0.942809, -0.235702, 0.000000],
         [-0.235702, 0.942809, 0.000000],
         [-0.235702, -0.235702, 1.178511]
-    ].map(normalize);
+    ]);
 }
 
 function generateAxialVacantTBPY() {
-    // vTBPY-4: Axially Vacant Trigonal Bipyramid - Official CoSyMlib reference (normalized)
-    return [
-        [0.000000, -0.000000, -0.917663],
-        [1.147079, -0.000000, 0.229416],
+    // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v)
+    // Official CoSyMlib reference - axial position vacant
+    return normalizeScale([
+        [0.000000, 0.000000, -0.917663],
+        [1.147079, 0.000000, 0.229416],
         [-0.573539, 0.993399, 0.229416],
         [-0.573539, -0.993399, 0.229416]
-    ].map(normalize);
+    ]);
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)

@@ -229,6 +229,69 @@ describe('SHAPE Parity Benchmark - ML5 Ag Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=4 Cu Complex', () => {
+    // Cu complex coordinates (metal-centered, Cu at origin)
+    const ligandCoords = [
+        [-2.0673, 0.9219, -0.0636],  // Cl
+        [2.0673, -0.9219, -0.0636],  // Cl
+        [-0.9118, -2.0777, 0.0037],  // Cl
+        [0.9118, 2.0777, 0.0037]     // Cl
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN4 = {
+        'SP-4 (Square Planar)': 0.02657,
+        'T-4 (Tetrahedral)': 31.94357,
+        'SS-4 (Seesaw)': 17.86037,
+        'vTBPY-4 (Axially Vacant Trigonal Bipyramid)': 33.48664
+    };
+
+    let cn4Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[4];
+        cn4Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'intensive');
+            cn4Results[name] = measure;
+        }
+    });
+
+    test('Log CN=4 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=4 [CuCl4] Square Planar Complex ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn4Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN4[name];
+            const diff = qshapeValue - shapeValue;
+            const relErr = Math.abs(diff) / shapeValue * 100;
+
+            console.log(
+                `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+            );
+        }
+        console.log('─'.repeat(85));
+
+        // Always pass - this is for logging
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (SP-4 best)', () => {
+        const sorted = Object.entries(cn4Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('SP-4 (Square Planar)');
+    });
+
+    test('SP-4 CShM should be very close to SHAPE', () => {
+        const sp4 = cn4Results['SP-4 (Square Planar)'];
+        const shapeValue = SHAPE_REF_CN4['SP-4 (Square Planar)'];
+        // For near-perfect matches, use absolute tolerance
+        expect(Math.abs(sp4 - shapeValue)).toBeLessThan(0.05);
+    });
+});
+
 describe('Reference Geometry Validation', () => {
     describe('CN=5 Reference Coordinates Check', () => {
         test('TBPY-5 and JTBPY-5 should have distinct reference coordinates', () => {
