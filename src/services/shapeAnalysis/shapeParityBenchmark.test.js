@@ -289,6 +289,74 @@ describe('SHAPE Parity Benchmark - CN=2 CuCl2', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=6 NiN4O2', () => {
+    // NiN4O2 coordinates from SHAPE v2.1
+    // Ni at (-0.3317, 12.0165, 1.2469), ligands relative to Ni
+    const ligandCoords = [
+        [-0.4577 - (-0.3317), 9.7734 - 12.0165, 1.2212 - 1.2469],    // N1
+        [0.4360 - (-0.3317), 12.0165 - 12.0165, 3.1526 - 1.2469],    // N2
+        [1.5045 - (-0.3317), 12.0165 - 12.0165, 0.3292 - 1.2469],    // N3
+        [-2.2777 - (-0.3317), 12.0165 - 12.0165, 2.2016 - 1.2469],   // O1
+        [-1.2331 - (-0.3317), 12.0165 - 12.0165, -0.6084 - 1.2469],  // O2
+        [-0.4577 - (-0.3317), 14.2596 - 12.0165, 1.2212 - 1.2469]    // N4
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN6 = {
+        'HP-6 (Hexagon)': 32.49561,
+        'PPY-6 (Pentagonal Pyramid)': 29.25337,
+        'OC-6 (Octahedral)': 0.21577,
+        'TPR-6 (Trigonal Prism)': 15.86037,
+        'JPPY-6 (Johnson Pentagonal Pyramid, J2)': 32.53300
+    };
+
+    let cn6Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[6];
+        cn6Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'intensive');
+            cn6Results[name] = measure;
+        }
+    });
+
+    test('Log CN=6 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=6 [NiN4O2] Octahedral Complex ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn6Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN6[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = Math.abs(diff) / shapeValue * 100;
+                console.log(
+                    `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (OC-6 best for octahedral)', () => {
+        const sorted = Object.entries(cn6Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('OC-6 (Octahedral)');
+    });
+
+    test('OC-6 CShM should be very close to SHAPE', () => {
+        const oc6 = cn6Results['OC-6 (Octahedral)'];
+        const shapeValue = SHAPE_REF_CN6['OC-6 (Octahedral)'];
+        // Allow 20% tolerance for the best match
+        const relError = Math.abs(oc6 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.20);
+    });
+});
+
 describe('SHAPE Parity Benchmark - CN=3 NH3', () => {
     // NH3 coordinates (N-centered)
     // N at (-0.5265, -0.0022, -0.7633), H atoms relative to N
