@@ -95,9 +95,15 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
     let workingActualCoords = actualCoords;
     let workingRefCoords = referenceCoords;
 
-    // CN=3 special handling: reference has 4 points (3 ligands + central atom)
-    // Add central atom at origin to input if needed
-    if (actualCoords.length === 3 && referenceCoords.length === 4) {
+    // SHAPE/cosymlib include central atom in CShM calculations
+    // Reference geometries have N+1 points (N ligands + 1 central atom)
+    // Add central atom at origin to input coordinates when needed
+    const needsCentralAtom = (
+        (actualCoords.length === 3 && referenceCoords.length === 4) ||  // CN=3
+        (actualCoords.length === 4 && referenceCoords.length === 5) ||  // CN=4
+        (actualCoords.length === 5 && referenceCoords.length === 6)     // CN=5
+    );
+    if (needsCentralAtom) {
         workingActualCoords = [...actualCoords, [0, 0, 0]];
     }
 
@@ -116,8 +122,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         const P_vecs_raw = workingActualCoords.map(c => new THREE.Vector3(...c));
 
         // Check for ligand atoms at center (would cause normalization issues)
-        // Skip the last atom for CN=3 since it's the intentionally-added central atom
-        const ligandsToCheck = (actualCoords.length === 3 && referenceCoords.length === 4)
+        // Skip the last atom if we added a central atom
+        const ligandsToCheck = needsCentralAtom
             ? P_vecs_raw.slice(0, -1)
             : P_vecs_raw;
         if (ligandsToCheck.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {

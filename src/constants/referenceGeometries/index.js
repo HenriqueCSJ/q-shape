@@ -189,109 +189,127 @@ function generateTShaped() {
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
-// Use normalizeScale (centroid-based) for CN>=4 symmetric polyhedra
+// CRITICAL: CN=4 geometries INCLUDE the central atom (5 points total)
+// This matches SHAPE/cosymlib/cshm-cc methodology
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateTetrahedral() {
-    // T-4: Tetrahedral (Td) - Official CoSyMlib reference
-    // All vertices equidistant - scale normalization preserves this
-    return normalizeScale([
-        [0.000000, 0.912871, -0.645497],
-        [0.000000, -0.912871, -0.645497],
-        [0.912871, 0.000000, 0.645497],
-        [-0.912871, 0.000000, 0.645497]
-    ]);
+    // T-4: Tetrahedral (Td) - from cosymlib
+    // 4 ligands + central atom at origin
+    return [
+        [0.000000000000, 0.912870929175, -0.645497224368],
+        [0.000000000000, -0.912870929175, -0.645497224368],
+        [0.912870929175, 0.000000000000, 0.645497224368],
+        [-0.912870929175, 0.000000000000, 0.645497224368],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePlanar() {
-    // SP-4: Square Planar (D4h)
-    // All vertices equidistant in xy-plane
-    return normalizeScale([
-        [1, 0, 0],
-        [0, 1, 0],
-        [-1, 0, 0],
-        [0, -1, 0]
-    ]);
+    // SP-4: Square Planar (D4h) - from cosymlib
+    // 4 ligands + central atom at origin
+    return [
+        [1.118033988750, 0.000000000000, 0.000000000000],
+        [0.000000000000, 1.118033988750, 0.000000000000],
+        [-1.118033988750, 0.000000000000, 0.000000000000],
+        [0.000000000000, -1.118033988750, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSeesaw() {
-    // SS-4: Seesaw (C2v) - cis-divacant octahedron
-    // Official CoSyMlib reference - vertices at different radial distances
-    return normalizeScale([
-        [-0.235702, -0.235702, -1.178511],
-        [0.942809, -0.235702, 0.000000],
-        [-0.235702, 0.942809, 0.000000],
-        [-0.235702, -0.235702, 1.178511]
-    ]);
+    // SS-4: Seesaw (C2v) - from cosymlib
+    // 4 ligands + central atom (NOT at origin for seesaw!)
+    return [
+        [-0.235702260396, -0.235702260396, -1.178511301978],
+        [0.942809041582, -0.235702260396, 0.000000000000],
+        [-0.235702260396, 0.942809041582, 0.000000000000],
+        [-0.235702260396, -0.235702260396, 1.178511301978],
+        [-0.235702260396, -0.235702260396, 0.000000000000]  // central atom
+    ];
 }
 
 function generateAxialVacantTBPY() {
-    // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v)
-    // Official CoSyMlib reference - axial position vacant
-    return normalizeScale([
-        [0.000000, 0.000000, -0.917663],
-        [1.147079, 0.000000, 0.229416],
-        [-0.573539, 0.993399, 0.229416],
-        [-0.573539, -0.993399, 0.229416]
-    ]);
+    // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v) - from cosymlib
+    // 4 ligands + central atom
+    return [
+        [0.000000000000, 0.000000000000, -0.917662935482],
+        [1.147078669353, 0.000000000000, 0.229415733871],
+        [-0.573539334676, 0.993399267799, 0.229415733871],
+        [-0.573539334676, -0.993399267799, 0.229415733871],
+        [0.000000000000, 0.000000000000, 0.229415733871]  // central atom
+    ];
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
-// Use normalizeScale (centroid-based) for CN>=4 symmetric polyhedra
+// CRITICAL: CN=5 geometries INCLUDE the central atom (6 points total)
+// This is how SHAPE/cosymlib/cshm-cc work - they include the metal in the calculation.
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generatePentagon() {
-    // PP-5: Planar pentagon (D5h)
-    const coords = [];
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return normalizeScale(coords);
+    // PP-5: Planar pentagon (D5h) - from cosymlib
+    // 5 ligands + central atom at origin
+    return [
+        [1.095445115010, 0.000000000000, 0.000000000000],
+        [0.338511156943, 1.041830214874, 0.000000000000],
+        [-0.886233714448, 0.643886483299, 0.000000000000],
+        [-0.886233714448, -0.643886483299, 0.000000000000],
+        [0.338511156943, -1.041830214874, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePyramid() {
-    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v)
-    // Official CoSyMlib reference
-    return normalizeScale([
-        [0.000000, 0.000000, -0.928477],
-        [1.114172, 0.000000, 0.185695],
-        [0.000000, 1.114172, 0.185695],
-        [-1.114172, 0.000000, 0.185695],
-        [0.000000, -1.114172, 0.185695]
-    ]);
+    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v) - from cosymlib
+    // 5 ligands + central atom (NOT at origin - at basal plane level)
+    return [
+        [0.000000000000, 0.000000000000, -0.928476690885],
+        [1.114172029062, 0.000000000000, 0.185695338177],
+        [0.000000000000, 1.114172029062, 0.185695338177],
+        [-1.114172029062, 0.000000000000, 0.185695338177],
+        [0.000000000000, -1.114172029062, 0.185695338177],
+        [0.000000000000, 0.000000000000, 0.185695338177]  // central atom
+    ];
 }
 
 function generateTrigonalBipyramidal() {
-    // TBPY-5: Trigonal Bipyramidal (D3h) - Official CoSyMlib reference
-    // All vertices at equal distance from center (regular geometry)
-    return normalizeScale([
-        [0.000000, 0.000000, -1.095445],
-        [1.095445, 0.000000, 0.000000],
-        [-0.547723, 0.948683, 0.000000],
-        [-0.547723, -0.948683, 0.000000],
-        [0.000000, 0.000000, 1.095445]
-    ]);
+    // TBPY-5: Trigonal Bipyramidal (D3h) - from cosymlib
+    // 5 ligands + central atom at origin
+    return [
+        [0.000000000000, 0.000000000000, -1.095445115010],
+        [1.095445115010, 0.000000000000, 0.000000000000],
+        [-0.547722557505, 0.948683298051, 0.000000000000],
+        [-0.547722557505, -0.948683298051, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.095445115010],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateJohnsonTrigonalBipyramid() {
-    // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - Official CoSyMlib reference
+    // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - from cosymlib
     // CRITICAL: Axial vertices (z=±1.309) are FARTHER than equatorial (r=0.926)
-    // This elongation defines the Johnson J12 character
-    return normalizeScale([
-        [0.925820, 0.000000, 0.000000],
-        [-0.462910, 0.801784, 0.000000],
-        [-0.462910, -0.801784, 0.000000],
-        [0.000000, 0.000000, 1.309307],
-        [0.000000, 0.000000, -1.309307]
-    ]);
+    // 5 ligands + central atom at origin
+    return [
+        [0.925820099773, 0.000000000000, 0.000000000000],
+        [-0.462910049886, 0.801783725737, 0.000000000000],
+        [-0.462910049886, -0.801783725737, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.309307341416],
+        [0.000000000000, 0.000000000000, -1.309307341416],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePyramidal() {
-    // SPY-5: Square Pyramidal (C4v) - Official CoSyMlib reference
-    return normalizeScale([
-        [0.000000, 0.000000, 1.095445],
-        [1.060660, 0.000000, -0.273861],
-        [0.000000, 1.060660, -0.273861],
-        [-1.060660, 0.000000, -0.273861],
-        [0.000000, -1.060660, -0.273861]
-    ]);
+    // SPY-5: Square Pyramidal (C4v) - from cosymlib
+    // 5 ligands + central atom at origin
+    return [
+        [0.000000000000, 0.000000000000, 1.095445115010],
+        [1.060660171780, 0.000000000000, -0.273861278753],
+        [0.000000000000, 1.060660171780, -0.273861278753],
+        [-1.060660171780, 0.000000000000, -0.273861278753],
+        [0.000000000000, -1.060660171780, -0.273861278753],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 // CN=6 Geometries (5 total from SHAPE 2.1)
