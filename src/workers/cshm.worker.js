@@ -323,7 +323,7 @@ function kabschAlignment(P_coords, Q_coords) {
     } catch (e) { return new Matrix4(); }
 }
 
-// --- SCALE NORMALIZATION (CN-AWARE) ---
+// --- SCALE NORMALIZATION (CENTROID-BASED) ---
 
 function scaleNormalize(vectors) {
     if (!vectors || vectors.length === 0) {
@@ -331,22 +331,7 @@ function scaleNormalize(vectors) {
     }
     const n = vectors.length;
 
-    // CN=3: Use origin-based scaling (no centering)
-    // This preserves pyramidal character for trigonal geometries
-    if (n === 3) {
-        let sumSq = 0;
-        for (const v of vectors) {
-            sumSq += v.lengthSq();
-        }
-        const rms = Math.sqrt(sumSq / n);
-        if (rms < 1e-10) {
-            return { normalized: vectors.map(v => v.clone()), scale: 1 };
-        }
-        const normalized = vectors.map(v => v.clone().multiplyScalar(1 / rms));
-        return { normalized, scale: rms };
-    }
-
-    // CN>=4: Use centroid-based scaling
+    // Centroid-based normalization for all CNs (standard SHAPE/cosymlib approach)
     const centroid = new Vector3(0, 0, 0);
     for (const v of vectors) {
         centroid.add(v);
@@ -370,8 +355,17 @@ function scaleNormalize(vectors) {
 // --- OPTIMIZED CSHM CALCULATION ---
 
 function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCallback, smartAlignments = []) {
-    const N = actualCoords.length;
-    if (N !== referenceCoords.length || N === 0) {
+    let workingActualCoords = actualCoords;
+    let workingRefCoords = referenceCoords;
+
+    // CN=3 special handling: reference has 4 points (3 ligands + central atom)
+    // Add central atom at origin to input if needed
+    if (actualCoords.length === 3 && referenceCoords.length === 4) {
+        workingActualCoords = [...actualCoords, [0, 0, 0]];
+    }
+
+    const N = workingActualCoords.length;
+    if (N !== workingRefCoords.length || N === 0) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new Matrix4() };
     }
 
@@ -393,14 +387,19 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCall
     for (let i = 0; i < N; i++) costMatrix[i] = new Float64Array(N);
 
     // 3. Coordinate Buffers (N vectors)
-    // P_vecs: Scale-normalized actual coordinates (CN-aware)
-    const rawP = actualCoords.map(c => new Vector3(...c));
+    // P_vecs: Scale-normalized actual coordinates (centroid-based)
+    const rawP = workingActualCoords.map(c => new Vector3(...c));
     const { normalized: P_vecs } = scaleNormalize(rawP);
-    if (P_vecs.some(v => v.lengthSq() < 1e-8)) {
+
+    // Check for ligands at center (skip central atom for CN=3)
+    const ligandsToCheck = (actualCoords.length === 3 && referenceCoords.length === 4)
+        ? P_vecs.slice(0, -1)
+        : P_vecs;
+    if (ligandsToCheck.some(v => v.lengthSq() < 1e-8)) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new Matrix4() };
     }
     // Q_vecs: Immutable reference (already normalized)
-    const Q_vecs = referenceCoords.map(c => new Vector3(...c));
+    const Q_vecs = workingRefCoords.map(c => new Vector3(...c));
     // Rotated P: Reused buffer
     const rotatedP = Array(N).fill(null).map(() => new Vector3());
 

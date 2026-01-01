@@ -4,18 +4,16 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants.js';
 
 /**
- * Scale-normalizes coordinates using CN-appropriate strategy.
+ * Scale-normalizes coordinates using centroid-based strategy.
  *
- * For CN=3: Uses origin-based scaling (no centering) to preserve
- * angular relationships between ligands and metal center. This is
- * critical for pyramidal geometries like vT-3 where centering would
- * collapse the 3D pyramid into a 2D triangle.
+ * This is the standard normalization used by SHAPE/cosymlib/cshm-cc:
+ * 1. Center coordinates on their centroid
+ * 2. Scale to unit RMS distance from centroid
  *
- * For CN>=4: Uses centroid-based scaling because symmetric polyhedra
- * have their centroid at the metal position anyway, and this matches
- * the normalization convention that produces good SHAPE parity.
+ * For CN=3, the input should include the central atom (4 points total).
+ * This preserves pyramidal character that would be lost with ligand-only centering.
  *
- * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates (metal at origin)
+ * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates
  * @returns {object} { normalized: THREE.Vector3[], scale: number }
  */
 function scaleNormalize(vectors) {
@@ -25,25 +23,7 @@ function scaleNormalize(vectors) {
 
     const n = vectors.length;
 
-    // CN=3: Use origin-based scaling (no centering)
-    // This preserves the angular relationship to the metal center
-    if (n === 3) {
-        let sumSq = 0;
-        for (const v of vectors) {
-            sumSq += v.lengthSq();
-        }
-        const rms = Math.sqrt(sumSq / n);
-
-        if (rms < 1e-10) {
-            return { normalized: vectors.map(v => v.clone()), scale: 1 };
-        }
-
-        const normalized = vectors.map(v => v.clone().divideScalar(rms));
-        return { normalized, scale: rms };
-    }
-
-    // CN>=4: Use centroid-based scaling
-    // For symmetric polyhedra, this produces better SHAPE parity
+    // Centroid-based normalization for all CNs
     const centroid = new THREE.Vector3(0, 0, 0);
     for (const v of vectors) {
         centroid.add(v);
@@ -112,8 +92,17 @@ function scaleNormalize(vectors) {
  * console.log(`Shape measure: ${result.measure}`);
  */
 function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null) {
-    const N = actualCoords.length;
-    if (N !== referenceCoords.length || N === 0) {
+    let workingActualCoords = actualCoords;
+    let workingRefCoords = referenceCoords;
+
+    // CN=3 special handling: reference has 4 points (3 ligands + central atom)
+    // Add central atom at origin to input if needed
+    if (actualCoords.length === 3 && referenceCoords.length === 4) {
+        workingActualCoords = [...actualCoords, [0, 0, 0]];
+    }
+
+    const N = workingActualCoords.length;
+    if (N !== workingRefCoords.length || N === 0) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
     }
 
@@ -124,21 +113,23 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
     try {
         // Convert actual coordinates to Vector3
-        const P_vecs_raw = actualCoords.map(c => new THREE.Vector3(...c));
+        const P_vecs_raw = workingActualCoords.map(c => new THREE.Vector3(...c));
 
-        // Check for atoms at center (would cause normalization issues)
-        if (P_vecs_raw.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
+        // Check for ligand atoms at center (would cause normalization issues)
+        // Skip the last atom for CN=3 since it's the intentionally-added central atom
+        const ligandsToCheck = (actualCoords.length === 3 && referenceCoords.length === 4)
+            ? P_vecs_raw.slice(0, -1)
+            : P_vecs_raw;
+        if (ligandsToCheck.some(v => v.lengthSq() < KABSCH.MIN_VECTOR_LENGTH_SQ)) {
             console.warn("Found coordinating atom at the same position as the center.");
             return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
         }
 
-        // FIXED: Use scale normalization instead of per-vertex normalization
-        // This preserves the relative distances (shape) of the coordination polyhedron
-        // Per-vertex normalization destroyed shape differences between regular and Johnson polyhedra
+        // Use centroid-based scale normalization (standard for SHAPE/cosymlib)
         const { normalized: P_vecs } = scaleNormalize(P_vecs_raw);
 
         // Reference coordinates are already scale-normalized in referenceGeometries
-        const Q_vecs = referenceCoords.map(c => new THREE.Vector3(...c));
+        const Q_vecs = workingRefCoords.map(c => new THREE.Vector3(...c));
 
         // Cached evaluation function
         const getMeasureForRotation = (rotationMatrix) => {

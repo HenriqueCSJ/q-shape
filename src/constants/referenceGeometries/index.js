@@ -135,62 +135,57 @@ function generateLShape() {
 }
 
 // CN=3 Geometries (4 total from SHAPE 2.1)
-// CRITICAL: CN=3 geometries use normalizeScaleFromOrigin (NOT normalizeScale)
-// because the angular relationship to the metal (at origin) is essential.
-// Centering on ligand centroid would collapse pyramidal geometries to planar.
+// CRITICAL: CN=3 geometries INCLUDE the central atom (4 points total)
+// This is how SHAPE/cosymlib/cshm-cc work - they include the metal in the calculation.
+// Including the metal preserves pyramidal character under centroid-based normalization.
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
 
 function generateTrigonalPlanar() {
-    // TP-3: Trigonal Planar (D3h)
-    // Three ligands at 120° angles, all in the xy-plane with metal
-    // L-M-L angle = 120°
-    const coords = [];
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return normalizeScaleFromOrigin(coords);
+    // TP-3: Trigonal Planar (D3h) - from cosymlib
+    // 3 ligands + central atom at origin
+    // Already centered and normalized to unit RMS
+    return [
+        [1.154700538379, 0.0, 0.0],
+        [-0.577350269190, 1.0, 0.0],
+        [-0.577350269190, -1.0, 0.0],
+        [0.0, 0.0, 0.0]  // central atom
+    ];
 }
 
 function generatePyramid() {
-    // vT-3: Vacant Tetrahedron (Trigonal Pyramid, C3v)
-    // Three base vertices of a regular tetrahedron centered at origin
-    // L-M-L angle = 109.47° (tetrahedral angle = arccos(-1/3))
-    //
-    // For a tetrahedron with center at origin and vertices at unit distance:
-    // - Apex at (0, 0, 1)
-    // - Base vertices at z = -1/3, radial distance sqrt(8/9) from z-axis
-    //
-    // This is the correct geometry for NH3, pyramidal metal complexes, etc.
-    const z_base = -1/3;
-    const r_base = Math.sqrt(8/9);  // ~0.9428
-    return normalizeScaleFromOrigin([
-        [r_base, 0, z_base],
-        [r_base * Math.cos(2*Math.PI/3), r_base * Math.sin(2*Math.PI/3), z_base],
-        [r_base * Math.cos(4*Math.PI/3), r_base * Math.sin(4*Math.PI/3), z_base]
-    ]);
+    // vT-3: Vacant Tetrahedron (Trigonal Pyramid, C3v) - from cosymlib
+    // 3 ligands at z=0.1 + central atom at z=-0.302
+    // Already centered and normalized to unit RMS
+    return [
+        [1.137070487230, 0.0, 0.100503781526],
+        [-0.568535243615, 0.984731927835, 0.100503781526],
+        [-0.568535243615, -0.984731927835, 0.100503781526],
+        [0.0, 0.0, -0.301511344578]  // central atom
+    ];
 }
 
 function generateFacTrivacantOctahedron() {
-    // fac-vOC-3: fac-Trivacant Octahedron (C3v)
-    // Three mutually cis vertices of an octahedron (removing a face)
-    // L-M-L angle = 90° (octahedral angle)
-    // All three ligands are at 90° to each other
-    return normalizeScaleFromOrigin([
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
-    ]);
+    // fac-vOC-3: fac-Trivacant Octahedron (C3v) - from cosymlib
+    // 3 ligands + central atom
+    // Already centered and normalized to unit RMS
+    return [
+        [1.0, -0.333333333333, -0.333333333333],
+        [-0.333333333333, 1.0, -0.333333333333],
+        [-0.333333333333, -0.333333333333, 1.0],
+        [-0.333333333333, -0.333333333333, -0.333333333333]  // central atom
+    ];
 }
 
 function generateTShaped() {
-    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped, C2v)
-    // Three mutually mer vertices of an octahedron
-    // Two ligands at 180° (trans), third at 90° to both
-    return normalizeScaleFromOrigin([
-        [1, 0, 0],
-        [0, 1, 0],
-        [-1, 0, 0]
-    ]);
+    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped, C2v) - from cosymlib
+    // 3 ligands + central atom
+    // Already centered and normalized to unit RMS
+    return [
+        [1.206045378311, -0.301511344578, 0.0],
+        [0.0, 0.904534033733, 0.0],
+        [-1.206045378311, -0.301511344578, 0.0],
+        [0.0, -0.301511344578, 0.0]  // central atom
+    ];
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
