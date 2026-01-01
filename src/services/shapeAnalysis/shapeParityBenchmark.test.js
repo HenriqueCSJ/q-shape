@@ -384,9 +384,11 @@ describe('Reference Geometry Validation', () => {
             expect(tbpy5FP).not.toBe(jtbpy5FP);
         });
 
-        test('All CN=5 geometries should have 5 vertices each', () => {
+        test('All CN=5 geometries should have 6 vertices each (5 ligands + central atom)', () => {
+            // SHAPE/cosymlib include central atom in CShM calculations
+            // Reference geometries have N+1 points for CN=N
             for (const [name, coords] of Object.entries(REFERENCE_GEOMETRIES[5])) {
-                expect(coords).toHaveLength(5);
+                expect(coords).toHaveLength(6);
                 coords.forEach(coord => {
                     expect(coord).toHaveLength(3);
                 });
