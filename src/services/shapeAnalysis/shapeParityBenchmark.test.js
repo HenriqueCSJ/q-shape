@@ -229,6 +229,66 @@ describe('SHAPE Parity Benchmark - ML5 Ag Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=2 CuCl2', () => {
+    // CuCl2 coordinates from SHAPE v2.1
+    // Cu at origin, Cl atoms relative to Cu
+    const ligandCoords = [
+        [-1.7322, 2.0044, -0.3571],   // Cl1
+        [-0.9118, -2.0777, 0.0037]    // Cl2
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN2 = {
+        'L-2 (Linear)': 11.96364,
+        'vT-2 (V-shape, 109.47°)': 0.48568,
+        'vOC-2 (L-shape, 90°)': 3.33069
+    };
+
+    let cn2Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[2];
+        cn2Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'intensive');
+            cn2Results[name] = measure;
+        }
+    });
+
+    test('Log CN=2 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=2 [CuCl2] Bent Dihalide ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn2Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN2[name];
+            const diff = qshapeValue - shapeValue;
+            const relErr = Math.abs(diff) / shapeValue * 100;
+
+            console.log(
+                `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+            );
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (vT-2 best for bent CuCl2)', () => {
+        const sorted = Object.entries(cn2Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('vT-2 (V-shape, 109.47°)');
+    });
+
+    test('vT-2 CShM should be very close to SHAPE', () => {
+        const vt2 = cn2Results['vT-2 (V-shape, 109.47°)'];
+        const shapeValue = SHAPE_REF_CN2['vT-2 (V-shape, 109.47°)'];
+        // For near-perfect matches, use absolute tolerance
+        expect(Math.abs(vt2 - shapeValue)).toBeLessThan(0.01);
+    });
+});
+
 describe('SHAPE Parity Benchmark - CN=3 NH3', () => {
     // NH3 coordinates (N-centered)
     // N at (-0.5265, -0.0022, -0.7633), H atoms relative to N
