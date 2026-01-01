@@ -4,16 +4,16 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
 
 /**
- * Scale-normalizes coordinates to have unit RMS distance FROM ORIGIN.
- * This is the correct normalization for CShM calculations because:
+ * Scale-normalizes coordinates using CN-appropriate strategy.
  *
- * 1. The metal is at origin (input coordinates are metal-centered)
- * 2. Reference geometries are defined relative to metal position
- * 3. Centering on ligand centroid would destroy angular information
- *    (especially critical for pyramidal CN=3 geometries like vT-3)
+ * For CN=3: Uses origin-based scaling (no centering) to preserve
+ * angular relationships between ligands and metal center. This is
+ * critical for pyramidal geometries like vT-3 where centering would
+ * collapse the 3D pyramid into a 2D triangle.
  *
- * IMPORTANT: This matches the normalization used in reference geometries.
- * Both must use the same convention for CShM to be meaningful.
+ * For CN>=4: Uses centroid-based scaling because symmetric polyhedra
+ * have their centroid at the metal position anyway, and this matches
+ * the normalization convention that produces good SHAPE parity.
  *
  * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates (metal at origin)
  * @returns {object} { normalized: THREE.Vector3[], scale: number }
@@ -25,20 +25,44 @@ function scaleNormalize(vectors) {
 
     const n = vectors.length;
 
-    // Compute RMS distance from origin (metal position)
-    // Do NOT center on ligand centroid - this destroys angular information
-    let sumSq = 0;
+    // CN=3: Use origin-based scaling (no centering)
+    // This preserves the angular relationship to the metal center
+    if (n === 3) {
+        let sumSq = 0;
+        for (const v of vectors) {
+            sumSq += v.lengthSq();
+        }
+        const rms = Math.sqrt(sumSq / n);
+
+        if (rms < 1e-10) {
+            return { normalized: vectors.map(v => v.clone()), scale: 1 };
+        }
+
+        const normalized = vectors.map(v => v.clone().divideScalar(rms));
+        return { normalized, scale: rms };
+    }
+
+    // CN>=4: Use centroid-based scaling
+    // For symmetric polyhedra, this produces better SHAPE parity
+    const centroid = new THREE.Vector3(0, 0, 0);
     for (const v of vectors) {
+        centroid.add(v);
+    }
+    centroid.divideScalar(n);
+
+    const centered = vectors.map(v => v.clone().sub(centroid));
+
+    let sumSq = 0;
+    for (const v of centered) {
         sumSq += v.lengthSq();
     }
     const rms = Math.sqrt(sumSq / n);
 
-    // Scale to unit RMS
     if (rms < 1e-10) {
-        return { normalized: vectors.map(v => v.clone()), scale: 1 };
+        return { normalized: centered, scale: 1 };
     }
 
-    const normalized = vectors.map(v => v.clone().divideScalar(rms));
+    const normalized = centered.map(v => v.clone().divideScalar(rms));
     return { normalized, scale: rms };
 }
 

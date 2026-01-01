@@ -194,11 +194,11 @@ function generateTShaped() {
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
-// Use normalizeScaleFromOrigin to match shapeCalculator normalization
+// Use normalizeScale (centroid-based) for CN>=4 symmetric polyhedra
 function generateTetrahedral() {
     // T-4: Tetrahedral (Td) - Official CoSyMlib reference
     // All vertices equidistant - scale normalization preserves this
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.000000, 0.912871, -0.645497],
         [0.000000, -0.912871, -0.645497],
         [0.912871, 0.000000, 0.645497],
@@ -209,7 +209,7 @@ function generateTetrahedral() {
 function generateSquarePlanar() {
     // SP-4: Square Planar (D4h)
     // All vertices equidistant in xy-plane
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [1, 0, 0],
         [0, 1, 0],
         [-1, 0, 0],
@@ -220,7 +220,7 @@ function generateSquarePlanar() {
 function generateSeesaw() {
     // SS-4: Seesaw (C2v) - cis-divacant octahedron
     // Official CoSyMlib reference - vertices at different radial distances
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [-0.235702, -0.235702, -1.178511],
         [0.942809, -0.235702, 0.000000],
         [-0.235702, 0.942809, 0.000000],
@@ -231,7 +231,7 @@ function generateSeesaw() {
 function generateAxialVacantTBPY() {
     // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v)
     // Official CoSyMlib reference - axial position vacant
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.000000, 0.000000, -0.917663],
         [1.147079, 0.000000, 0.229416],
         [-0.573539, 0.993399, 0.229416],
@@ -240,7 +240,7 @@ function generateAxialVacantTBPY() {
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
-// Use normalizeScaleFromOrigin to match shapeCalculator normalization
+// Use normalizeScale (centroid-based) for CN>=4 symmetric polyhedra
 function generatePentagon() {
     // PP-5: Planar pentagon (D5h)
     const coords = [];
@@ -248,13 +248,13 @@ function generatePentagon() {
         const angle = (i * 2 * Math.PI) / 5;
         coords.push([Math.cos(angle), Math.sin(angle), 0]);
     }
-    return normalizeScaleFromOrigin(coords);
+    return normalizeScale(coords);
 }
 
 function generateSquarePyramid() {
     // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v)
     // Official CoSyMlib reference
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.000000, 0.000000, -0.928477],
         [1.114172, 0.000000, 0.185695],
         [0.000000, 1.114172, 0.185695],
@@ -266,7 +266,7 @@ function generateSquarePyramid() {
 function generateTrigonalBipyramidal() {
     // TBPY-5: Trigonal Bipyramidal (D3h) - Official CoSyMlib reference
     // All vertices at equal distance from center (regular geometry)
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.000000, 0.000000, -1.095445],
         [1.095445, 0.000000, 0.000000],
         [-0.547723, 0.948683, 0.000000],
@@ -279,7 +279,7 @@ function generateJohnsonTrigonalBipyramid() {
     // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - Official CoSyMlib reference
     // CRITICAL: Axial vertices (z=±1.309) are FARTHER than equatorial (r=0.926)
     // This elongation defines the Johnson J12 character
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.925820, 0.000000, 0.000000],
         [-0.462910, 0.801784, 0.000000],
         [-0.462910, -0.801784, 0.000000],
@@ -290,7 +290,7 @@ function generateJohnsonTrigonalBipyramid() {
 
 function generateSquarePyramidal() {
     // SPY-5: Square Pyramidal (C4v) - Official CoSyMlib reference
-    return normalizeScaleFromOrigin([
+    return normalizeScale([
         [0.000000, 0.000000, 1.095445],
         [1.060660, 0.000000, -0.273861],
         [0.000000, 1.060660, -0.273861],
