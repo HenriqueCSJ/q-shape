@@ -15,7 +15,7 @@
  */
 
 import * as vec3 from '../../../utils/vec3';
-import { PATTERN_DETECTION } from '../../../constants/algorithmConstants';
+import { PATTERN_DETECTION } from '../../../constants/algorithmConstants.js';
 
 /**
  * Detect if two rings are parallel within tolerance

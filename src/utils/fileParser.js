@@ -5,8 +5,8 @@
  * XYZ format: First line = atom count, second line = comment, subsequent lines = atom data.
  */
 
-import { ATOMIC_DATA } from '../constants/atomicData';
-import { FILE_PARSING } from '../constants/algorithmConstants';
+import { ATOMIC_DATA } from '../constants/atomicData.js';
+import { FILE_PARSING } from '../constants/algorithmConstants.js';
 
 /**
  * Validates XYZ file content before parsing

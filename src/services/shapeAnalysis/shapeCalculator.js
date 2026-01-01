@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import kabschAlignment from '../algorithms/kabsch.js';
 import hungarianAlgorithm from '../algorithms/hungarian.js';
-import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants';
+import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants.js';
 
 /**
  * Scale-normalizes coordinates using CN-appropriate strategy.

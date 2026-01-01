@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { KABSCH } from '../../constants/algorithmConstants';
+import { KABSCH } from '../../constants/algorithmConstants.js';
 
 /**
  * IMPROVED Kabsch Algorithm with robust numerical SVD
