@@ -31,11 +31,13 @@ const cn5Coords = [
     [0.165372 - metalCoords[0], 4.112289 - metalCoords[1], 5.476084 - metalCoords[2]]   // O
 ];
 
-// SHAPE v2.1 reference values
+// SHAPE v2.1 reference values (complete)
 const SHAPE_REFS = {
     3: {
+        'TP-3 (Trigonal Planar)': 3.63858,
         'vT-3 (Pyramid)': 0.02875,
-        'fac-vOC-3 (fac-Trivacant Octahedron)': 2.17184
+        'fac-vOC-3 (fac-Trivacant Octahedron)': 2.17184,
+        'mer-vOC-3 (T-shaped)': 12.51716
     },
     4: {
         'SP-4 (Square Planar)': 0.02657,
