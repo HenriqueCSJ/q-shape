@@ -361,11 +361,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCall
     // SHAPE/cosymlib include central atom in CShM calculations
     // Reference geometries have N+1 points (N ligands + 1 central atom)
     // Add central atom at origin to input coordinates when needed
-    const needsCentralAtom = (
-        (actualCoords.length === 3 && referenceCoords.length === 4) ||  // CN=3
-        (actualCoords.length === 4 && referenceCoords.length === 5) ||  // CN=4
-        (actualCoords.length === 5 && referenceCoords.length === 6)     // CN=5
-    );
+    // This applies to ALL coordination numbers (CN=3 through CN=12)
+    const needsCentralAtom = (referenceCoords.length === actualCoords.length + 1);
     if (needsCentralAtom) {
         workingActualCoords = [...actualCoords, [0, 0, 0]];
     }
