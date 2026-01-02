@@ -78,16 +78,20 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
         }
 
         // Get optimal rotation via Kabsch
-        // Both P and Q are centroid-normalized, so Kabsch centering is optional but harmless
-        const rotation = kabschAlignment(P_ordered, Q_ordered, false);
+        // Both P and Q are centroid-normalized, so skip recentering to avoid numerical drift
+        const rotation = kabschAlignment(P_ordered, Q_ordered, true);
 
         // Compute CShM with this rotation and matching
-        let sumSqDiff = 0;
+        // Use SHAPE/cosymlib formula: CShM = 100 * (1 - (overlap/N)²)
+        // where overlap = sum_i (Rp_i · q_i)
+        let overlap = 0;
         for (const [p_idx, q_idx] of matching) {
             const rotatedP = P_vecs[p_idx].clone().applyMatrix4(rotation);
-            sumSqDiff += rotatedP.distanceToSquared(Q_vecs[q_idx]);
+            overlap += rotatedP.dot(Q_vecs[q_idx]);
         }
-        const measure = (sumSqDiff / N) * 100;
+        // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
+        const overlapNorm = overlap / N;
+        const measure = 100 * (1 - overlapNorm * overlapNorm);
 
         if (measure < bestMeasure) {
             bestMeasure = measure;
@@ -240,17 +244,15 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         const Q_vecs_raw = workingRefCoords.map(c => new THREE.Vector3(...c));
         const { normalized: Q_vecs } = scaleNormalize(Q_vecs_raw, false);
 
-        // For low CN (2-3), the reference geometries from cosymlib have specific central atom
-        // positions that are NOT at the centroid. We need to compare without the central atom
-        // constraint for these cases, or use the non-exhaustive algorithm.
-        // TODO: Investigate CN=2 normalization issue
-
-        // For medium coordination numbers (4-7 ligands = 5-8 total points),
-        // use exhaustive permutation search for exact CShM (matches SHAPE algorithm)
-        // For CN=2-3, the reference geometries have non-centroid central atoms that
-        // require special handling - use optimization-based approach instead
-        // For larger CNs (>7), fall back to optimization-based approach
-        const MIN_EXHAUSTIVE_N = 5; // CN=4+ (skip CN=2,3 which have complex central atom positions)
+        // For low CN (2-4), some reference geometries from cosymlib have central atom
+        // positions that are NOT at the origin (e.g., vT-2, vOC-2, SS-4). When we add
+        // the actual central at origin, the positions don't match after centroid normalization.
+        // The optimization approach with Hungarian algorithm can find better matchings
+        // for these asymmetric geometries.
+        //
+        // For CN=5-7, use exhaustive permutation search for exact CShM.
+        // For larger CNs (>7), fall back to optimization-based approach.
+        const MIN_EXHAUSTIVE_N = 6; // CN=5+ (skip CN=2-4 which have asymmetric central atoms)
         const MAX_EXHAUSTIVE_N = 8; // 7! = 5040 permutations - manageable
         if (N >= MIN_EXHAUSTIVE_N && N <= MAX_EXHAUSTIVE_N && needsCentralAtom) {
             const result = exhaustivePermutationSearch(P_vecs, Q_vecs);
@@ -270,18 +272,27 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         const getMeasureForRotation = (rotationMatrix) => {
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(rotationMatrix));
 
+            // Build cost matrix for Hungarian algorithm
+            // Use negative dot product as cost (minimize cost = maximize overlap)
             const costMatrix = [];
             for (let i = 0; i < N; i++) {
                 costMatrix[i] = [];
                 for (let j = 0; j < N; j++) {
-                    costMatrix[i][j] = rotatedP[i].distanceToSquared(Q_vecs[j]);
+                    // Use negative dot product for minimization
+                    costMatrix[i][j] = -rotatedP[i].dot(Q_vecs[j]);
                 }
             }
 
             const matching = hungarianAlgorithm(costMatrix);
-            const sumSqDiff = matching.reduce((sum, [i, j]) => sum + costMatrix[i][j], 0);
 
-            return { measure: (sumSqDiff / N) * 100, matching };
+            // Compute overlap (sum of dot products) for the matching
+            const overlap = matching.reduce((sum, [i, j]) => sum + rotatedP[i].dot(Q_vecs[j]), 0);
+
+            // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
+            const overlapNorm = overlap / N;
+            const measure = 100 * (1 - overlapNorm * overlapNorm);
+
+            return { measure, matching };
         };
 
         let globalBestMeasure = Infinity;
