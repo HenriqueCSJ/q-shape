@@ -625,7 +625,7 @@ function generateGyrobifastigium() {
 }
 
 function generateElongatedTriangularBipyramid() {
-    // JETBPY-8: Johnson Elongated Trigonal Bipyramid (J14, D3h) - from cosymlib
+    // JETBPY-8: Johnson Elongated Triangular Bipyramid (J14, D3h) - from cosymlib
     // 8 ligands + central atom at origin
     return [
         [0.656233980527, 0.000000000000, 0.568315297963],
@@ -637,6 +637,23 @@ function generateElongatedTriangularBipyramid() {
         [0.000000000000, 0.000000000000, 1.496370293314],
         [0.000000000000, 0.000000000000, -1.496370293314],
         [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
+}
+
+function generateSphericalElongatedTrigonalBipyramid() {
+    // ETBPY-8: Spherical Elongated Trigonal Bipyramid (D3h) - from cosymlib
+    // Different from JETBPY-8 (Johnson J14) - has different proportions
+    // 8 ligands + central atom at origin
+    return [
+        [0.694365079077, 0.000000000000, 0.801783719423],
+        [-0.694365079077, 0.000000000000, 0.801783719423],
+        [0.694365079077, 0.694365079077, -0.400891871284],
+        [-0.694365079077, 0.694365079077, -0.400891871284],
+        [0.694365079077, -0.694365079077, -0.400891871284],
+        [-0.694365079077, -0.694365079077, -0.400891871284],
+        [1.060660156290, 0.000000000000, 0.000000015430],
+        [-1.060660156290, 0.000000000000, 0.000000015430],
+        [0.000000000000, 0.000000000000, 0.000000015430]  // central atom
     ];
 }
 
@@ -1834,7 +1851,7 @@ const REFERENCE_GEOMETRIES = {
         "BTPR-8 (Biaugmented Trigonal Prism)": generateSphericalBiaugmentedTrigonalPrism(),
         "JSD-8 (Snub Disphenoid, J84)": generateSnubDisphenoid(),
         "TT-8 (Triakis Tetrahedron)": generateTriakisTetrahedron(),
-        "ETBPY-8 (Elongated Trigonal Bipyramid)": generateElongatedTriangularBipyramid()
+        "ETBPY-8 (Elongated Trigonal Bipyramid)": generateSphericalElongatedTrigonalBipyramid()
     },
     9: {
         "EP-9 (Enneagon)": generateEnneagon(),

@@ -648,6 +648,109 @@ describe('SHAPE Parity Benchmark - CN=7 FeL7 Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=8 FeL8 Complex', () => {
+    // FeL8 coordinates from SHAPE v2.1
+    // Fe at (0.5288, 0.0000, -2.2821), ligands relative to Fe
+    const metalCoords = [0.5288, 0.0000, -2.2821];
+    const ligandCoords = [
+        [-0.0399 - metalCoords[0], -0.1596 - metalCoords[1], -4.1112 - metalCoords[2]],  // F1
+        [1.6472 - metalCoords[0], 1.1734 - metalCoords[1], -3.3150 - metalCoords[2]],    // F2
+        [2.3461 - metalCoords[0], -0.5285 - metalCoords[1], -1.9466 - metalCoords[2]],   // F3
+        [-1.2885 - metalCoords[0], -0.5985 - metalCoords[1], -2.0984 - metalCoords[2]],  // F4
+        [1.0975 - metalCoords[0], 1.2866 - metalCoords[1], -0.9723 - metalCoords[2]],    // F5
+        [0.3987 - metalCoords[0], -0.8593 - metalCoords[1], -0.5678 - metalCoords[2]],   // F6
+        [0.6589 - metalCoords[0], -1.8615 - metalCoords[1], -2.7428 - metalCoords[2]],   // F7
+        [-0.5896 - metalCoords[0], 1.5475 - metalCoords[1], -2.5029 - metalCoords[2]]    // F8
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN8 = {
+        'OP-8 (Octagon)': 28.84843,
+        'HPY-8 (Heptagonal Pyramid)': 24.02390,
+        'HBPY-8 (Hexagonal Bipyramid)': 17.95151,
+        'CU-8 (Cube)': 10.43287,
+        'SAPR-8 (Square Antiprism)': 0.09337,
+        'TDD-8 (Triangular Dodecahedron)': 2.66300,
+        'JGBF-8 (Gyrobifastigium, J26)': 17.40119,
+        'JETBPY-8 (Elongated Triangular Bipyramid, J14)': 29.26637,
+        'JBTP-8 (Biaugmented Trigonal Prism, J50)': 2.93097,
+        'BTPR-8 (Biaugmented Trigonal Prism)': 2.34967,
+        'JSD-8 (Snub Disphenoid, J84)': 5.44709,
+        'TT-8 (Triakis Tetrahedron)': 11.28689,
+        'ETBPY-8 (Elongated Trigonal Bipyramid)': 24.78340
+    };
+
+    let cn8Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[8];
+        cn8Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            cn8Results[name] = measure;
+        }
+    });
+
+    test('Log CN=8 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=8 [FeL8] Square Antiprism Complex ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn8Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN8[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = shapeValue > 0 ? Math.abs(diff) / shapeValue * 100 : (qshapeValue === 0 ? 0 : Infinity);
+                console.log(
+                    `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (SAPR-8 best for square antiprism)', () => {
+        const sorted = Object.entries(cn8Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('SAPR-8 (Square Antiprism)');
+    });
+
+    test('SAPR-8 CShM should be very close to SHAPE', () => {
+        const sapr8 = cn8Results['SAPR-8 (Square Antiprism)'];
+        const shapeValue = SHAPE_REF_CN8['SAPR-8 (Square Antiprism)'];
+        // Allow 5% relative error for near-perfect matches
+        const relError = Math.abs(sapr8 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.05);
+    });
+
+    test('TT-8 (Triakis Tetrahedron) should NOT have huge error', () => {
+        // Old Q-Shape gave 45.59 vs SHAPE 11.29 (304% error!)
+        const tt8 = cn8Results['TT-8 (Triakis Tetrahedron)'];
+        const shapeValue = SHAPE_REF_CN8['TT-8 (Triakis Tetrahedron)'];
+        // Allow 20% relative error
+        const relError = Math.abs(tt8 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.20);
+    });
+
+    describe('Johnson Geometry Degeneracy - CN=8', () => {
+        test('ETBPY-8 and JETBPY-8 must NOT be degenerate', () => {
+            const etbpy8 = cn8Results['ETBPY-8 (Elongated Trigonal Bipyramid)'];
+            const jetbpy8 = cn8Results['JETBPY-8 (Elongated Triangular Bipyramid, J14)'];
+
+            console.log(`\nETBPY-8:  ${etbpy8.toFixed(6)}`);
+            console.log(`JETBPY-8: ${jetbpy8.toFixed(6)}`);
+            console.log(`Difference: ${Math.abs(etbpy8 - jetbpy8).toFixed(6)} (expected ~4.5)`);
+
+            // SHAPE gives 24.78 vs 29.27 - they should differ
+            const diff = Math.abs(etbpy8 - jetbpy8);
+            expect(diff).toBeGreaterThan(1.0);
+        });
+    });
+});
+
 describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
     // Test that perfect reference geometries give CShM ≈ 0
     // This validates the algorithm works for higher CNs even without external SHAPE values
