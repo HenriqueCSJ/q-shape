@@ -316,7 +316,7 @@ describe('SHAPE Parity Benchmark - CN=6 NiN4O2', () => {
         const geometries = REFERENCE_GEOMETRIES[6];
         cn6Results = {};
         for (const [name, refCoords] of Object.entries(geometries)) {
-            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'intensive');
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             cn6Results[name] = measure;
         }
     });

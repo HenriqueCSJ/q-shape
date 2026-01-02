@@ -4,6 +4,102 @@ import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants.js';
 
 /**
+ * Generate all permutations of an array (Heap's algorithm)
+ * @param {number[]} arr - Array of indices to permute
+ * @returns {Generator<number[]>} Generator yielding each permutation
+ */
+function* permutations(arr) {
+    const n = arr.length;
+    const c = new Array(n).fill(0);
+
+    yield [...arr];
+
+    let i = 0;
+    while (i < n) {
+        if (c[i] < i) {
+            if (i % 2 === 0) {
+                [arr[0], arr[i]] = [arr[i], arr[0]];
+            } else {
+                [arr[c[i]], arr[i]] = [arr[i], arr[c[i]]];
+            }
+            yield [...arr];
+            c[i]++;
+            i = 0;
+        } else {
+            c[i] = 0;
+            i++;
+        }
+    }
+}
+
+/**
+ * Compute CShM using exhaustive permutation search (exact algorithm)
+ *
+ * For each permutation of ligand atoms:
+ * 1. Apply Kabsch alignment to find optimal rotation
+ * 2. Compute RMSD
+ * 3. Track minimum
+ *
+ * Central atom (last in array) is always mapped to central atom - not permuted.
+ *
+ * @param {THREE.Vector3[]} P_vecs - Normalized actual coordinates
+ * @param {THREE.Vector3[]} Q_vecs - Normalized reference coordinates
+ * @returns {Object} { measure, matching, rotation }
+ */
+function exhaustivePermutationSearch(P_vecs, Q_vecs) {
+    const N = P_vecs.length;
+    const numLigands = N - 1;
+
+    let bestMeasure = Infinity;
+    let bestMatching = null;
+    let bestRotation = new THREE.Matrix4();
+    let permCount = 0;
+
+    // Generate all permutations of reference vertices for each ligand
+    // For each permutation, actual ligand i maps to reference vertex perm[i]
+    const ligandIndices = Array.from({ length: numLigands }, (_, i) => i);
+
+    for (const perm of permutations([...ligandIndices])) {
+        permCount++;
+        // Build matching: actual ligand i → reference vertex perm[i]
+        // Central atom (index N-1) always maps to itself
+        const matching = [];
+        for (let i = 0; i < numLigands; i++) {
+            matching.push([i, perm[i]]);  // actual i → reference perm[i]
+        }
+        matching.push([N - 1, N - 1]);  // Central atom
+
+        // Prepare ordered arrays for Kabsch: P_ordered[i] should match Q_ordered[i]
+        const P_ordered = [];
+        const Q_ordered = [];
+        for (const [p_idx, q_idx] of matching) {
+            P_ordered.push(P_vecs[p_idx].toArray());
+            Q_ordered.push(Q_vecs[q_idx].toArray());
+        }
+
+        // Get optimal rotation via Kabsch
+        // Both P and Q are centroid-normalized, so Kabsch centering is optional but harmless
+        const rotation = kabschAlignment(P_ordered, Q_ordered, false);
+
+        // Compute CShM with this rotation and matching
+        let sumSqDiff = 0;
+        for (const [p_idx, q_idx] of matching) {
+            const rotatedP = P_vecs[p_idx].clone().applyMatrix4(rotation);
+            sumSqDiff += rotatedP.distanceToSquared(Q_vecs[q_idx]);
+        }
+        const measure = (sumSqDiff / N) * 100;
+
+        if (measure < bestMeasure) {
+            bestMeasure = measure;
+            bestMatching = matching;
+            bestRotation = rotation;
+        }
+    }
+
+    return { measure: bestMeasure, matching: bestMatching, rotation: bestRotation };
+}
+
+/**
  * Scale-normalizes coordinates using centroid-based strategy.
  *
  * This is the standard normalization used by SHAPE/cosymlib/cshm-cc:
@@ -14,23 +110,31 @@ import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConsta
  * This preserves pyramidal character that would be lost with ligand-only centering.
  *
  * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates
+ * @param {boolean} centerOnLast - If true, center on last point (central atom) instead of centroid
  * @returns {object} { normalized: THREE.Vector3[], scale: number }
  */
-function scaleNormalize(vectors) {
+function scaleNormalize(vectors, centerOnLast = false) {
     if (!vectors || vectors.length === 0) {
         return { normalized: [], scale: 1 };
     }
 
     const n = vectors.length;
 
-    // Centroid-based normalization for all CNs
-    const centroid = new THREE.Vector3(0, 0, 0);
-    for (const v of vectors) {
-        centroid.add(v);
+    // Determine center point
+    let center;
+    if (centerOnLast) {
+        // Center on last point (central atom) - keeps metal at origin
+        center = vectors[n - 1].clone();
+    } else {
+        // Centroid-based normalization
+        center = new THREE.Vector3(0, 0, 0);
+        for (const v of vectors) {
+            center.add(v);
+        }
+        center.divideScalar(n);
     }
-    centroid.divideScalar(n);
 
-    const centered = vectors.map(v => v.clone().sub(centroid));
+    const centered = vectors.map(v => v.clone().sub(center));
 
     let sumSq = 0;
     for (const v of centered) {
@@ -129,10 +233,38 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         }
 
         // Use centroid-based scale normalization (standard for SHAPE/cosymlib)
-        const { normalized: P_vecs } = scaleNormalize(P_vecs_raw);
+        // Both P and Q are normalized the same way for consistency
+        const { normalized: P_vecs } = scaleNormalize(P_vecs_raw, false);
 
-        // Reference coordinates are already scale-normalized in referenceGeometries
-        const Q_vecs = workingRefCoords.map(c => new THREE.Vector3(...c));
+        // Apply same centroid-based normalization to reference coordinates
+        const Q_vecs_raw = workingRefCoords.map(c => new THREE.Vector3(...c));
+        const { normalized: Q_vecs } = scaleNormalize(Q_vecs_raw, false);
+
+        // For low CN (2-3), the reference geometries from cosymlib have specific central atom
+        // positions that are NOT at the centroid. We need to compare without the central atom
+        // constraint for these cases, or use the non-exhaustive algorithm.
+        // TODO: Investigate CN=2 normalization issue
+
+        // For medium coordination numbers (4-7 ligands = 5-8 total points),
+        // use exhaustive permutation search for exact CShM (matches SHAPE algorithm)
+        // For CN=2-3, the reference geometries have non-centroid central atoms that
+        // require special handling - use optimization-based approach instead
+        // For larger CNs (>7), fall back to optimization-based approach
+        const MIN_EXHAUSTIVE_N = 5; // CN=4+ (skip CN=2,3 which have complex central atom positions)
+        const MAX_EXHAUSTIVE_N = 8; // 7! = 5040 permutations - manageable
+        if (N >= MIN_EXHAUSTIVE_N && N <= MAX_EXHAUSTIVE_N && needsCentralAtom) {
+            const result = exhaustivePermutationSearch(P_vecs, Q_vecs);
+            const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(result.rotation));
+            const finalAlignedCoords = new Array(N);
+            for (const [p_idx, q_idx] of result.matching) {
+                finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
+            }
+            return {
+                measure: result.measure,
+                alignedCoords: finalAlignedCoords.filter(Boolean),
+                rotationMatrix: result.rotation
+            };
+        }
 
         // Cached evaluation function
         const getMeasureForRotation = (rotationMatrix) => {
@@ -177,8 +309,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 const initialCostMatrix = P_vecs.map(p => Q_vecs.map(q => p.distanceToSquared(q)));
                 const initialMatching = hungarianAlgorithm(initialCostMatrix);
 
-                const P_ordered = initialMatching.map(([p_idx, _]) => actualCoords[p_idx]);
-                const Q_ordered = initialMatching.map(([_, q_idx]) => referenceCoords[q_idx]);
+                const P_ordered = initialMatching.map(([p_idx, _]) => workingActualCoords[p_idx]);
+                const Q_ordered = initialMatching.map(([_, q_idx]) => workingRefCoords[q_idx]);
 
                 const kabschRotation = kabschAlignment(P_ordered, Q_ordered);
                 const kabschResult = getMeasureForRotation(kabschRotation);
