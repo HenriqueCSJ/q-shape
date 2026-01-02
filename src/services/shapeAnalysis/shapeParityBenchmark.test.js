@@ -545,3 +545,112 @@ describe('Reference Geometry Validation', () => {
         });
     });
 });
+
+describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
+    // Test that perfect reference geometries give CShM ≈ 0
+    // This validates the algorithm works for higher CNs even without external SHAPE values
+
+    describe('CN=7 Perfect Geometry Test', () => {
+        test('Perfect PBPY-7 (Pentagonal Bipyramid) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[7]['PBPY-7 (Pentagonal Bipyramidal)'];
+            // Use reference coords (minus central atom) as "actual" - should be perfect match
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`PBPY-7 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+
+        test('Perfect COC-7 (Capped Octahedron) should give CShM ≈ 0', () => {
+            // Note: COC-7 has central atom slightly off origin (z=0.058)
+            // This causes a small mismatch with exhaustive search (central fixed)
+            const refCoords = REFERENCE_GEOMETRIES[7]['COC-7 (Capped Octahedral)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`COC-7 perfect match: CShM = ${measure.toFixed(6)}`);
+            // Slightly higher tolerance for non-origin central geometries
+            expect(measure).toBeLessThan(0.05);
+        });
+    });
+
+    describe('CN=8 Perfect Geometry Test', () => {
+        test('Perfect SAPR-8 (Square Antiprism) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[8]['SAPR-8 (Square Antiprism)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`SAPR-8 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+
+        test('Perfect CU-8 (Cube) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[8]['CU-8 (Cube)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`CU-8 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('CN=9 Perfect Geometry Test', () => {
+        test('Perfect CSAPR-9 (Capped Square Antiprism) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[9]['CSAPR-9 (Capped Square Antiprism)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`CSAPR-9 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('CN=10-12 Perfect Geometry Tests', () => {
+        test('Perfect JBCSAPR-10 (Bicapped Square Antiprism) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[10]['JBCSAPR-10 (Bicapped Square Antiprism, J17)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`JBCSAPR-10 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+
+        test('Perfect JCPAPR-11 (Capped Pentagonal Antiprism) should give CShM ≈ 0', () => {
+            // Note: JCPAPR-11 has central atom not at origin (z=0.087)
+            // This causes a small mismatch like COC-7
+            const refCoords = REFERENCE_GEOMETRIES[11]['JCPAPR-11 (Capped Pentagonal Antiprism, J11)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`JCPAPR-11 perfect match: CShM = ${measure.toFixed(6)}`);
+            // Higher tolerance for non-origin central geometries
+            expect(measure).toBeLessThan(0.1);
+        });
+
+        test('Perfect IC-12 (Icosahedral) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[12]['IC-12 (Icosahedral)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`IC-12 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('Cross-geometry comparison (CN=7)', () => {
+        test('PBPY-7 structure compared to COC-7 should give CShM > 0', () => {
+            // Use PBPY-7 reference as actual, compare to COC-7 reference
+            const pbpyCoords = REFERENCE_GEOMETRIES[7]['PBPY-7 (Pentagonal Bipyramidal)'];
+            const cocCoords = REFERENCE_GEOMETRIES[7]['COC-7 (Capped Octahedral)'];
+
+            const ligandCoords = pbpyCoords.slice(0, -1);
+            const { measure } = calculateShapeMeasure(ligandCoords, cocCoords, 'default');
+
+            console.log(`PBPY-7 vs COC-7: CShM = ${measure.toFixed(4)}`);
+            // Should be significantly non-zero (different shapes)
+            expect(measure).toBeGreaterThan(1.0);
+            // But should be in valid range
+            expect(measure).toBeLessThan(100);
+        });
+    });
+});
