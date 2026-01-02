@@ -546,6 +546,108 @@ describe('Reference Geometry Validation', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=7 FeL7 Complex', () => {
+    // FeL7 coordinates from SHAPE v2.1
+    // Fe at (-0.2963, 0.2631, -0.1447), ligands relative to Fe
+    const metalCoords = [-0.2963, 0.2631, -0.1447];
+    const ligandCoords = [
+        [-0.2042 - metalCoords[0], -1.4508 - metalCoords[1], -1.3546 - metalCoords[2]],  // F1
+        [-2.3750 - metalCoords[0], 0.3521 - metalCoords[1], -0.4289 - metalCoords[2]],   // F2
+        [-0.5372 - metalCoords[0], 0.9384 - metalCoords[1], 1.8291 - metalCoords[2]],    // F3
+        [1.7825 - metalCoords[0], 0.1741 - metalCoords[1], 0.1396 - metalCoords[2]],     // F4
+        [-0.2042 - metalCoords[0], 2.3610 - metalCoords[1], -0.1607 - metalCoords[2]],   // F5
+        [-0.5372 - metalCoords[0], -1.4175 - metalCoords[1], 1.0913 - metalCoords[2]],   // F6
+        [0.0016 - metalCoords[0], 0.8844 - metalCoords[1], -2.1284 - metalCoords[2]]     // F7
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN7 = {
+        'HP-7 (Heptagon)': 35.21310,
+        'HPY-7 (Hexagonal Pyramid)': 26.68789,
+        'PBPY-7 (Pentagonal Bipyramidal)': 0.00000,
+        'COC-7 (Capped Octahedral)': 8.58154,
+        'CTPR-7 (Capped Trigonal Prism)': 6.67493,
+        'JPBPY-7 (Johnson Pentagonal Bipyramid, J13)': 3.61603,
+        'JETPY-7 (Elongated Triangular Pyramid, J7)': 25.64449
+    };
+
+    let cn7Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[7];
+        cn7Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            cn7Results[name] = measure;
+        }
+    });
+
+    test('Log CN=7 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=7 [FeL7] Pentagonal Bipyramidal Complex ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn7Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN7[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = shapeValue > 0 ? Math.abs(diff) / shapeValue * 100 : (qshapeValue === 0 ? 0 : Infinity);
+                console.log(
+                    `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (PBPY-7 best for pentagonal bipyramid)', () => {
+        const sorted = Object.entries(cn7Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('PBPY-7 (Pentagonal Bipyramidal)');
+    });
+
+    test('PBPY-7 CShM should be very close to SHAPE (perfect match)', () => {
+        const pbpy7 = cn7Results['PBPY-7 (Pentagonal Bipyramidal)'];
+        // For perfect matches, absolute tolerance
+        expect(pbpy7).toBeLessThan(0.01);
+    });
+
+    describe('Johnson Geometry Degeneracy - CN=7', () => {
+        test('PBPY-7 and JPBPY-7 must NOT be degenerate', () => {
+            const pbpy7 = cn7Results['PBPY-7 (Pentagonal Bipyramidal)'];
+            const jpbpy7 = cn7Results['JPBPY-7 (Johnson Pentagonal Bipyramid, J13)'];
+
+            const diff = Math.abs(pbpy7 - jpbpy7);
+            console.log(`\nPBPY-7:  ${pbpy7.toFixed(6)}`);
+            console.log(`JPBPY-7: ${jpbpy7.toFixed(6)}`);
+            console.log(`Difference: ${diff.toFixed(6)} (expected ~3.6)`);
+
+            // They should differ by at least 1.0 (SHAPE gives 3.6 difference)
+            expect(diff).toBeGreaterThan(1.0);
+        });
+
+        test('JPBPY-7 should have HIGHER CShM than PBPY-7', () => {
+            const pbpy7 = cn7Results['PBPY-7 (Pentagonal Bipyramidal)'];
+            const jpbpy7 = cn7Results['JPBPY-7 (Johnson Pentagonal Bipyramid, J13)'];
+
+            // PBPY-7 is perfect (0.0), JPBPY-7 should be ~3.6
+            expect(jpbpy7).toBeGreaterThan(pbpy7);
+        });
+
+        test('JPBPY-7 CShM should be close to SHAPE value (~3.6)', () => {
+            const jpbpy7 = cn7Results['JPBPY-7 (Johnson Pentagonal Bipyramid, J13)'];
+            const shapeValue = SHAPE_REF_CN7['JPBPY-7 (Johnson Pentagonal Bipyramid, J13)'];
+
+            // Allow 20% tolerance
+            const relError = Math.abs(jpbpy7 - shapeValue) / shapeValue;
+            expect(relError).toBeLessThan(0.20);
+        });
+    });
+});
+
 describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
     // Test that perfect reference geometries give CShM ≈ 0
     // This validates the algorithm works for higher CNs even without external SHAPE values
