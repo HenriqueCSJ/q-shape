@@ -946,6 +946,94 @@ describe('SHAPE Parity Benchmark - CN=10 FeL10 Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=11 NbL11 Complex', () => {
+    // NbL11 coordinates from SHAPE v2.1
+    // Nb at (-0.1044, 0.0774, 0.0000), ligands relative to Nb
+    const metalCoords = [-0.1044, 0.0774, 0.0000];
+    const ligandCoords = [
+        [-2.0207 - metalCoords[0], 1.0403 - metalCoords[1], 1.1540 - metalCoords[2]],   // C1
+        [-1.2092 - metalCoords[0], 2.1274 - metalCoords[1], 0.7132 - metalCoords[2]],   // C2
+        [-1.2092 - metalCoords[0], 2.1274 - metalCoords[1], -0.7132 - metalCoords[2]],  // C3
+        [-2.0207 - metalCoords[0], 1.0403 - metalCoords[1], -1.1540 - metalCoords[2]],  // C4
+        [-2.5223 - metalCoords[0], 0.3686 - metalCoords[1], 0.0000 - metalCoords[2]],   // C5
+        [1.6317 - metalCoords[0], -1.2172 - metalCoords[1], -1.3957 - metalCoords[2]],  // C6
+        [0.9190 - metalCoords[0], -2.1940 - metalCoords[1], -0.6978 - metalCoords[2]],  // C7
+        [2.3445 - metalCoords[0], -0.2403 - metalCoords[1], -0.6978 - metalCoords[2]],  // C8
+        [0.9190 - metalCoords[0], -2.1940 - metalCoords[1], 0.6978 - metalCoords[2]],   // C9
+        [2.3445 - metalCoords[0], -0.2403 - metalCoords[1], 0.6978 - metalCoords[2]],   // C10
+        [1.6317 - metalCoords[0], -1.2172 - metalCoords[1], 1.3957 - metalCoords[2]]    // C11
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN11 = {
+        'HP-11 (Hendecagon)': 34.70185,
+        'DPY-11 (Decagonal Pyramid)': 32.38021,
+        'EBPY-11 (Enneagonal Bipyramid)': 28.36964,
+        'JCPPR-11 (Capped Pentagonal Prism, J9)': 24.85845,
+        'JCPAPR-11 (Capped Pentagonal Antiprism, J11)': 27.02164,
+        'JAPPR-11 (Augmented Pentagonal Prism, J52)': 21.67256,
+        'JASPC-11 (Augmented Sphenocorona, J87)': 28.15981
+    };
+
+    let cn11Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[11];
+        cn11Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            cn11Results[name] = measure;
+        }
+    });
+
+    test('Log CN=11 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=11 [NbL11] Augmented Pentagonal Prism Complex ===\n');
+        console.log('Geometry                                         Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(90));
+
+        const sorted = Object.entries(cn11Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN11[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = shapeValue > 0 ? Math.abs(diff) / shapeValue * 100 : 0;
+                console.log(
+                    `${name.padEnd(47)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(90));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (JAPPR-11 best)', () => {
+        const sorted = Object.entries(cn11Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('JAPPR-11 (Augmented Pentagonal Prism, J52)');
+    });
+
+    test('JAPPR-11 CShM should be close to SHAPE', () => {
+        const jappr11 = cn11Results['JAPPR-11 (Augmented Pentagonal Prism, J52)'];
+        const shapeValue = SHAPE_REF_CN11['JAPPR-11 (Augmented Pentagonal Prism, J52)'];
+        // Allow 5% relative error
+        const relError = Math.abs(jappr11 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.05);
+    });
+
+    test('All CN=11 geometries should match SHAPE within 2%', () => {
+        // Note: JASPC-11 reference geometry has ~1.3% deviation
+        // This is still much better than old Q-Shape (which had up to 11.5% errors)
+        for (const [name, shapeValue] of Object.entries(SHAPE_REF_CN11)) {
+            const qshapeValue = cn11Results[name];
+            if (qshapeValue !== undefined) {
+                const relError = Math.abs(qshapeValue - shapeValue) / shapeValue;
+                expect(relError).toBeLessThan(0.02);
+            }
+        }
+    });
+});
+
 describe('SHAPE Parity Benchmark - CN=12 NbL12 Complex', () => {
     // NbL12 coordinates from SHAPE v2.1
     // Nb at (-2.1708, 0.0000, -6.0691), ligands relative to Nb
