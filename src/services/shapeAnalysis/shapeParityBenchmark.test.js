@@ -1233,3 +1233,61 @@ describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
         });
     });
 });
+
+describe('SHAPE Parity - Higher CN Fullerene Geometries', () => {
+    // Test CN=20, 24, 48, 60 geometries (fullerenes and related polyhedra)
+    // These verify that perfect reference geometries give CShM ≈ 0
+
+    describe('CN=20 Dodecahedron', () => {
+        test('Perfect DD-20 (Dodecahedron) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[20]['DD-20 (Dodecahedron)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`DD-20 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('CN=24 Truncated Polyhedra', () => {
+        test('Perfect TCU-24 (Truncated Cube) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[24]['TCU-24 (Truncated Cube)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`TCU-24 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+
+        test('Perfect TOC-24 (Truncated Octahedron) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[24]['TOC-24 (Truncated Octahedron)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`TOC-24 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('CN=48 Truncated Cuboctahedron', () => {
+        test('Perfect TCOC-48 (Truncated Cuboctahedron) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[48]['TCOC-48 (Truncated Cuboctahedron)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`TCOC-48 perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+
+    describe('CN=60 Truncated Icosahedron (C60 Fullerene)', () => {
+        test('Perfect TIC-60 (Truncated Icosahedron) should give CShM ≈ 0', () => {
+            const refCoords = REFERENCE_GEOMETRIES[60]['TIC-60 (Truncated Icosahedron)'];
+            const ligandCoords = refCoords.slice(0, -1);
+
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            console.log(`TIC-60 (C60) perfect match: CShM = ${measure.toFixed(6)}`);
+            expect(measure).toBeLessThan(0.01);
+        });
+    });
+});

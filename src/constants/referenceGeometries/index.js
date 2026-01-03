@@ -1587,8 +1587,9 @@ function generateSphenomegacorona() {
 
 // CN=20 Geometries (1 geometry from CoSyMlib)
 function generateDodecahedron20() {
-    // DD-20: Dodecahedron - Official CoSyMlib reference (normalized)
-    return [
+    // DD-20: Dodecahedron - 20 ligands + central atom at origin
+    // Vertices already centered at origin, normalized to unit RMS distance
+    const ligands = [
         [0.814279, 0.591608, -0.192225],
         [-0.311027, 0.957242, -0.192225],
         [-1.006504, -0.000000, -0.192225],
@@ -1609,13 +1610,15 @@ function generateDodecahedron20() {
         [-0.503252, -0.365634, 0.814279],
         [0.192225, -0.591608, 0.814279],
         [0.622053, -0.000000, 0.814279]
-    ].map(normalize);
+    ];
+    // Add central atom and normalize with centroid-based scaling
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=24 Geometries (2 geometries from CoSyMlib)
 function generateTruncatedCube() {
-    // TCU-24: Truncated Cube - Official CoSyMlib reference (normalized)
-    return [
+    // TCU-24: Truncated Cube - 24 ligands + central atom at origin
+    const ligands = [
         [0.286881, 0.692592, 0.692592],
         [-0.286881, -0.692592, -0.692592],
         [0.286881, -0.692592, -0.692592],
@@ -1640,12 +1643,13 @@ function generateTruncatedCube() {
         [0.692592, 0.692592, -0.286881],
         [-0.692592, 0.692592, 0.286881],
         [0.692592, -0.692592, 0.286881]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 function generateTruncatedOctahedron() {
-    // TOC-24: Truncated Octahedron - Official CoSyMlib reference (normalized)
-    return [
+    // TOC-24: Truncated Octahedron - 24 ligands + central atom at origin
+    const ligands = [
         [0.912871, 0.456435, 0.000000],
         [-0.912871, -0.456435, 0.000000],
         [0.912871, -0.456435, 0.000000],
@@ -1670,13 +1674,14 @@ function generateTruncatedOctahedron() {
         [-0.912871, 0.000000, -0.456435],
         [0.912871, 0.000000, -0.456435],
         [-0.912871, 0.000000, 0.456435]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=48 Geometries (1 geometry from CoSyMlib)
 function generateTruncatedCuboctahedron() {
-    // TCOC-48: Truncated Cuboctahedron - Official CoSyMlib reference (normalized)
-    return [
+    // TCOC-48: Truncated Cuboctahedron - 48 ligands + central atom at origin
+    const ligands = [
         [0.217975, 0.526238, 0.834502],
         [-0.217975, -0.526238, -0.834502],
         [0.217975, -0.526238, -0.834502],
@@ -1725,14 +1730,14 @@ function generateTruncatedCuboctahedron() {
         [0.834502, 0.217975, -0.526238],
         [-0.834502, 0.217975, 0.526238],
         [0.834502, -0.217975, 0.526238]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=60 Geometries (1 geometry from CoSyMlib)
 function generateTruncatedIcosahedron() {
-    // TIC-60: Truncated Icosahedron - Official CoSyMlib reference (normalized)
-    // Famous "soccer ball" or "buckyball" geometry, used for fullerenes like C60
-    return [
+    // TIC-60: Truncated Icosahedron (C60 Fullerene/Buckyball) - 60 ligands + central atom
+    const ligands = [
         [0.799214169418, 0.329186766636, -0.519191166048],
         [0.560045966052, 0.658373533272, -0.519191166048],
         [-0.066104440661, 0.861822142285, -0.519191166048],
@@ -1793,7 +1798,8 @@ function generateTruncatedIcosahedron() {
         [-0.106959281355, -0.329186766636, 0.947028210087],
         [0.560045966052, -0.406897218026, 0.733109688067],
         [0.280023003371, -0.203448609013, 0.947028210087]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // COMPLETE SHAPE 2.1 REFERENCE GEOMETRY LIBRARY
