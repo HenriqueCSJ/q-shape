@@ -865,6 +865,87 @@ describe('SHAPE Parity Benchmark - CN=9 CrL9 Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=10 FeL10 Complex', () => {
+    // FeL10 coordinates from SHAPE v2.1
+    // Fe at (-1.4194, 0.0000, 2.3100), ligands relative to Fe
+    const metalCoords = [-1.4194, 0.0000, 2.3100];
+    const ligandCoords = [
+        [-2.1789 - metalCoords[0], -1.7313 - metalCoords[1], 1.5508 - metalCoords[2]],  // C1
+        [-0.0278 - metalCoords[0], -0.3835 - metalCoords[1], 3.7477 - metalCoords[2]],  // C2
+        [-1.1562 - metalCoords[0], -1.2178 - metalCoords[1], 0.6980 - metalCoords[2]],  // C3
+        [-3.2016 - metalCoords[0], -0.7417 - metalCoords[1], 1.6585 - metalCoords[2]],  // C4
+        [-1.2919 - metalCoords[0], -0.0893 - metalCoords[1], 4.3413 - metalCoords[2]],  // C5
+        [0.3628 - metalCoords[0], 0.7417 - metalCoords[1], 2.9615 - metalCoords[2]],    // C6
+        [-1.5468 - metalCoords[0], 0.0893 - metalCoords[1], 0.2786 - metalCoords[2]],   // C7
+        [-2.8109 - metalCoords[0], 0.3835 - metalCoords[1], 0.8722 - metalCoords[2]],   // C8
+        [-1.6826 - metalCoords[0], 1.2178 - metalCoords[1], 3.9219 - metalCoords[2]],   // C9
+        [-0.6599 - metalCoords[0], 1.7313 - metalCoords[1], 3.0691 - metalCoords[2]]    // C10
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN10 = {
+        'DP-10 (Decagon)': 33.10544,
+        'EPY-10 (Enneagonal Pyramid)': 31.32882,
+        'OBPY-10 (Octagonal Bipyramid)': 21.67229,
+        'PPR-10 (Pentagonal Prism - ECLIPSED)': 19.80407,
+        'PAPR-10 (Pentagonal Antiprism - STAGGERED)': 17.29565,
+        'JBCCU-10 (Bicapped Cube, J15)': 21.37236,
+        'JBCSAPR-10 (Bicapped Square Antiprism, J17)': 25.98433,
+        'JMBIC-10 (Metabidiminished Icosahedron, J62)': 18.86104,
+        'JATDI-10 (Augmented Tridiminished Icosahedron, J64)': 24.24164,
+        'JSPC-10 (Sphenocorona, J87)': 23.62235,
+        'SDD-10 (Staggered Dodecahedron 2:6:2)': 17.12464,
+        'TD-10 (Tetradecahedron 2:6:2)': 19.41676,
+        'HD-10 (Hexadecahedron 2:6:2)': 16.93361
+    };
+
+    let cn10Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[10];
+        cn10Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            cn10Results[name] = measure;
+        }
+    });
+
+    test('Log CN=10 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=10 [FeL10] Hexadecahedron Complex ===\n');
+        console.log('Geometry                                    Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(85));
+
+        const sorted = Object.entries(cn10Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN10[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = shapeValue > 0 ? Math.abs(diff) / shapeValue * 100 : 0;
+                console.log(
+                    `${name.padEnd(42)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(85));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (HD-10 best)', () => {
+        const sorted = Object.entries(cn10Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('HD-10 (Hexadecahedron 2:6:2)');
+    });
+
+    test('HD-10 CShM should be close to SHAPE', () => {
+        const hd10 = cn10Results['HD-10 (Hexadecahedron 2:6:2)'];
+        const shapeValue = SHAPE_REF_CN10['HD-10 (Hexadecahedron 2:6:2)'];
+        // Allow 5% relative error
+        const relError = Math.abs(hd10 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.05);
+    });
+});
+
 describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
     // Test that perfect reference geometries give CShM ≈ 0
     // This validates the algorithm works for higher CNs even without external SHAPE values
