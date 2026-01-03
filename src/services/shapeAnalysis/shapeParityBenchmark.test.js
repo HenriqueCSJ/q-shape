@@ -817,20 +817,15 @@ describe('SHAPE Parity Benchmark - CN=9 CrL9 Complex', () => {
         expect(true).toBe(true);
     });
 
-    test('MFF-9 should be in top-3 ranking', () => {
-        // MFF-9 has non-origin central atom causing CShM deviation
-        // So it may not rank exactly #1 but should be in top-3
+    test('Ranking should match SHAPE (MFF-9 best for muffin structure)', () => {
         const sorted = Object.entries(cn9Results).sort((a, b) => a[1] - b[1]);
-        const top3Names = sorted.slice(0, 3).map(([name]) => name);
-        expect(top3Names).toContain('MFF-9 (Muffin)');
+        expect(sorted[0][0]).toBe('MFF-9 (Muffin)');
     });
 
-    test('MFF-9 CShM should be close to zero (perfect match)', () => {
+    test('MFF-9 CShM should be essentially zero (perfect match)', () => {
         const mff9 = cn9Results['MFF-9 (Muffin)'];
-        // MFF-9 has non-origin central atom (z=0.046) in reference geometry
-        // This causes a small CShM deviation even for perfect structures
-        // Similar issue to COC-7, JCPAPR-11
-        expect(mff9).toBeLessThan(2.0);
+        // This structure IS a perfect muffin - CShM should be ~0
+        expect(mff9).toBeLessThan(0.01);
     });
 
     test('CSAPR-9 CShM should be close to SHAPE', () => {
