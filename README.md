@@ -116,8 +116,88 @@ Q-Shape implements state-of-the-art computational methods:
 
 Q-Shape has been validated against SHAPE 2.1 (Fortran reference implementation):
 - **Mean absolute error**: < 0.01 CShM units
-- **Correlation**: R² = 0.9998
-- **Test dataset**: 50 coordination complexes from Cambridge Structural Database
+- **Correlation**: R² > 0.9999
+- **Test coverage**: CN=2-12 with real coordination complexes
+
+<details>
+<summary><strong>SHAPE v2.1 Parity Test Results (Click to expand)</strong></summary>
+
+#### CN=2 - CuCl₂ (Bent Dihalide)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| L-2 (Linear) | 11.96378 | 11.96364 | 0.00% |
+
+#### CN=3 - NH₃ (Ammonia)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| TP-3 (Trigonal Planar) | 3.63845 | 3.63858 | 0.00% |
+
+#### CN=4 - CuCl₄ (Square Planar)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| SP-4 (Square Planar) | 0.02656 | 0.02657 | 0.05% |
+| SS-4 (Seesaw) | 17.86068 | 17.86037 | 0.00% |
+| T-4 (Tetrahedral) | 31.94415 | 31.94357 | 0.00% |
+
+#### CN=6 - NiN₄O₂ (Octahedral)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| OC-6 (Octahedral) | 0.21578 | 0.21577 | 0.00% |
+| TPR-6 (Trigonal Prism) | 15.86082 | 15.86037 | 0.00% |
+| PPY-6 (Pentagonal Pyramid) | 29.25438 | 29.25337 | 0.00% |
+
+#### CN=7 - FeL₇ (Pentagonal Bipyramidal)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| PBPY-7 (Pentagonal Bipyramidal) | 0.00000 | 0.00000 | 0.00% |
+| JPBPY-7 (Johnson J13) | 3.61602 | 3.61603 | 0.00% |
+| CTPR-7 (Capped Trigonal Prism) | 6.67472 | 6.67493 | 0.00% |
+| COC-7 (Capped Octahedral) | 8.58135 | 8.58154 | 0.00% |
+
+#### CN=8 - FeL₈ (Square Antiprism)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| SAPR-8 (Square Antiprism) | 0.09336 | 0.09337 | 0.01% |
+| BTPR-8 (Biaugmented Trigonal Prism) | 2.34967 | 2.34967 | 0.00% |
+| TDD-8 (Triangular Dodecahedron) | 2.66307 | 2.66300 | 0.00% |
+| CU-8 (Cube) | 10.43338 | 10.43287 | 0.00% |
+| ETBPY-8 (Elongated Trigonal Bipyramid) | 24.78388 | 24.78340 | 0.00% |
+
+#### CN=9 - CrL₉ (Muffin)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| MFF-9 (Muffin) | 0.00000 | 0.00000 | 0.00% |
+| CSAPR-9 (Capped Square Antiprism) | 0.81738 | 0.81738 | 0.00% |
+| TCTPR-9 (Tricapped Trigonal Prism) | 2.04462 | 2.04462 | 0.00% |
+| CCU-9 (Capped Cube) | 9.68808 | 9.68808 | 0.00% |
+
+#### CN=10 - FeL₁₀ (Hexadecahedron)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| HD-10 (Hexadecahedron) | 16.93346 | 16.93361 | 0.00% |
+| SDD-10 (Staggered Dodecahedron) | 17.12465 | 17.12464 | 0.00% |
+| PAPR-10 (Pentagonal Antiprism) | 17.29546 | 17.29565 | 0.00% |
+| PPR-10 (Pentagonal Prism) | 19.80444 | 19.80407 | 0.00% |
+
+#### CN=11 - NbL₁₁ (Augmented Pentagonal Prism)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| JAPPR-11 (Augmented Pentagonal Prism, J52) | 21.67264 | 21.67256 | 0.00% |
+| JCPPR-11 (Capped Pentagonal Prism, J9) | 24.85788 | 24.85845 | 0.00% |
+| JCPAPR-11 (Capped Pentagonal Antiprism, J11) | 27.02151 | 27.02164 | 0.00% |
+| JASPC-11 (Augmented Sphenocorona, J87) | 28.15989 | 28.15981 | 0.00% |
+
+#### CN=12 - NbL₁₂ (Biaugmented Pentagonal Prism)
+| Geometry | Q-Shape | SHAPE | Rel.Err |
+|----------|---------|-------|---------|
+| JBAPPR-12 (Biaugmented Pentagonal Prism, J53) | 17.93564 | 17.93587 | 0.00% |
+| TT-12 (Truncated Tetrahedron) | 19.71221 | 19.71226 | 0.00% |
+| COC-12 (Cuboctahedral) | 21.69394 | 21.69330 | 0.00% |
+| IC-12 (Icosahedral) | 25.52546 | 25.52485 | 0.00% |
+| JSC-12 (Square Cupola, J4) | 25.96272 | 25.96201 | 0.00% |
+| JSPMC-12 (Sphenomegacorona, J88) | 26.77879 | 26.77845 | 0.00% |
+
+</details>
 
 ---
 
