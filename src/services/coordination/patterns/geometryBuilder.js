@@ -5,8 +5,8 @@
  * and calculates CShM against actual coordinates.
  */
 
-import { REFERENCE_GEOMETRIES } from '../../../constants/referenceGeometries';
-import { PATTERN_DETECTION } from '../../../constants/algorithmConstants';
+import { REFERENCE_GEOMETRIES } from '../../../constants/referenceGeometries/index.js';
+import { PATTERN_DETECTION } from '../../../constants/algorithmConstants.js';
 import calculateShapeMeasure from '../../shapeAnalysis/shapeCalculator';
 
 /**

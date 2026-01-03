@@ -8,7 +8,7 @@
  * and other π-coordinated ligands that traditional point-based algorithms fail to handle.
  */
 
-import { RING_DETECTION } from '../../constants/algorithmConstants';
+import { RING_DETECTION } from '../../constants/algorithmConstants.js';
 
 /**
  * Calculate distance between two 3D points

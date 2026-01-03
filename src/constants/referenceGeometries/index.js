@@ -24,6 +24,7 @@
  * Normalizes a 3D vector to unit length
  * @param {number[]} v - A 3D coordinate vector [x, y, z]
  * @returns {number[]} Normalized vector with length 1
+ * @deprecated Use normalizeScale for reference geometries to preserve shape
  */
 function normalize(v) {
     const len = Math.hypot(...v);
@@ -31,1203 +32,1564 @@ function normalize(v) {
     return [v[0] / len, v[1] / len, v[2] / len];
 }
 
+/**
+ * Scale-normalizes a set of coordinates to have unit RMS distance from centroid.
+ * This preserves the SHAPE of the polyhedron (relative distances) while
+ * normalizing the overall scale.
+ *
+ * CRITICAL: This is the correct normalization for CShM calculations.
+ * Per-vertex normalization (the old `normalize`) destroys shape differences
+ * between regular and Johnson polyhedra, causing them to appear identical.
+ *
+ * NOTE: For CN>=4, this function works correctly because higher CN polyhedra
+ * have their centroid at or near the metal position. For CN=3 pyramidal
+ * geometries (like vT-3), use normalizeScaleFromOrigin instead.
+ *
+ * @param {number[][]} coords - Array of 3D coordinate vectors
+ * @returns {number[][]} Coordinates centered at origin with unit RMS distance
+ */
+function normalizeScale(coords) {
+    if (!coords || coords.length === 0) return coords;
+
+    const n = coords.length;
+
+    // Compute centroid
+    const centroid = [0, 0, 0];
+    for (const c of coords) {
+        centroid[0] += c[0] / n;
+        centroid[1] += c[1] / n;
+        centroid[2] += c[2] / n;
+    }
+
+    // Center coordinates
+    const centered = coords.map(c => [
+        c[0] - centroid[0],
+        c[1] - centroid[1],
+        c[2] - centroid[2]
+    ]);
+
+    // Compute RMS distance from centroid (which is now origin)
+    let sumSq = 0;
+    for (const c of centered) {
+        sumSq += c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+    }
+    const rms = Math.sqrt(sumSq / n);
+
+    // Scale to unit RMS (preserves relative distances)
+    if (rms === 0) return centered;
+    return centered.map(c => [c[0] / rms, c[1] / rms, c[2] / rms]);
+}
+
+/**
+ * Scale-normalizes coordinates to have unit RMS distance FROM ORIGIN.
+ * Unlike normalizeScale, this does NOT center coordinates on ligand centroid.
+ *
+ * CRITICAL for pyramidal CN=3 geometries:
+ * - The metal is at origin
+ * - Ligand positions encode angular information relative to the metal
+ * - Centering on ligand centroid destroys this angular information
+ *
+ * For vT-3 (vacant tetrahedron / trigonal pyramid):
+ * - L-M-L angle = 109.47° (tetrahedral angle)
+ * - Centering would collapse this to 120° (planar)
+ *
+ * @param {number[][]} coords - Array of 3D coordinate vectors (metal at origin)
+ * @returns {number[][]} Coordinates with unit RMS distance from origin
+ */
+function normalizeScaleFromOrigin(coords) {
+    if (!coords || coords.length === 0) return coords;
+
+    const n = coords.length;
+
+    // Compute RMS distance from origin (metal position)
+    let sumSq = 0;
+    for (const c of coords) {
+        sumSq += c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+    }
+    const rms = Math.sqrt(sumSq / n);
+
+    // Scale to unit RMS (preserves angular relationships to metal)
+    if (rms === 0) return coords;
+    return coords.map(c => [c[0] / rms, c[1] / rms, c[2] / rms]);
+}
+
 // CN=2 Geometries (3 total from SHAPE 2.1)
+// CRITICAL: CN=2 geometries INCLUDE the central atom (3 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateLinear() {
-    return [[1, 0, 0], [-1, 0, 0]].map(normalize);
+    // L-2: Linear (D∞h) - from cosymlib
+    // 2 ligands + central atom at origin
+    return [
+        [1.224744871392, 0.000000000000, 0.000000000000],
+        [-1.224744871392, 0.000000000000, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateVShape() {
-    // vT-2: Divacant Tetrahedron (V-shape, 109.47°) - Official CoSyMlib reference (normalized)
+    // vT-2: Divacant Tetrahedron (V-shape, 109.47°, C2v) - from cosymlib
+    // 2 ligands + central atom (NOT at origin!)
     return [
-        [0.801784, 0.801784, 0.267261],
-        [-0.801784, -0.801784, 0.267261]
-    ].map(normalize);
+        [0.801783725737, 0.801783725737, 0.267261241912],
+        [-0.801783725737, -0.801783725737, 0.267261241912],
+        [0.000000000000, 0.000000000000, -0.534522483825]  // central atom
+    ];
 }
 
 function generateLShape() {
-    // vOC-2: Tetravacant Octahedron (L-shape, 90°) - Official CoSyMlib reference (normalized)
+    // vOC-2: Tetravacant Octahedron (L-shape, 90°, C2v) - from cosymlib
+    // 2 ligands + central atom (NOT at origin!)
     return [
-        [1.000000, -0.500000, 0.000000],
-        [-0.500000, 1.000000, 0.000000]
-    ].map(normalize);
+        [1.000000000000, -0.500000000000, 0.000000000000],
+        [-0.500000000000, 1.000000000000, 0.000000000000],
+        [-0.500000000000, -0.500000000000, 0.000000000000]  // central atom
+    ];
 }
 
 // CN=3 Geometries (4 total from SHAPE 2.1)
+// CRITICAL: CN=3 geometries INCLUDE the central atom (4 points total)
+// This is how SHAPE/cosymlib/cshm-cc work - they include the metal in the calculation.
+// Including the metal preserves pyramidal character under centroid-based normalization.
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateTrigonalPlanar() {
-    const coords = [];
-    for (let i = 0; i < 3; i++) {
-        const angle = (i * 2 * Math.PI) / 3;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // TP-3: Trigonal Planar (D3h) - from cosymlib
+    // 3 ligands + central atom at origin
+    // Already centered and normalized to unit RMS
+    return [
+        [1.154700538379, 0.0, 0.0],
+        [-0.577350269190, 1.0, 0.0],
+        [-0.577350269190, -1.0, 0.0],
+        [0.0, 0.0, 0.0]  // central atom
+    ];
 }
 
 function generatePyramid() {
-    // vT-3: Vacant Tetrahedron (Trigonal Pyramid) - Official CoSyMlib reference (normalized)
+    // vT-3: Vacant Tetrahedron (Trigonal Pyramid, C3v) - from cosymlib
+    // 3 ligands at z=0.1 + central atom at z=-0.302
+    // Already centered and normalized to unit RMS
     return [
-        [1.137070, -0.000000, 0.100504],
-        [-0.568535, 0.984732, 0.100504],
-        [-0.568535, -0.984732, 0.100504]
-    ].map(normalize);
+        [1.137070487230, 0.0, 0.100503781526],
+        [-0.568535243615, 0.984731927835, 0.100503781526],
+        [-0.568535243615, -0.984731927835, 0.100503781526],
+        [0.0, 0.0, -0.301511344578]  // central atom
+    ];
 }
 
 function generateFacTrivacantOctahedron() {
-    // fac-vOC-3: fac-Trivacant Octahedron - Official CoSyMlib reference (normalized)
+    // fac-vOC-3: fac-Trivacant Octahedron (C3v) - from cosymlib
+    // 3 ligands + central atom
+    // Already centered and normalized to unit RMS
     return [
-        [1.000000, -0.333333, -0.333333],
-        [-0.333333, 1.000000, -0.333333],
-        [-0.333333, -0.333333, 1.000000]
-    ].map(normalize);
+        [1.0, -0.333333333333, -0.333333333333],
+        [-0.333333333333, 1.0, -0.333333333333],
+        [-0.333333333333, -0.333333333333, 1.0],
+        [-0.333333333333, -0.333333333333, -0.333333333333]  // central atom
+    ];
 }
 
 function generateTShaped() {
-    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped) - Official CoSyMlib reference (normalized)
+    // mer-vOC-3: mer-Trivacant Octahedron (T-shaped, C2v) - from cosymlib
+    // 3 ligands + central atom
+    // Already centered and normalized to unit RMS
     return [
-        [1.206045, -0.301511, 0.000000],
-        [0.000000, 0.904534, 0.000000],
-        [-1.206045, -0.301511, 0.000000]
-    ].map(normalize);
+        [1.206045378311, -0.301511344578, 0.0],
+        [0.0, 0.904534033733, 0.0],
+        [-1.206045378311, -0.301511344578, 0.0],
+        [0.0, -0.301511344578, 0.0]  // central atom
+    ];
 }
 
 // CN=4 Geometries (4 total from SHAPE 2.1)
+// CRITICAL: CN=4 geometries INCLUDE the central atom (5 points total)
+// This matches SHAPE/cosymlib/cshm-cc methodology
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateTetrahedral() {
-    // T-4: Tetrahedral - Official CoSyMlib reference (normalized)
+    // T-4: Tetrahedral (Td) - from cosymlib
+    // 4 ligands + central atom at origin
     return [
-        [0.000000, 0.912871, -0.645497],
-        [-0.000000, -0.912871, -0.645497],
-        [0.912871, -0.000000, 0.645497],
-        [-0.912871, 0.000000, 0.645497]
-    ].map(normalize);
+        [0.000000000000, 0.912870929175, -0.645497224368],
+        [0.000000000000, -0.912870929175, -0.645497224368],
+        [0.912870929175, 0.000000000000, 0.645497224368],
+        [-0.912870929175, 0.000000000000, 0.645497224368],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePlanar() {
+    // SP-4: Square Planar (D4h) - from cosymlib
+    // 4 ligands + central atom at origin
     return [
-        [1, 0, 0],
-        [0, 1, 0],
-        [-1, 0, 0],
-        [0, -1, 0]
-    ].map(normalize);
+        [1.118033988750, 0.000000000000, 0.000000000000],
+        [0.000000000000, 1.118033988750, 0.000000000000],
+        [-1.118033988750, 0.000000000000, 0.000000000000],
+        [0.000000000000, -1.118033988750, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSeesaw() {
-    // SS-4: Seesaw (cis-divacant octahedron) - Official CoSyMlib reference (normalized)
+    // SS-4: Seesaw (C2v) - from cosymlib
+    // 4 ligands + central atom (NOT at origin for seesaw!)
     return [
-        [-0.235702, -0.235702, -1.178511],
-        [0.942809, -0.235702, 0.000000],
-        [-0.235702, 0.942809, 0.000000],
-        [-0.235702, -0.235702, 1.178511]
-    ].map(normalize);
+        [-0.235702260396, -0.235702260396, -1.178511301978],
+        [0.942809041582, -0.235702260396, 0.000000000000],
+        [-0.235702260396, 0.942809041582, 0.000000000000],
+        [-0.235702260396, -0.235702260396, 1.178511301978],
+        [-0.235702260396, -0.235702260396, 0.000000000000]  // central atom
+    ];
 }
 
 function generateAxialVacantTBPY() {
-    // vTBPY-4: Axially Vacant Trigonal Bipyramid - Official CoSyMlib reference (normalized)
+    // vTBPY-4: Axially Vacant Trigonal Bipyramid (C3v) - from cosymlib
+    // 4 ligands + central atom
     return [
-        [0.000000, -0.000000, -0.917663],
-        [1.147079, -0.000000, 0.229416],
-        [-0.573539, 0.993399, 0.229416],
-        [-0.573539, -0.993399, 0.229416]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.917662935482],
+        [1.147078669353, 0.000000000000, 0.229415733871],
+        [-0.573539334676, 0.993399267799, 0.229415733871],
+        [-0.573539334676, -0.993399267799, 0.229415733871],
+        [0.000000000000, 0.000000000000, 0.229415733871]  // central atom
+    ];
 }
 
 // CN=5 Geometries (5 total from SHAPE 2.1)
+// CRITICAL: CN=5 geometries INCLUDE the central atom (6 points total)
+// This is how SHAPE/cosymlib/cshm-cc work - they include the metal in the calculation.
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generatePentagon() {
-    // PP-5: Planar pentagon
-    const coords = [];
-    for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI) / 5;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // PP-5: Planar pentagon (D5h) - from cosymlib
+    // 5 ligands + central atom at origin
+    return [
+        [1.095445115010, 0.000000000000, 0.000000000000],
+        [0.338511156943, 1.041830214874, 0.000000000000],
+        [-0.886233714448, 0.643886483299, 0.000000000000],
+        [-0.886233714448, -0.643886483299, 0.000000000000],
+        [0.338511156943, -1.041830214874, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePyramid() {
-    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1) - Official CoSyMlib reference (normalized)
+    // vOC-5: Vacant Octahedron (Johnson Square Pyramid J1, C4v) - from cosymlib
+    // 5 ligands + central atom (NOT at origin - at basal plane level)
     return [
-        [0.000000, -0.000000, -0.928477],
-        [1.114172, -0.000000, 0.185695],
-        [0.000000, 1.114172, 0.185695],
-        [-1.114172, 0.000000, 0.185695],
-        [-0.000000, -1.114172, 0.185695]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.928476690885],
+        [1.114172029062, 0.000000000000, 0.185695338177],
+        [0.000000000000, 1.114172029062, 0.185695338177],
+        [-1.114172029062, 0.000000000000, 0.185695338177],
+        [0.000000000000, -1.114172029062, 0.185695338177],
+        [0.000000000000, 0.000000000000, 0.185695338177]  // central atom
+    ];
 }
 
 function generateTrigonalBipyramidal() {
-    // TBPY-5: Trigonal Bipyramidal - Official CoSyMlib reference (normalized)
+    // TBPY-5: Trigonal Bipyramidal (D3h) - from cosymlib
+    // 5 ligands + central atom at origin
     return [
-        [0.000000, -0.000000, -1.095445],
-        [1.095445, -0.000000, 0.000000],
-        [-0.547723, 0.948683, 0.000000],
-        [-0.547723, -0.948683, 0.000000],
-        [0.000000, -0.000000, 1.095445]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -1.095445115010],
+        [1.095445115010, 0.000000000000, 0.000000000000],
+        [-0.547722557505, 0.948683298051, 0.000000000000],
+        [-0.547722557505, -0.948683298051, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.095445115010],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateJohnsonTrigonalBipyramid() {
-    // JTBPY-5: Johnson Trigonal Bipyramid (J12) - Official CoSyMlib reference (normalized)
+    // JTBPY-5: Johnson Trigonal Bipyramid (J12, D3h) - from cosymlib
+    // CRITICAL: Axial vertices (z=±1.309) are FARTHER than equatorial (r=0.926)
+    // 5 ligands + central atom at origin
     return [
-        [0.925820, -0.000000, 0.000000],
-        [-0.462910, 0.801784, 0.000000],
-        [-0.462910, -0.801784, 0.000000],
-        [0.000000, -0.000000, 1.309307],
-        [0.000000, -0.000000, -1.309307]
-    ].map(normalize);
+        [0.925820099773, 0.000000000000, 0.000000000000],
+        [-0.462910049886, 0.801783725737, 0.000000000000],
+        [-0.462910049886, -0.801783725737, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.309307341416],
+        [0.000000000000, 0.000000000000, -1.309307341416],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquarePyramidal() {
-    // SPY-5: Square Pyramidal - Official CoSyMlib reference (normalized)
+    // SPY-5: Square Pyramidal (C4v) - from cosymlib
+    // 5 ligands + central atom at origin
     return [
-        [0.000000, 0.000000, 1.095445],
-        [1.060660, 0.000000, -0.273861],
-        [0.000000, 1.060660, -0.273861],
-        [-1.060660, 0.000000, -0.273861],
-        [0.000000, -1.060660, -0.273861]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, 1.095445115010],
+        [1.060660171780, 0.000000000000, -0.273861278753],
+        [0.000000000000, 1.060660171780, -0.273861278753],
+        [-1.060660171780, 0.000000000000, -0.273861278753],
+        [0.000000000000, -1.060660171780, -0.273861278753],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 // CN=6 Geometries (5 total from SHAPE 2.1)
+// CRITICAL: CN=6 geometries INCLUDE the central atom (7 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateHexagon() {
-    // HP-6: Planar hexagon
-    const coords = [];
-    for (let i = 0; i < 6; i++) {
-        const angle = (i * 2 * Math.PI) / 6;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HP-6: Planar hexagon (D6h) - from cosymlib
+    // 6 ligands + central atom at origin
+    return [
+        [1.080123449735, 0.000000000000, 0.000000000000],
+        [0.540061724867, 0.935414346693, 0.000000000000],
+        [-0.540061724867, 0.935414346693, 0.000000000000],
+        [-1.080123449735, 0.000000000000, 0.000000000000],
+        [-0.540061724867, -0.935414346693, 0.000000000000],
+        [0.540061724867, -0.935414346693, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generatePentagonalPyramid() {
-    // PPY-6: Pentagonal Pyramid - Official CoSyMlib reference (normalized)
+    // PPY-6: Pentagonal Pyramid (C5v) - from cosymlib
+    // 6 ligands + central atom (NOT at origin for pyramid!)
     return [
-        [0.000000, -0.000000, -0.937043],
-        [1.093216, -0.000000, 0.156174],
-        [0.337822, 1.039711, 0.156174],
-        [-0.884431, 0.642576, 0.156174],
-        [-0.884431, -0.642576, 0.156174],
-        [0.337822, -1.039711, 0.156174]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.937042571332],
+        [1.093216333220, 0.000000000000, 0.156173761889],
+        [0.337822425493, 1.039710517429, 0.156173761889],
+        [-0.884430592103, 0.642576438232, 0.156173761889],
+        [-0.884430592103, -0.642576438232, 0.156173761889],
+        [0.337822425493, -1.039710517429, 0.156173761889],
+        [0.000000000000, 0.000000000000, 0.156173761889]  // central atom
+    ];
 }
 
 function generateOctahedral() {
-    // OC-6: Octahedral - Official CoSyMlib reference (normalized)
+    // OC-6: Octahedral (Oh) - from cosymlib
+    // 6 ligands + central atom at origin
     return [
-        [0.000000, -0.000000, -1.080123],
-        [1.080123, -0.000000, 0.000000],
-        [0.000000, 1.080123, 0.000000],
-        [-1.080123, 0.000000, 0.000000],
-        [-0.000000, -1.080123, 0.000000],
-        [0.000000, -0.000000, 1.080123]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -1.080123449735],
+        [1.080123449735, 0.000000000000, 0.000000000000],
+        [0.000000000000, 1.080123449735, 0.000000000000],
+        [-1.080123449735, 0.000000000000, 0.000000000000],
+        [0.000000000000, -1.080123449735, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.080123449735],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTrigonalPrism() {
-    // TPR-6: Trigonal Prism - Official CoSyMlib reference (normalized)
+    // TPR-6: Trigonal Prism (D3h) - from cosymlib
+    // 6 ligands + central atom at origin
     return [
-        [0.816497, -0.000000, -0.707107],
-        [-0.408248, 0.707107, -0.707107],
-        [-0.408248, -0.707107, -0.707107],
-        [0.816497, -0.000000, 0.707107],
-        [-0.408248, 0.707107, 0.707107],
-        [-0.408248, -0.707107, 0.707107]
-    ].map(normalize);
+        [0.816496580928, 0.000000000000, -0.707106781187],
+        [-0.408248290464, 0.707106781187, -0.707106781187],
+        [-0.408248290464, -0.707106781187, -0.707106781187],
+        [0.816496580928, 0.000000000000, 0.707106781187],
+        [-0.408248290464, 0.707106781187, 0.707106781187],
+        [-0.408248290464, -0.707106781187, 0.707106781187],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateJohnsonPentagonalPyramid6() {
-    // JPPY-6: Johnson Pentagonal Pyramid (J2) - Official CoSyMlib reference (normalized)
+    // JPPY-6: Johnson Pentagonal Pyramid (J2, C5v) - from cosymlib
+    // 6 ligands + central atom (NOT at origin for pyramid!)
     return [
-        [1.146282, -0.000000, 0.101206],
-        [0.354221, 1.090179, 0.101206],
-        [-0.927361, 0.673768, 0.101206],
-        [-0.927361, -0.673768, 0.101206],
-        [0.354221, -1.090179, 0.101206],
-        [0.000000, -0.000000, -0.607235]
-    ].map(normalize);
+        [1.146281780821, 0.000000000000, 0.101205871605],
+        [0.354220550616, 1.090178757161, 0.101205871605],
+        [-0.927361441027, 0.673767525738, 0.101205871605],
+        [-0.927361441027, -0.673767525738, 0.101205871605],
+        [0.354220550616, -1.090178757161, 0.101205871605],
+        [0.000000000000, 0.000000000000, -0.607235229628],
+        [0.000000000000, 0.000000000000, 0.101205871605]  // central atom
+    ];
 }
 
 // CN=7 Geometries (7 total from SHAPE 2.1)
+// CRITICAL: CN=7 geometries INCLUDE the central atom (8 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateHeptagon() {
-    // HP-7: Planar heptagon
-    const coords = [];
-    for (let i = 0; i < 7; i++) {
-        const angle = (i * 2 * Math.PI) / 7;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HP-7: Planar heptagon (D7h) - from cosymlib
+    // 7 ligands + central atom at origin
+    return [
+        [1.069044967650, 0.000000000000, 0.000000000000],
+        [0.666538635058, 0.835813011883, 0.000000000000],
+        [-0.237884884643, 1.042241778339, 0.000000000000],
+        [-0.963176234240, 0.463841227849, 0.000000000000],
+        [-0.963176234240, -0.463841227849, 0.000000000000],
+        [-0.237884884643, -1.042241778339, 0.000000000000],
+        [0.666538635058, -0.835813011883, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHexagonalPyramid() {
-    // HPY-7: Hexagonal Pyramid - Official CoSyMlib reference (normalized)
+    // HPY-7: Hexagonal Pyramid (C6v) - from cosymlib
+    // 7 ligands + central atom (NOT at origin for pyramid!)
     return [
-        [0.000000, -0.000000, -0.943880],
-        [1.078720, -0.000000, 0.134840],
-        [0.539360, 0.934199, 0.134840],
-        [-0.539360, 0.934199, 0.134840],
-        [-1.078720, 0.000000, 0.134840],
-        [-0.539360, -0.934199, 0.134840],
-        [0.539360, -0.934199, 0.134840]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.943879807449],
+        [1.078719779941, 0.000000000000, 0.134839972493],
+        [0.539359889971, 0.934198732994, 0.134839972493],
+        [-0.539359889971, 0.934198732994, 0.134839972493],
+        [-1.078719779941, 0.000000000000, 0.134839972493],
+        [-0.539359889971, -0.934198732994, 0.134839972493],
+        [0.539359889971, -0.934198732994, 0.134839972493],
+        [0.000000000000, 0.000000000000, 0.134839972493]  // central atom
+    ];
 }
 
 function generatePentagonalBipyramid() {
-    // PBPY-7: Pentagonal Bipyramid - Official CoSyMlib reference (normalized)
+    // PBPY-7: Pentagonal Bipyramid (D5h) - from cosymlib
+    // 7 ligands + central atom at origin
     return [
-        [0.000000, -0.000000, -1.069045],
-        [1.069045, -0.000000, 0.000000],
-        [0.330353, 1.016722, 0.000000],
-        [-0.864876, 0.628369, 0.000000],
-        [-0.864876, -0.628369, 0.000000],
-        [0.330353, -1.016722, 0.000000],
-        [0.000000, -0.000000, 1.069045]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -1.069044967650],
+        [1.069044967650, 0.000000000000, 0.000000000000],
+        [0.330353062755, 1.016722182696, 0.000000000000],
+        [-0.864875546580, 0.628368866022, 0.000000000000],
+        [-0.864875546580, -0.628368866022, 0.000000000000],
+        [0.330353062755, -1.016722182696, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.069044967650],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateCappedOctahedron() {
-    // COC-7: Capped Octahedron - Official CoSyMlib reference (normalized)
+    // COC-7: Capped Octahedron (C3v) - from cosymlib
+    // 7 ligands + central atom (NOT at origin!)
     return [
-        [0.000000, 0.000000, 1.128907],
-        [0.000000, -1.046937, 0.283079],
-        [0.906674, 0.523469, 0.283079],
-        [-0.906674, 0.523469, 0.283079],
-        [0.672965, -0.388536, -0.678735],
-        [-0.672965, -0.388536, -0.678735],
-        [0.000000, 0.777073, -0.678735]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, 1.128906708829],
+        [0.000000000000, -1.046937018035, 0.283078548570],
+        [0.906674032650, 0.523468509017, 0.283078548570],
+        [-0.906674032650, 0.523468509017, 0.283078548570],
+        [0.672964536915, -0.388536257092, -0.678734552207],
+        [-0.672964536915, -0.388536257092, -0.678734552207],
+        [0.000000000000, 0.777072514184, -0.678734552207],
+        [0.000000000000, 0.000000000000, 0.058061302083]  // central atom
+    ];
 }
 
 function generateCappedTrigonalPrism() {
-    // CTPR-7: Capped Trigonal Prism - Official CoSyMlib reference (normalized)
+    // CTPR-7: Capped Trigonal Prism (C2v) - from cosymlib
+    // 7 ligands + central atom (NOT at origin!)
     return [
-        [0.000000, 0.000000, 1.020027],
-        [0.735248, 0.735248, 0.203751],
-        [-0.735248, 0.735248, 0.203751],
-        [0.735248, -0.735248, 0.203751],
-        [-0.735248, -0.735248, 0.203751],
-        [0.660961, 0.000000, -0.892328],
-        [-0.660961, 0.000000, -0.892328]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, 1.020027096827],
+        [0.735247575071, 0.735247575071, 0.203750780644],
+        [-0.735247575071, 0.735247575071, 0.203750780644],
+        [0.735247575071, -0.735247575071, 0.203750780644],
+        [-0.735247575071, -0.735247575071, 0.203750780644],
+        [0.660960557032, 0.000000000000, -0.892328424325],
+        [-0.660960557032, 0.000000000000, -0.892328424325],
+        [0.000000000000, 0.000000000000, -0.050373370753]  // central atom
+    ];
 }
 
 function generateJohnsonPentagonalBipyramid() {
-    // JPBPY-7: Johnson Pentagonal Bipyramid (J13) - Official CoSyMlib reference (normalized)
+    // JPBPY-7: Johnson Pentagonal Bipyramid (J13, D5h) - from cosymlib
+    // 7 ligands + central atom at origin
     return [
-        [1.178109, -0.000000, 0.000000],
-        [0.364056, 1.120448, 0.000000],
-        [-0.953110, 0.692475, 0.000000],
-        [-0.953110, -0.692475, 0.000000],
-        [0.364056, -1.120448, 0.000000],
-        [0.000000, -0.000000, 0.728112],
-        [0.000000, -0.000000, -0.728112]
-    ].map(normalize);
+        [1.178109256681, 0.000000000000, 0.000000000000],
+        [0.364055781545, 1.120448485474, 0.000000000000],
+        [-0.953110409886, 0.692475246666, 0.000000000000],
+        [-0.953110409886, -0.692475246666, 0.000000000000],
+        [0.364055781545, -1.120448485474, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.728111563090],
+        [0.000000000000, 0.000000000000, -0.728111563090],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateElongatedTriangularPyramid() {
-    // JETPY-7: Elongated Triangular Pyramid (J7) - Official CoSyMlib reference (normalized)
+    // JETPY-7: Elongated Triangular Pyramid (J7, C3v) - from cosymlib
+    // 7 ligands + central atom (NOT at origin!)
     return [
-        [0.729093, -0.000000, 0.423600],
-        [0.729093, -0.000000, -0.839227],
-        [-0.364547, 0.631413, 0.423600],
-        [-0.364547, 0.631413, -0.839227],
-        [-0.364547, -0.631413, 0.423600],
-        [-0.364547, -0.631413, -0.839227],
-        [0.000000, -0.000000, 1.454694]
-    ].map(normalize);
+        [0.729093431342, 0.000000000000, 0.423600026760],
+        [0.729093431342, 0.000000000000, -0.839226839789],
+        [-0.364546715671, 0.631413433275, 0.423600026760],
+        [-0.364546715671, 0.631413433275, -0.839226839789],
+        [-0.364546715671, -0.631413433275, 0.423600026760],
+        [-0.364546715671, -0.631413433275, -0.839226839789],
+        [0.000000000000, 0.000000000000, 1.454693845602],
+        [0.000000000000, 0.000000000000, -0.207813406515]  // central atom
+    ];
 }
 
 // CN=8 Geometries (13 total from SHAPE 2.1) - COMPLETE SET
+// CRITICAL: CN=8 geometries INCLUDE the central atom (9 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateOctagon() {
-    // OP-8: Planar octagon
-    const coords = [];
-    for (let i = 0; i < 8; i++) {
-        const angle = (i * 2 * Math.PI) / 8;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // OP-8: Planar octagon (D8h) - from cosymlib
+    // 8 ligands + central atom at origin
+    return [
+        [1.060660171780, 0.000000000000, 0.000000000000],
+        [0.750000000000, 0.750000000000, 0.000000000000],
+        [0.000000000000, 1.060660171780, 0.000000000000],
+        [-0.750000000000, 0.750000000000, 0.000000000000],
+        [-1.060660171780, 0.000000000000, 0.000000000000],
+        [-0.750000000000, -0.750000000000, 0.000000000000],
+        [0.000000000000, -1.060660171780, 0.000000000000],
+        [0.750000000000, -0.750000000000, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHeptagonalPyramid() {
-    // HPY-8: Heptagonal Pyramid - SHAPE 2.1 reference coordinates
+    // HPY-8: Heptagonal Pyramid (C7v) - from cosymlib
+    // 8 ligands + central atom (NOT at origin for pyramid!)
     return [
-        [0.889005, -0.290328, 0.354090],
-        [-0.527356, -0.751762, 0.395916],
-        [0.144749, -0.318728, -0.936729],
-        [-0.484034, -0.035473, 0.874330],
-        [0.354123, 0.504541, -0.787423],
-        [0.222910, 0.971978, -0.074626],
-        [-0.247544, -0.877802, -0.410105],
-        [-0.150123, 0.731642, 0.664953]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.949425326555],
+        [1.068103492374, 0.000000000000, 0.118678165819],
+        [0.665951634825, 0.835076936872, 0.118678165819],
+        [-0.237675386685, 1.041323907815, 0.118678165819],
+        [-0.962327994327, 0.463432737036, 0.118678165819],
+        [-0.962327994327, -0.463432737036, 0.118678165819],
+        [-0.237675386685, -1.041323907815, 0.118678165819],
+        [0.665951634825, -0.835076936872, 0.118678165819],
+        [0.000000000000, 0.000000000000, 0.118678165819]  // central atom
+    ];
 }
 
 function generateHexagonalBipyramid() {
-    // HBPY-8
-    const coords = [
-        [0, 0, 1],
-        [0, 0, -1]
+    // HBPY-8: Hexagonal Bipyramid (D6h) - from cosymlib
+    // 8 ligands + central atom at origin
+    return [
+        [0.000000000000, 0.000000000000, -1.060660171780],
+        [1.060660171780, 0.000000000000, 0.000000000000],
+        [0.530330085890, 0.918558653544, 0.000000000000],
+        [-0.530330085890, 0.918558653544, 0.000000000000],
+        [-1.060660171780, 0.000000000000, 0.000000000000],
+        [-0.530330085890, -0.918558653544, 0.000000000000],
+        [0.530330085890, -0.918558653544, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.060660171780],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
     ];
-    for (let i = 0; i < 6; i++) {
-        const angle = (i * 2 * Math.PI) / 6;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
 }
 
 function generateCube() {
+    // CU-8: Cube (Oh) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
-        [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]
-    ].map(normalize);
+        [0.866025403784, 0.000000000000, -0.612372435696],
+        [0.000000000000, 0.866025403784, -0.612372435696],
+        [-0.866025403784, 0.000000000000, -0.612372435696],
+        [0.000000000000, -0.866025403784, -0.612372435696],
+        [0.866025403784, 0.000000000000, 0.612372435696],
+        [0.000000000000, 0.866025403784, 0.612372435696],
+        [-0.866025403784, 0.000000000000, 0.612372435696],
+        [0.000000000000, -0.866025403784, 0.612372435696],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquareAntiprism() {
-    // SAPR-8: Square Antiprism - Official CoSyMlib reference (normalized)
+    // SAPR-8: Square Antiprism (D4d) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [0.644649, 0.644649, -0.542083],
-        [-0.644649, 0.644649, -0.542083],
-        [-0.644649, -0.644649, -0.542083],
-        [0.644649, -0.644649, -0.542083],
-        [0.911672, 0.000000, 0.542083],
-        [0.000000, 0.911672, 0.542083],
-        [-0.911672, 0.000000, 0.542083],
-        [-0.000000, -0.911672, 0.542083]
-    ].map(normalize);
+        [0.644649377827, 0.644649377827, -0.542083350910],
+        [-0.644649377827, 0.644649377827, -0.542083350910],
+        [-0.644649377827, -0.644649377827, -0.542083350910],
+        [0.644649377827, -0.644649377827, -0.542083350910],
+        [0.911671893098, 0.000000000000, 0.542083350910],
+        [0.000000000000, 0.911671893098, 0.542083350910],
+        [-0.911671893098, 0.000000000000, 0.542083350910],
+        [0.000000000000, -0.911671893098, 0.542083350910],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTriangularDodecahedron() {
-    // TDD-8: Triangular Dodecahedron - Official CoSyMlib reference (normalized)
+    // TDD-8: Triangular Dodecahedron (D2d) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [-0.636106, 0.000000, 0.848768],
-        [-0.000000, -0.993211, 0.372147],
-        [0.636106, 0.000000, 0.848768],
-        [-0.000000, 0.993211, 0.372147],
-        [-0.993211, 0.000000, -0.372147],
-        [-0.000000, -0.636106, -0.848768],
-        [0.993211, 0.000000, -0.372147],
-        [-0.000000, 0.636106, -0.848768]
-    ].map(normalize);
+        [-0.636106245143, 0.000000000000, 0.848768388024],
+        [-0.000000009579, -0.993210924257, 0.372146720241],
+        [0.636106254722, 0.000000000000, 0.848768388024],
+        [-0.000000009579, 0.993210924257, 0.372146720241],
+        [-0.993210876363, 0.000000000000, -0.372146742591],
+        [-0.000000009579, -0.636106206828, -0.848768374454],
+        [0.993210914678, 0.000000000000, -0.372146742591],
+        [-0.000000009579, 0.636106206828, -0.848768374454],
+        [-0.000000009579, 0.000000000000, 0.000000017561]  // central atom
+    ];
 }
 
 function generateGyrobifastigium() {
-    // JGBF-8: Gyrobifastigium J26 - SHAPE 2.1 reference coordinates
+    // JGBF-8: Gyrobifastigium (J26, D2d) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [0.726680, -0.249409, 0.640102],
-        [-0.460151, -0.868569, 0.183982],
-        [-0.726680, 0.249409, -0.640102],
-        [-0.861367, 0.151959, 0.484722],
-        [0.347525, 0.024401, -0.937353],
-        [0.460173, 0.868555, -0.183991],
-        [0.535980, -0.766139, -0.354622],
-        [-0.022139, 0.589770, 0.807268]
-    ].map(normalize);
+        [0.612372435696, 0.000000000000, 1.060660171780],
+        [-0.612372435696, 0.000000000000, 1.060660171780],
+        [0.612372435696, 0.612372435696, 0.000000000000],
+        [0.612372435696, -0.612372435696, 0.000000000000],
+        [-0.612372435696, -0.612372435696, 0.000000000000],
+        [-0.612372435696, 0.612372435696, 0.000000000000],
+        [0.000000000000, 0.612372435696, -1.060660171780],
+        [0.000000000000, -0.612372435696, -1.060660171780],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateElongatedTriangularBipyramid() {
-    // JETBPY-8: Elongated Triangular Bipyramid J14 - SHAPE 2.1 reference coordinates
+    // JETBPY-8: Johnson Elongated Triangular Bipyramid (J14, D3h) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [0.262689, -0.800806, 0.538242],
-        [-0.322419, -0.325880, 0.888734],
-        [-0.490273, 0.154620, -0.857744],
-        [-0.912366, -0.272075, 0.305883],
-        [0.322387, 0.325884, -0.888744],
-        [0.438623, 0.859535, -0.262316],
-        [0.684790, -0.374120, -0.625378],
-        [0.016468, 0.432828, 0.901326]
-    ].map(normalize);
+        [0.656233980527, 0.000000000000, 0.568315297963],
+        [0.656233980527, 0.000000000000, -0.568315297963],
+        [-0.328116990263, 0.568315297963, 0.568315297963],
+        [-0.328116990263, 0.568315297963, -0.568315297963],
+        [-0.328116990263, -0.568315297963, 0.568315297963],
+        [-0.328116990263, -0.568315297963, -0.568315297963],
+        [0.000000000000, 0.000000000000, 1.496370293314],
+        [0.000000000000, 0.000000000000, -1.496370293314],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
+}
+
+function generateSphericalElongatedTrigonalBipyramid() {
+    // ETBPY-8: Spherical Elongated Trigonal Bipyramid (D3h) - from cosymlib
+    // Different from JETBPY-8 (Johnson J14) - has different proportions
+    // 8 ligands + central atom at origin
+    return [
+        [0.694365079077, 0.000000000000, 0.801783719423],
+        [-0.694365079077, 0.000000000000, 0.801783719423],
+        [0.694365079077, 0.694365079077, -0.400891871284],
+        [-0.694365079077, 0.694365079077, -0.400891871284],
+        [0.694365079077, -0.694365079077, -0.400891871284],
+        [-0.694365079077, -0.694365079077, -0.400891871284],
+        [1.060660156290, 0.000000000000, 0.000000015430],
+        [-1.060660156290, 0.000000000000, 0.000000015430],
+        [0.000000000000, 0.000000000000, 0.000000015430]  // central atom
+    ];
 }
 
 function generateBiaugmentedTrigonalPrism() {
-    // JBTP-8 / JBTPR-8: Biaugmented Trigonal Prism J50 - Official CoSyMlib reference (normalized)
+    // JBTPR-8: Johnson Biaugmented Trigonal Prism (J50, C2v) - from cosymlib
+    // 8 ligands + central atom (NOT at origin!)
     return [
-        [0.647118, 0.000000, 0.604030],
-        [-0.647118, 0.000000, 0.604030],
-        [0.647118, 0.647118, -0.516811],
-        [-0.647118, 0.647118, -0.516811],
-        [0.647118, -0.647118, -0.516811],
-        [-0.647118, -0.647118, -0.516811],
-        [0.000000, 1.116113, 0.501191],
-        [0.000000, -1.116113, 0.501191]
-    ].map(normalize);
+        [0.647117793293, 0.000000000000, 0.604029879248],
+        [-0.647117793293, 0.000000000000, 0.604029879248],
+        [0.647117793293, 0.647117793293, -0.516811012319],
+        [-0.647117793293, 0.647117793293, -0.516811012319],
+        [0.647117793293, -0.647117793293, -0.516811012319],
+        [-0.647117793293, -0.647117793293, -0.516811012319],
+        [0.000000000000, 1.116113113681, 0.501190825503],
+        [0.000000000000, -1.116113113681, 0.501190825503],
+        [0.000000000000, 0.000000000000, -0.143197360226]  // central atom
+    ];
 }
 
 function generateSphericalBiaugmentedTrigonalPrism() {
-    // BTPR-8: Spherical Biaugmented Trigonal Prism - SHAPE 2.1 reference coordinates
-    // Note: Using TDD-8 metal center [14.5915, 3.8003, 0.8207] gives better results
+    // BTPR-8: Biaugmented Trigonal Prism (C2v) - from cosymlib
+    // 8 ligands + central atom (NOT at origin!)
     return [
-        [0.929481, -0.133055, 0.344037],
-        [-0.226843, -0.688857, 0.688490],
-        [-0.496236, 0.122569, -0.859492],
-        [-0.904961, 0.291270, 0.310173],
-        [0.615280, 0.125236, -0.778297],
-        [0.156739, 0.983793, -0.087093],
-        [0.181929, -0.857549, -0.481157],
-        [0.018823, 0.371379, 0.928290]
-    ].map(normalize);
+        [0.699237877649, 0.000000000000, 0.688732178156],
+        [-0.699237877649, 0.000000000000, 0.688732178156],
+        [0.699237877649, 0.699237877649, -0.522383347216],
+        [-0.699237877649, 0.699237877649, -0.522383347216],
+        [0.699237877649, -0.699237877649, -0.522383347216],
+        [-0.699237877649, -0.699237877649, -0.522383347216],
+        [0.000000000000, 0.925004726938, 0.415373590668],
+        [0.000000000000, -0.925004726938, 0.415373590668],
+        [0.000000000000, 0.000000000000, -0.118678148784]  // central atom
+    ];
 }
 
 function generateSnubDisphenoid() {
-    // JSD-8: Snub Disphenoid J84 - SHAPE 2.1 reference coordinates
+    // JSD-8: Johnson Snub Disphenoid (J84, D2d) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [0.931008, -0.170659, 0.322645],
-        [-0.419237, -0.732753, 0.536017],
-        [-0.622137, -0.087208, -0.778036],
-        [-0.866860, 0.381303, 0.321187],
-        [0.577984, 0.128584, -0.805854],
-        [0.110370, 0.990614, -0.080639],
-        [0.279063, -0.844134, -0.457780],
-        [0.009791, 0.334201, 0.942451]
-    ].map(normalize);
+        [-0.652225622594, 0.000000000000, -1.022598826988],
+        [0.652225622594, 0.000000000000, -1.022598826988],
+        [0.840828401428, 0.000000000000, 0.268145244516],
+        [-0.840828401428, 0.000000000000, 0.268145244516],
+        [0.000000000000, -0.652225622594, 1.022598102293],
+        [0.000000000000, 0.652225622594, 1.022598102293],
+        [0.000000000000, -0.840828401428, -0.268144664760],
+        [0.000000000000, 0.840828401428, -0.268144664760],
+        [0.000000000000, 0.000000000000, 0.000000289878]  // central atom
+    ];
 }
 
 function generateTriakisTetrahedron() {
-    // TT-8: Td symmetry
+    // TT-8: Triakis Tetrahedron (Td) - from cosymlib
+    // 8 ligands + central atom at origin
     return [
-        [1, 1, 1],
-        [1, -1, -1],
-        [-1, 1, -1],
-        [-1, -1, 1],
-        [0.577, 0.577, 0.577],
-        [0.577, -0.577, -0.577],
-        [-0.577, 0.577, -0.577],
-        [-0.577, -0.577, 0.577]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, 0.951989349863],
+        [-0.897415499947, 0.000000000000, -0.317824238862],
+        [0.448707702372, -0.777184634355, -0.317824238862],
+        [0.448707702372, 0.777184634355, -0.317824238862],
+        [0.000000000000, 0.000000000000, -1.159193629094],
+        [1.092673129412, 0.000000000000, 0.386903234355],
+        [-0.546336517105, 0.946282696936, 0.386903234355],
+        [-0.546336517105, -0.946282696936, 0.386903234355],
+        [0.000000000000, 0.000000000000, -0.000032707247]  // central atom
+    ];
 }
 
 // CN=9 Geometries (13 total from SHAPE 2.1) - COMPLETE SET
+// CRITICAL: CN=9 geometries INCLUDE the central atom (10 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateEnneagon() {
-    // EP-9: Planar 9-gon
-    const coords = [];
-    for (let i = 0; i < 9; i++) {
-        const angle = (i * 2 * Math.PI) / 9;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // EP-9: Planar enneagon (D9h) - from cosymlib
+    // 9 ligands + central atom at origin
+    return [
+        [1.054092553389, 0.000000000000, 0.000000000000],
+        [0.807481743057, 0.677557632782, 0.000000000000],
+        [0.183041250988, 1.038078518970, 0.000000000000],
+        [-0.527046276695, 0.912870929175, 0.000000000000],
+        [-0.990522994045, 0.360520886189, 0.000000000000],
+        [-0.990522994045, -0.360520886189, 0.000000000000],
+        [-0.527046276695, -0.912870929175, 0.000000000000],
+        [0.183041250988, -1.038078518970, 0.000000000000],
+        [0.807481743057, -0.677557632782, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateOctagonalPyramid() {
-    // OPY-9: Octagonal Pyramid - Official CoSyMlib reference (normalized)
+    // OPY-9: Octagonal Pyramid (C8v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin for pyramid!)
     return [
-        [0.000000, 0.000000, -0.953998],
-        [1.059998, 0.000000, 0.106000],
-        [0.749532, 0.749532, 0.106000],
-        [0.000000, 1.059998, 0.106000],
-        [-0.749532, 0.749532, 0.106000],
-        [-1.059998, 0.000000, 0.106000],
-        [-0.749532, -0.749532, 0.106000],
-        [-0.000000, -1.059998, 0.106000],
-        [0.749532, -0.749532, 0.106000]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -0.953998092006],
+        [1.059997880006, 0.000000000000, 0.105999788001],
+        [0.749531688996, 0.749531688996, 0.105999788001],
+        [0.000000000000, 1.059997880006, 0.105999788001],
+        [-0.749531688996, 0.749531688996, 0.105999788001],
+        [-1.059997880006, 0.000000000000, 0.105999788001],
+        [-0.749531688996, -0.749531688996, 0.105999788001],
+        [0.000000000000, -1.059997880006, 0.105999788001],
+        [0.749531688996, -0.749531688996, 0.105999788001],
+        [0.000000000000, 0.000000000000, 0.105999788001]  // central atom
+    ];
 }
 
 function generateHeptagonalBipyramid() {
-    // HBPY-9: Heptagonal Bipyramid - Official CoSyMlib reference (normalized)
+    // HBPY-9: Heptagonal Bipyramid (D7h) - from cosymlib
+    // 9 ligands + central atom at origin
     return [
-        [0.000000, 0.000000, -1.054093],
-        [1.054093, 0.000000, 0.000000],
-        [0.657216, 0.824123, 0.000000],
-        [-0.234558, 1.027664, 0.000000],
-        [-0.949705, 0.457354, 0.000000],
-        [-0.949705, -0.457354, 0.000000],
-        [-0.234558, -1.027664, 0.000000],
-        [0.657216, -0.824123, 0.000000],
-        [0.000000, 0.000000, 1.054093]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -1.054092553389],
+        [1.054092553389, 0.000000000000, 0.000000000000],
+        [0.657215957254, 0.824122743675, 0.000000000000],
+        [-0.234557659457, 1.027664252322, 0.000000000000],
+        [-0.949704574492, 0.457353618441, 0.000000000000],
+        [-0.949704574492, -0.457353618441, 0.000000000000],
+        [-0.234557659457, -1.027664252322, 0.000000000000],
+        [0.657215957254, -0.824122743675, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.054092553389],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTriangularCupola() {
-    // JTC-9: Triangular Cupola J3 - Official CoSyMlib reference (normalized)
+    // JTC-9: Johnson Triangular Cupola (J3, C3v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [1.091089, -0.000000, 0.267261],
-        [0.545545, 0.944911, 0.267261],
-        [-0.545545, 0.944911, 0.267261],
-        [-1.091089, 0.000000, 0.267261],
-        [-0.545545, -0.944911, 0.267261],
-        [0.545545, -0.944911, 0.267261],
-        [0.545545, 0.314970, -0.623610],
-        [-0.545545, 0.314970, -0.623610],
-        [-0.000000, -0.629941, -0.623610]
-    ].map(normalize);
+        [1.091089451180, 0.000000000000, 0.267261241912],
+        [0.545544725590, 0.944911182523, 0.267261241912],
+        [-0.545544725590, 0.944911182523, 0.267261241912],
+        [-1.091089451180, 0.000000000000, 0.267261241912],
+        [-0.545544725590, -0.944911182523, 0.267261241912],
+        [0.545544725590, -0.944911182523, 0.267261241912],
+        [0.545544725590, 0.314970394174, -0.623609564462],
+        [-0.545544725590, 0.314970394174, -0.623609564462],
+        [0.000000000000, -0.629940788349, -0.623609564462],
+        [0.000000000000, 0.000000000000, 0.267261241912]  // central atom
+    ];
 }
 
 function generateCappedCube() {
-    // JCCU-9: Capped Cube J8 - Official CoSyMlib reference (normalized)
+    // JCCU-9: Johnson Capped Cube (J8, C4v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [0.826961, 0.000000, 0.443578],
-        [0.826961, 0.000000, -0.725920],
-        [0.000000, 0.826961, 0.443578],
-        [0.000000, 0.826961, -0.725920],
-        [-0.826961, 0.000000, 0.443578],
-        [-0.826961, 0.000000, -0.725920],
-        [-0.000000, -0.826961, 0.443578],
-        [-0.000000, -0.826961, -0.725920],
-        [0.000000, 0.000000, 1.270539]
-    ].map(normalize);
+        [0.826960652050, 0.000000000000, 0.443578471150],
+        [0.826960652050, 0.000000000000, -0.725920498528],
+        [0.000000000000, 0.826960652050, 0.443578471150],
+        [0.000000000000, 0.826960652050, -0.725920498528],
+        [-0.826960652050, 0.000000000000, 0.443578471150],
+        [-0.826960652050, 0.000000000000, -0.725920498528],
+        [0.000000000000, -0.826960652050, 0.443578471150],
+        [0.000000000000, -0.826960652050, -0.725920498528],
+        [0.000000000000, 0.000000000000, 1.270539123200],
+        [0.000000000000, 0.000000000000, -0.141171013689]  // central atom
+    ];
 }
 
 function generateCappedCubeAlt() {
-    // CCU-9: Capped Cube (alternative) - Official CoSyMlib reference (normalized)
+    // CCU-9: Capped Cube (C4v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [0.676580, 0.676580, 0.433151],
-        [0.676580, -0.676580, 0.433151],
-        [-0.676580, 0.676580, 0.433151],
-        [-0.676580, -0.676580, 0.433151],
-        [0.567845, 0.567845, -0.692080],
-        [0.567845, -0.567845, -0.692080],
-        [-0.567845, 0.567845, -0.692080],
-        [-0.567845, -0.567845, -0.692080],
-        [0.000000, 0.000000, 1.044927]
-    ].map(normalize);
+        [0.676580145336, 0.676580145336, 0.433150734305],
+        [0.676580145336, -0.676580145336, 0.433150734305],
+        [-0.676580145336, 0.676580145336, 0.433150734305],
+        [-0.676580145336, -0.676580145336, 0.433150734305],
+        [0.567844822329, 0.567844822329, -0.692079759449],
+        [0.567844822329, -0.567844822329, -0.692079759449],
+        [-0.567844822329, 0.567844822329, -0.692079759449],
+        [-0.567844822329, -0.567844822329, -0.692079759449],
+        [0.000000000000, 0.000000000000, 1.044926731187],
+        [0.000000000000, 0.000000000000, -0.009210630612]  // central atom
+    ];
 }
 
 function generateCappedSquareAntiprism() {
-    // JCSAPR-9: Capped Square Antiprism J10 - Official CoSyMlib reference (normalized)
+    // JCSAPR-9: Johnson Capped Square Antiprism (J10, C4v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [0.873141, 0.000000, 0.658404],
-        [0.617404, 0.617404, -0.379941],
-        [0.000000, 0.873141, 0.658404],
-        [-0.617404, 0.617404, -0.379941],
-        [-0.873141, 0.000000, 0.658404],
-        [-0.617404, -0.617404, -0.379941],
-        [-0.000000, -0.873141, 0.658404],
-        [0.617404, -0.617404, -0.379941],
-        [0.000000, 0.000000, -1.253082]
-    ].map(normalize);
+        [0.873140643490, 0.000000000000, 0.658403850449],
+        [0.617403669941, 0.617403669941, -0.379941215187],
+        [0.000000000000, 0.873140643490, 0.658403850449],
+        [-0.617403669941, 0.617403669941, -0.379941215187],
+        [-0.873140643490, 0.000000000000, 0.658403850449],
+        [-0.617403669941, -0.617403669941, -0.379941215187],
+        [0.000000000000, -0.873140643490, 0.658403850449],
+        [0.617403669941, -0.617403669941, -0.379941215187],
+        [0.000000000000, 0.000000000000, -1.253081858677],
+        [0.000000000000, 0.000000000000, 0.139231317631]  // central atom
+    ];
 }
 
 function generateCappedSquareAntiprismAlt() {
-    // CSAPR-9: Capped Square Antiprism (alternative) - Official CoSyMlib reference (normalized)
+    // CSAPR-9: Capped Square Antiprism (C4v) - from cosymlib
+    // 9 ligands + central atom at origin
     return [
-        [0.000000, 0.000000, 1.053083],
-        [0.982654, 0.000000, 0.380440],
-        [0.000000, 0.982654, 0.380440],
-        [-0.982654, 0.000000, 0.380440],
-        [-0.000000, -0.982654, 0.380440],
-        [0.590920, 0.590920, -0.643458],
-        [-0.590920, 0.590920, -0.643458],
-        [-0.590920, -0.590920, -0.643458],
-        [0.590920, -0.590920, -0.643458]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, 1.053083142672],
+        [0.982653581851, 0.000000000000, 0.380440156580],
+        [0.000000000000, 0.982653581851, 0.380440156580],
+        [-0.982653581851, 0.000000000000, 0.380440156580],
+        [0.000000000000, -0.982653581851, 0.380440156580],
+        [0.590919690170, 0.590919690170, -0.643458455172],
+        [-0.590919690170, 0.590919690170, -0.643458455172],
+        [-0.590919690170, -0.590919690170, -0.643458455172],
+        [0.590919690170, -0.590919690170, -0.643458455172],
+        [0.000000000000, 0.000000000000, -0.001009948303]  // central atom
+    ];
 }
 
 function generateTricappedTrigonalPrism() {
-    // JTCTPR-9: Tricapped Trigonal Prism J51 - Official CoSyMlib reference (normalized)
+    // JTCTPR-9: Johnson Tricapped Trigonal Prism (J51, D3h) - from cosymlib
+    // 9 ligands + central atom at origin
     return [
-        [0.621382, 0.621382, 0.358755],
-        [-0.621382, 0.621382, 0.358755],
-        [0.621382, -0.621382, 0.358755],
-        [-0.621382, -0.621382, 0.358755],
-        [0.000000, 0.621382, -0.717510],
-        [0.000000, -0.621382, -0.717510],
-        [1.071725, 0.000000, -0.618761],
-        [-1.071725, 0.000000, -0.618761],
-        [0.000000, 0.000000, 1.237522]
-    ].map(normalize);
+        [0.621382007554, 0.621382007554, 0.358755069151],
+        [-0.621382007554, 0.621382007554, 0.358755069151],
+        [0.621382007554, -0.621382007554, 0.358755069151],
+        [-0.621382007554, -0.621382007554, 0.358755069151],
+        [0.000000000000, 0.621382007554, -0.717510138861],
+        [0.000000000000, -0.621382007554, -0.717510138861],
+        [1.071725432946, 0.000000000000, -0.618760966112],
+        [-1.071725432946, 0.000000000000, -0.618760966112],
+        [0.000000000000, 0.000000000000, 1.237521933529],
+        [0.000000000000, 0.000000000000, -0.000000000186]  // central atom
+    ];
 }
 
 function generateTricappedTrigonalPrismAlt() {
-    // TCTPR-9: Tricapped Trigonal Prism (alternative) - Official CoSyMlib reference (normalized)
+    // TCTPR-9: Tricapped Trigonal Prism (D3h) - from cosymlib
+    // 9 ligands + central atom at origin
     return [
-        [0.702728, 0.000000, 0.785674],
-        [-0.351364, 0.608581, 0.785674],
-        [-0.351364, -0.608581, 0.785674],
-        [0.702728, 0.000000, -0.785674],
-        [-0.351364, 0.608581, -0.785674],
-        [-0.351364, -0.608581, -0.785674],
-        [-1.054093, 0.000000, -0.000000],
-        [0.527046, 0.912871, -0.000000],
-        [0.527046, -0.912871, -0.000000]
-    ].map(normalize);
+        [0.702728368926, 0.000000000000, 0.785674201318],
+        [-0.351364184463, 0.608580619450, 0.785674201318],
+        [-0.351364184463, -0.608580619450, 0.785674201318],
+        [0.702728368926, 0.000000000000, -0.785674201318],
+        [-0.351364184463, 0.608580619450, -0.785674201318],
+        [-0.351364184463, -0.608580619450, -0.785674201318],
+        [-1.054092553389, 0.000000000000, 0.000000000000],
+        [0.527046276695, 0.912870929175, 0.000000000000],
+        [0.527046276695, -0.912870929175, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTridiminishedIcosahedron() {
-    // JTDIC-9: Tridiminished Icosahedron J63 - Official CoSyMlib reference (normalized)
+    // JTDIC-9: Johnson Tridiminished Icosahedron (J63, C3v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [-0.262672, 0.919451, -0.425013],
-        [-0.915287, 0.021205, -0.425013],
-        [-0.262672, -0.877042, -0.425013],
-        [0.793280, -0.533942, -0.425013],
-        [0.973658, 0.021205, 0.519460],
-        [0.321044, 0.919451, 0.519460],
-        [-0.734908, -0.533942, 0.519460],
-        [0.029186, 0.021205, -1.008729],
-        [0.029186, 0.021205, 1.103176]
-    ].map(normalize);
+        [-0.262672206048, 0.919451307875, -0.425012557285],
+        [-0.915286548850, 0.021204725402, -0.425012557285],
+        [-0.262672206048, -0.877041857071, -0.425012557285],
+        [0.793279982152, -0.533942192845, -0.425012557285],
+        [0.973658150194, 0.021204725402, 0.519459792237],
+        [0.321043807391, 0.919451307875, 0.519459792237],
+        [-0.734908380808, -0.533942192845, 0.519459792237],
+        [0.029185800672, 0.021204725402, -1.008728570724],
+        [0.029185800672, 0.021204725402, 1.103175805676],
+        [0.029185800672, 0.021204725402, 0.047223617476]  // central atom
+    ];
 }
 
 function generateHulaHoop() {
-    // HH-9: Hula-hoop - Official CoSyMlib reference (normalized)
+    // HH-9: Hula-hoop (C2v) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [1.057245, 0.000000, 0.077396],
-        [0.528622, 0.915601, 0.077396],
-        [-0.528622, 0.915601, 0.077396],
-        [-1.057245, 0.000000, 0.077396],
-        [-0.528622, -0.915601, 0.077396],
-        [0.528622, -0.915601, 0.077396],
-        [0.000000, 0.000000, 1.134641],
-        [0.528622, 0.000000, -0.838205],
-        [-0.528622, 0.000000, -0.838205]
-    ].map(normalize);
+        [1.057244898055, 0.000000000000, 0.077395698145],
+        [0.528622449027, 0.915600935736, 0.077395698145],
+        [-0.528622449027, 0.915600935736, 0.077395698145],
+        [-1.057244898055, 0.000000000000, 0.077395698145],
+        [-0.528622449027, -0.915600935736, 0.077395698145],
+        [0.528622449027, -0.915600935736, 0.077395698145],
+        [0.000000000000, 0.000000000000, 1.134640596200],
+        [0.528622449027, 0.000000000000, -0.838205241608],
+        [-0.528622449027, 0.000000000000, -0.838205241608],
+        [0.000000000000, 0.000000000000, 0.077395698145]  // central atom
+    ];
 }
 
 function generateMuffin() {
-    // MFF-9: Muffin - Official CoSyMlib reference (normalized)
+    // MFF-9: Muffin (Cs) - from cosymlib
+    // 9 ligands + central atom (NOT at origin!)
     return [
-        [-0.000000, 1.042110, 0.212993],
-        [0.990864, 0.322172, 0.212993],
-        [0.612400, -0.842614, 0.212993],
-        [-0.612400, -0.842614, 0.212993],
-        [-0.990864, 0.322172, 0.212993],
-        [-0.612400, -0.354163, -0.737453],
-        [0.612400, -0.354163, -0.737453],
-        [-0.000000, 0.706514, -0.737453],
-        [-0.000000, 0.000294, 1.100973]
-    ].map(normalize);
+        [0.000000000000, 1.042109568232, 0.212992870476],
+        [0.990863900028, 0.322171619609, 0.212992870476],
+        [0.612400432650, -0.842614003292, 0.212992870476],
+        [-0.612400432650, -0.842614003292, 0.212992870476],
+        [-0.990863900028, 0.322171619609, 0.212992870476],
+        [-0.612400432650, -0.354163418210, -0.737452600997],
+        [0.612400432650, -0.354163418210, -0.737452600997],
+        [0.000000000000, 0.706514131140, -0.737452600997],
+        [0.000000000000, 0.000293952208, 1.100973497819],
+        [0.000000000000, 0.000293952208, 0.046419952795]  // central atom
+    ];
 }
 
 // CN=10 Geometries (13 total from SHAPE 2.1) - COMPLETE SET
+// CRITICAL: CN=10 geometries INCLUDE the central atom (11 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateDecagon() {
-    // DP-10: Planar 10-gon
-    const coords = [];
-    for (let i = 0; i < 10; i++) {
-        const angle = (i * 2 * Math.PI) / 10;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // DP-10: Planar 10-gon (D10h) - from cosymlib
+    // 10 ligands + central atom at origin
+    return [
+        [1.048808848170, -0.000000000000, 0.000000000000],
+        [0.848504182020, 0.616474373428, 0.000000000000],
+        [0.324099757935, 0.997476489400, 0.000000000000],
+        [-0.324099757935, 0.997476489400, 0.000000000000],
+        [-0.848504182020, 0.616474373428, 0.000000000000],
+        [-1.048808848170, 0.000000000000, 0.000000000000],
+        [-0.848504182020, -0.616474373428, 0.000000000000],
+        [-0.324099757935, -0.997476489400, 0.000000000000],
+        [0.324099757935, -0.997476489400, 0.000000000000],
+        [0.848504182020, -0.616474373428, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateEnneagonalPyramid() {
-    // EPY-10: Enneagonal Pyramid - Official CoSyMlib reference (normalized)
+    // EPY-10: Enneagonal Pyramid (C9v) - from cosymlib
+    // 9 base ligands + 1 apex + central atom
     return [
-        [0.000000, -0.000000, -0.957826],
-        [1.053609, -0.000000, 0.095783],
-        [0.807111, 0.677247, 0.095783],
-        [0.182957, 1.037602, 0.095783],
-        [-0.526804, 0.912452, 0.095783],
-        [-0.990069, 0.360355, 0.095783],
-        [-0.990069, -0.360355, 0.095783],
-        [-0.526804, -0.912452, 0.095783],
-        [0.182957, -1.037602, 0.095783],
-        [0.807111, -0.677247, 0.095783]
-    ].map(normalize);
+        [0.000000000000, -0.000000000000, -0.957826285221],
+        [1.053608913743, -0.000000000000, 0.095782628522],
+        [0.807111253594, 0.677246755209, 0.095782628522],
+        [0.182957267845, 1.037602226897, 0.095782628522],
+        [-0.526804456872, 0.912452084955, 0.095782628522],
+        [-0.990068521439, 0.360355471688, 0.095782628522],
+        [-0.990068521439, -0.360355471688, 0.095782628522],
+        [-0.526804456872, -0.912452084955, 0.095782628522],
+        [0.182957267845, -1.037602226897, 0.095782628522],
+        [0.807111253594, -0.677246755209, 0.095782628522],
+        [0.000000000000, -0.000000000000, 0.095782628522]  // central atom
+    ];
 }
 
 function generateOctagonalBipyramid() {
-    // OBPY-10: Octagonal Bipyramid - Official CoSyMlib reference (normalized)
+    // OBPY-10: Octagonal Bipyramid (D8h) - from cosymlib
+    // 8 equatorial + 2 axial + central atom at origin
     return [
-        [0.000000, 0.000000, -1.048809],
-        [1.048809, 0.000000, 0.000000],
-        [0.741620, 0.741620, 0.000000],
-        [0.000000, 1.048809, 0.000000],
-        [-0.741620, 0.741620, 0.000000],
-        [-1.048809, 0.000000, 0.000000],
-        [-0.741620, -0.741620, 0.000000],
-        [-0.000000, -1.048809, 0.000000],
-        [0.741620, -0.741620, 0.000000],
-        [0.000000, 0.000000, 1.048809]
-    ].map(normalize);
+        [0.000000000000, 0.000000000000, -1.048808848170],
+        [1.048808848170, 0.000000000000, 0.000000000000],
+        [0.741619848710, 0.741619848710, 0.000000000000],
+        [0.000000000000, 1.048808848170, 0.000000000000],
+        [-0.741619848710, 0.741619848710, 0.000000000000],
+        [-1.048808848170, 0.000000000000, 0.000000000000],
+        [-0.741619848710, -0.741619848710, 0.000000000000],
+        [-0.000000000000, -1.048808848170, 0.000000000000],
+        [0.741619848710, -0.741619848710, 0.000000000000],
+        [0.000000000000, 0.000000000000, 1.048808848170],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generatePentagonalPrism() {
-    // PPR-10: Pentagonal Prism - ECLIPSED - Official CoSyMlib reference (normalized)
+    // PPR-10: Pentagonal Prism - ECLIPSED (D5h) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [0.904182, -0.000000, -0.531465],
-        [0.279408, 0.859928, -0.531465],
-        [-0.731499, 0.531465, -0.531465],
-        [-0.731499, -0.531465, -0.531465],
-        [0.279408, -0.859928, -0.531465],
-        [0.904182, -0.000000, 0.531465],
-        [0.279408, 0.859928, 0.531465],
-        [-0.731499, 0.531465, 0.531465],
-        [-0.731499, -0.531465, 0.531465],
-        [0.279408, -0.859928, 0.531465]
-    ].map(normalize);
+        [0.904182012090, -0.000000000000, -0.531464852095],
+        [0.279407607744, 0.859928194515, -0.531464852095],
+        [-0.731498613789, 0.531464852095, -0.531464852095],
+        [-0.731498613789, -0.531464852095, -0.531464852095],
+        [0.279407607744, -0.859928194515, -0.531464852095],
+        [0.904182012090, -0.000000000000, 0.531464852095],
+        [0.279407607744, 0.859928194515, 0.531464852095],
+        [-0.731498613789, 0.531464852095, 0.531464852095],
+        [-0.731498613789, -0.531464852095, 0.531464852095],
+        [0.279407607744, -0.859928194515, 0.531464852095],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generatePentagonalAntiprism() {
-    // PAPR-10: Pentagonal Antiprism - STAGGERED - Official CoSyMlib reference (normalized)
+    // PAPR-10: Pentagonal Antiprism - STAGGERED (D5d) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [0.758925, 0.551391, -0.469042],
-        [-0.289884, 0.892170, -0.469042],
-        [-0.938083, 0.000000, -0.469042],
-        [-0.289884, -0.892170, -0.469042],
-        [0.758925, -0.551391, -0.469042],
-        [0.938083, -0.000000, 0.469042],
-        [0.289884, 0.892170, 0.469042],
-        [-0.758925, 0.551391, 0.469042],
-        [-0.758925, -0.551391, 0.469042],
-        [0.289884, -0.892170, 0.469042]
-    ].map(normalize);
+        [0.758925212076, 0.551391442149, -0.469041575982],
+        [-0.289883636094, 0.892170094503, -0.469041575982],
+        [-0.938083151965, 0.000000000000, -0.469041575982],
+        [-0.289883636094, -0.892170094503, -0.469041575982],
+        [0.758925212076, -0.551391442149, -0.469041575982],
+        [0.938083151965, -0.000000000000, 0.469041575982],
+        [0.289883636094, 0.892170094503, 0.469041575982],
+        [-0.758925212076, 0.551391442149, 0.469041575982],
+        [-0.758925212076, -0.551391442149, 0.469041575982],
+        [0.289883636094, -0.892170094503, 0.469041575982],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateBicappedCube() {
-    // JBCCU-10: Bicapped Cube (J15) - Official CoSyMlib reference (normalized)
+    // JBCCU-10: Bicapped Cube (J15, D4h) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [0.785488, 0.000000, 0.555424],
-        [0.785488, 0.000000, -0.555424],
-        [0.000000, 0.785488, 0.555424],
-        [0.000000, 0.785488, -0.555424],
-        [-0.785488, 0.000000, 0.555424],
-        [-0.785488, 0.000000, -0.555424],
-        [-0.000000, -0.785488, 0.555424],
-        [-0.000000, -0.785488, -0.555424],
-        [0.000000, 0.000000, 1.340913],
-        [0.000000, 0.000000, -1.340913]
-    ].map(normalize);
+        [0.785488493487, 0.000000000000, 0.555424240288],
+        [0.785488493487, 0.000000000000, -0.555424240288],
+        [0.000000000000, 0.785488493487, 0.555424240288],
+        [0.000000000000, 0.785488493487, -0.555424240288],
+        [-0.785488493487, 0.000000000000, 0.555424240288],
+        [-0.785488493487, 0.000000000000, -0.555424240288],
+        [-0.000000000000, -0.785488493487, 0.555424240288],
+        [-0.000000000000, -0.785488493487, -0.555424240288],
+        [0.000000000000, 0.000000000000, 1.340912733775],
+        [0.000000000000, 0.000000000000, -1.340912733775],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateBicappedSquareAntiprism() {
-    // JBCSAPR-10: Bicapped Square Antiprism (J17) - Official CoSyMlib reference (normalized)
+    // JBCSAPR-10: Bicapped Square Antiprism (J17, D4d) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [0.831395, 0.000000, 0.494350],
-        [0.587885, 0.587885, -0.494350],
-        [0.000000, 0.831395, 0.494350],
-        [-0.587885, 0.587885, -0.494350],
-        [-0.831395, 0.000000, 0.494350],
-        [-0.587885, -0.587885, -0.494350],
-        [-0.000000, -0.831395, 0.494350],
-        [0.587885, -0.587885, -0.494350],
-        [0.000000, 0.000000, 1.325745],
-        [0.000000, 0.000000, -1.325745]
-    ].map(normalize);
+        [0.831394933130, 0.000000000000, 0.494350384928],
+        [0.587884995060, 0.587884995060, -0.494350384928],
+        [0.000000000000, 0.831394933130, 0.494350384928],
+        [-0.587884995060, 0.587884995060, -0.494350384928],
+        [-0.831394933130, 0.000000000000, 0.494350384928],
+        [-0.587884995060, -0.587884995060, -0.494350384928],
+        [-0.000000000000, -0.831394933130, 0.494350384928],
+        [0.587884995060, -0.587884995060, -0.494350384928],
+        [0.000000000000, 0.000000000000, 1.325745318058],
+        [0.000000000000, 0.000000000000, -1.325745318058],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateMetabidiminishedIcosahedron() {
-    // JMBIC-10: Metabidiminished Icosahedron (J62) - Official CoSyMlib reference (normalized)
+    // JMBIC-10: Metabidiminished Icosahedron (J62, C2v) - from cosymlib
+    // 10 ligands + central atom (NOT at origin)
     return [
-        [-0.797541, -0.588213, -0.373113],
-        [-0.917507, 0.299842, 0.279142],
-        [-0.042218, 0.961291, 0.121562],
-        [0.151860, -0.475674, -0.933829],
-        [0.548711, -0.584891, 0.811695],
-        [-0.085441, 0.301899, 1.011328],
-        [0.108597, -1.135033, -0.043961],
-        [0.863981, 0.414498, 0.450639],
-        [-0.482332, 0.411183, -0.734149],
-        [0.618676, 0.482007, -0.628091]
-    ].map(normalize);
+        [-0.797540727016, -0.588212770208, -0.373112908479],
+        [-0.917507172366, 0.299842004208, 0.279142483278],
+        [-0.042218240299, 0.961291237911, 0.121561791260],
+        [0.151860448259, -0.475674462059, -0.933829024758],
+        [0.548711046055, -0.584891080439, 0.811695270623],
+        [-0.085440798205, 0.301898610501, 1.011328149203],
+        [0.108597299440, -1.135033263708, -0.043961189532],
+        [0.863980672527, 0.414497805020, 0.450639093532],
+        [-0.482331986914, 0.411182880404, -0.734148790113],
+        [0.618676250917, 0.482007259605, -0.628091497847],
+        [0.033213207603, -0.086908221236, 0.038776622831]  // central atom
+    ];
 }
 
 function generateAugmentedTridiminishedIcosahedron() {
-    // JATDI-10: Augmented Tridiminished Icosahedron (J64) - Official CoSyMlib reference (normalized)
+    // JATDI-10: Augmented Tridiminished Icosahedron (J64, C3v) - from cosymlib
+    // 10 ligands + central atom (NOT at origin)
     return [
-        [-0.001380, -0.287820, -0.953537],
-        [-0.508204, -0.874651, -0.286524],
-        [0.005406, -0.863863, 0.597917],
-        [0.829615, -0.270393, 0.477497],
-        [0.508402, 0.681753, 0.286910],
-        [-0.005208, 0.670964, -0.597531],
-        [-0.825215, -0.278511, 0.481717],
-        [0.514536, -0.869597, -0.289125],
-        [-0.514338, 0.676698, 0.289511],
-        [-0.003712, 1.511869, -0.007028]
-    ].map(normalize);
+        [-0.001380175214, -0.287819919972, -0.953536559109],
+        [-0.508204241712, -0.874651438586, -0.286523583482],
+        [0.005406015809, -0.863863134908, 0.597917212481],
+        [0.829615016319, -0.270393329434, 0.477497122798],
+        [0.508401974551, 0.681752772353, 0.286909557983],
+        [-0.005208282971, 0.670964468675, -0.597531237980],
+        [-0.825215065192, -0.278510657928, 0.481716741575],
+        [0.514535647207, -0.869596596298, -0.289124956708],
+        [-0.514337914368, 0.676697930065, 0.289510931209],
+        [-0.003711840848, 1.511869239151, -0.007028216018],
+        [0.000098866419, -0.096449333117, 0.000192987251]  // central atom
+    ];
 }
 
 function generateSphenocorona() {
-    // JSPC-10: Sphenocorona (J87) - Official CoSyMlib reference (normalized)
+    // JSPC-10: Sphenocorona (J87, C2v) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [-1.001872, -0.083830, -0.581156],
-        [-1.002035, -0.076631, 0.581869],
-        [-0.516334, 0.802168, -0.005029],
-        [0.028693, 0.335227, -0.920231],
-        [-0.064316, -0.772041, -0.576760],
-        [-0.064478, -0.764830, 0.586265],
-        [0.028438, 0.346602, 0.916012],
-        [0.642643, 0.705054, -0.004284],
-        [0.974705, -0.249460, -0.579854],
-        [0.974554, -0.242261, 0.583171]
-    ].map(normalize);
+        [-1.001871872522, -0.083830395389, -0.581156124487],
+        [-1.002034699262, -0.076631127394, 0.581868755803],
+        [-0.516334164993, 0.802168048137, -0.005028597236],
+        [0.028693454961, 0.335227480386, -0.920231179588],
+        [-0.064315504895, -0.772040872012, -0.576759802513],
+        [-0.064478331635, -0.764829973537, 0.586265077777],
+        [0.028437584370, 0.346602091208, 0.916012486785],
+        [0.642643307766, 0.705053528342, -0.004284246426],
+        [0.974705182575, -0.249460081184, -0.579853510569],
+        [0.974553986317, -0.242260813190, 0.583171369721],
+        [0.000001057316, 0.000002114633, -0.000004229266]  // central atom
+    ];
 }
 
 function generateStaggeredDodecahedron() {
-    // SDD-10: Staggered Dodecahedron 2:6:2 - Official CoSyMlib reference (normalized)
+    // SDD-10: Staggered Dodecahedron 2:6:2 (D2) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [-0.524414, 0.908285, 0.000000],
-        [0.524414, 0.908285, 0.000000],
-        [-1.048828, 0.000000, 0.000000],
-        [1.048828, 0.000000, 0.000000],
-        [-0.524414, -0.908285, 0.000000],
-        [0.524414, -0.908285, 0.000000],
-        [-0.524414, 0.000000, 0.908285],
-        [0.524414, 0.000000, 0.908285],
-        [0.262207, 0.454143, -0.908285],
-        [-0.262207, -0.454143, -0.908285]
-    ].map(normalize);
+        [-0.524414230723, 0.908285447612, 0.000000000000],
+        [0.524414230723, 0.908285447612, 0.000000000000],
+        [-1.048828461446, 0.000000000000, 0.000000000000],
+        [1.048828461446, 0.000000000000, 0.000000000000],
+        [-0.524414230723, -0.908285447612, 0.000000000000],
+        [0.524414230723, -0.908285447612, 0.000000000000],
+        [-0.524414230723, 0.000000000000, 0.908285447612],
+        [0.524414230723, 0.000000000000, 0.908285447612],
+        [0.262207115361, 0.454142723806, -0.908285447612],
+        [-0.262207115361, -0.454142723806, -0.908285447612],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTetradecahedron() {
-    // TD-10: Tetradecahedron 2:6:2 - Official CoSyMlib reference (normalized)
+    // TD-10: Tetradecahedron 2:6:2 (D2h) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [-0.524414, 0.908284, 0.000000],
-        [0.524414, 0.908284, 0.000000],
-        [-1.048827, 0.000000, 0.000000],
-        [1.048827, 0.000000, 0.000000],
-        [-0.524414, -0.908284, 0.000000],
-        [0.524414, -0.908284, 0.000000],
-        [-0.524414, 0.000000, 0.908284],
-        [0.524414, 0.000000, 0.908284],
-        [0.000000, 0.524414, -0.908284],
-        [0.000000, -0.524414, -0.908284]
-    ].map(normalize);
+        [-0.524413653847, 0.908284448462, 0.000000000000],
+        [0.524413653847, 0.908284448462, 0.000000000000],
+        [-1.048827307693, 0.000000000000, 0.000000000000],
+        [1.048827307693, 0.000000000000, 0.000000000000],
+        [-0.524413653847, -0.908284448462, 0.000000000000],
+        [0.524413653847, -0.908284448462, 0.000000000000],
+        [-0.524413653847, 0.000000000000, 0.908284448462],
+        [0.524413653847, 0.000000000000, 0.908284448462],
+        [0.000000000000, 0.524413653847, -0.908284448462],
+        [0.000000000000, -0.524413653847, -0.908284448462],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHexadecahedron() {
-    // HD-10: Hexadecahedron 2:6:2 - Official CoSyMlib reference (normalized)
+    // HD-10: Hexadecahedron 2:6:2 (D2h) - from cosymlib
+    // 10 ligands + central atom at origin
     return [
-        [-0.524414, 0.908284, 0.000000],
-        [0.524414, 0.908284, 0.000000],
-        [-1.048827, 0.000000, 0.000000],
-        [1.048827, 0.000000, 0.000000],
-        [-0.524414, -0.908284, 0.000000],
-        [0.524414, -0.908284, 0.000000],
-        [-0.524414, 0.000000, 0.908284],
-        [0.524414, 0.000000, 0.908284],
-        [-0.524414, 0.000000, -0.908284],
-        [0.524414, 0.000000, -0.908284]
-    ].map(normalize);
+        [-0.524413653847, 0.908284448462, 0.000000000000],
+        [0.524413653847, 0.908284448462, 0.000000000000],
+        [-1.048827307693, 0.000000000000, 0.000000000000],
+        [1.048827307693, 0.000000000000, 0.000000000000],
+        [-0.524413653847, -0.908284448462, 0.000000000000],
+        [0.524413653847, -0.908284448462, 0.000000000000],
+        [-0.524413653847, 0.000000000000, 0.908284448462],
+        [0.524413653847, 0.000000000000, 0.908284448462],
+        [-0.524413653847, 0.000000000000, -0.908284448462],
+        [0.524413653847, 0.000000000000, -0.908284448462],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 // CN=11 Geometries (7 total from SHAPE 2.1) - COMPLETE SET
+// CRITICAL: CN=11 geometries INCLUDE the central atom (12 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateHendecagon() {
-    // HP-11: Planar 11-gon
-    const coords = [];
-    for (let i = 0; i < 11; i++) {
-        const angle = (i * 2 * Math.PI) / 11;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // HP-11: Hendecagon (D11h) - from cosymlib
+    // 11 ligands + central atom at origin
+    return [
+        [1.044465935734, -0.000000000000, 0.000000000000],
+        [0.878660658358, 0.564680917300, 0.000000000000],
+        [0.433886830273, 0.950079633202, 0.000000000000],
+        [-0.148643000726, 1.033834778504, 0.000000000000],
+        [-0.683979729256, 0.789354686359, 0.000000000000],
+        [-1.002157726517, 0.294260058608, 0.000000000000],
+        [-1.002157726517, -0.294260058608, 0.000000000000],
+        [-0.683979729256, -0.789354686359, 0.000000000000],
+        [-0.148643000726, -1.033834778504, 0.000000000000],
+        [0.433886830273, -0.950079633202, 0.000000000000],
+        [0.878660658358, -0.564680917300, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateDecagonalPyramid() {
-    // DPY-11: Decagonal Pyramid - Official CoSyMlib reference (normalized)
+    // DPY-11: Decagonal Pyramid (C10v) - from cosymlib
+    // 10 base ligands + 1 apex + central atom
     return [
-        [0.000000, -0.000000, -0.961074],
-        [1.048445, -0.000000, 0.087370],
-        [0.848210, 0.616260, 0.087370],
-        [0.323987, 0.997130, 0.087370],
-        [-0.323987, 0.997130, 0.087370],
-        [-0.848210, 0.616260, 0.087370],
-        [-1.048445, 0.000000, 0.087370],
-        [-0.848210, -0.616260, 0.087370],
-        [-0.323987, -0.997130, 0.087370],
-        [0.323987, -0.997130, 0.087370],
-        [0.848210, -0.616260, 0.087370]
-    ].map(normalize);
+        [0.000000000000, -0.000000000000, -0.961074462327],
+        [1.048444867993, -0.000000000000, 0.087370405666],
+        [0.848209715872, 0.616260431248, 0.087370405666],
+        [0.323987281875, 0.997130323681, 0.087370405666],
+        [-0.323987281875, 0.997130323681, 0.087370405666],
+        [-0.848209715872, 0.616260431248, 0.087370405666],
+        [-1.048444867993, 0.000000000000, 0.087370405666],
+        [-0.848209715872, -0.616260431248, 0.087370405666],
+        [-0.323987281875, -0.997130323681, 0.087370405666],
+        [0.323987281875, -0.997130323681, 0.087370405666],
+        [0.848209715872, -0.616260431248, 0.087370405666],
+        [0.000000000000, -0.000000000000, 0.087370405666]  // central atom
+    ];
 }
 
 function generateEnneagonalBipyramid() {
-    // EBPY-11: Enneagonal Bipyramid - Official CoSyMlib reference (normalized)
+    // EBPY-11: Enneagonal Bipyramid (D9h) - from cosymlib
+    // 9 equatorial + 2 axial + central atom at origin
     return [
-        [0.000000, -0.000000, -1.044466],
-        [1.044466, -0.000000, 0.000000],
-        [0.800107, 0.671370, 0.000000],
-        [0.181370, 1.028598, 0.000000],
-        [-0.522233, 0.904534, 0.000000],
-        [-0.981477, 0.357228, 0.000000],
-        [-0.981477, -0.357228, 0.000000],
-        [-0.522233, -0.904534, 0.000000],
-        [0.181370, -1.028598, 0.000000],
-        [0.800107, -0.671370, 0.000000],
-        [0.000000, -0.000000, 1.044466]
-    ].map(normalize);
+        [0.000000000000, -0.000000000000, -1.044465935734],
+        [1.044465935734, -0.000000000000, 0.000000000000],
+        [0.800107326096, 0.671369762230, 0.000000000000],
+        [0.181369606375, 1.028598151268, 0.000000000000],
+        [-0.522232967867, 0.904534033733, 0.000000000000],
+        [-0.981476932472, 0.357228389039, 0.000000000000],
+        [-0.981476932472, -0.357228389039, 0.000000000000],
+        [-0.522232967867, -0.904534033733, 0.000000000000],
+        [0.181369606375, -1.028598151268, 0.000000000000],
+        [0.800107326096, -0.671369762230, 0.000000000000],
+        [0.000000000000, -0.000000000000, 1.044465935734],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateCappedPentagonalPrism() {
-    // JCPPR-11: Capped Pentagonal Prism (J9) - Official CoSyMlib reference (normalized)
+    // JCPPR-11: Capped Pentagonal Prism (J9, C5v) - from cosymlib
+    // 11 ligands + central atom (NOT at origin)
     return [
-        [0.900823, -0.000000, 0.438971],
-        [0.900823, -0.000000, -0.620010],
-        [0.278370, 0.856734, 0.438971],
-        [0.278370, 0.856734, -0.620010],
-        [-0.728781, 0.529491, 0.438971],
-        [-0.728781, 0.529491, -0.620010],
-        [-0.728781, -0.529491, 0.438971],
-        [-0.728781, -0.529491, -0.620010],
-        [0.278370, -0.856734, 0.438971],
-        [0.278370, -0.856734, -0.620010],
-        [0.000000, -0.000000, 0.995711]
-    ].map(normalize);
+        [0.900823270597, -0.000000000000, 0.438971464007],
+        [0.900823270597, -0.000000000000, -0.620009802751],
+        [0.278369699543, 0.856733841532, 0.438971464007],
+        [0.278369699543, 0.856733841532, -0.620009802751],
+        [-0.728781334842, 0.529490633379, 0.438971464007],
+        [-0.728781334842, 0.529490633379, -0.620009802751],
+        [-0.728781334842, -0.529490633379, 0.438971464007],
+        [-0.728781334842, -0.529490633379, -0.620009802751],
+        [0.278369699543, -0.856733841532, 0.438971464007],
+        [0.278369699543, -0.856733841532, -0.620009802751],
+        [0.000000000000, -0.000000000000, 0.995710863093],
+        [0.000000000000, -0.000000000000, -0.090519169372]  // central atom
+    ];
 }
 
 function generateCappedPentagonalAntiprism() {
-    // JCPAPR-11: Capped Pentagonal Antiprism (J11) - Official CoSyMlib reference (normalized)
+    // JCPAPR-11: Capped Pentagonal Antiprism (J11, C5v) - from cosymlib
+    // 11 ligands + central atom (NOT at origin)
     return [
-        [0.937758, -0.000000, 0.556249],
-        [0.758662, 0.551200, -0.381508],
-        [0.289783, 0.891860, 0.556249],
-        [-0.289783, 0.891860, -0.381508],
-        [-0.758662, 0.551200, 0.556249],
-        [-0.937758, 0.000000, -0.381508],
-        [-0.758662, -0.551200, 0.556249],
-        [-0.289783, -0.891860, -0.381508],
-        [0.289783, -0.891860, 0.556249],
-        [0.758662, -0.551200, -0.381508],
-        [0.000000, -0.000000, -0.961074]
-    ].map(normalize);
+        [0.937757598197, -0.000000000000, 0.556249204765],
+        [0.758661833546, 0.551200086446, -0.381508393433],
+        [0.289783034447, 0.891860474471, 0.556249204765],
+        [-0.289783034447, 0.891860474471, -0.381508393433],
+        [-0.758661833546, 0.551200086446, 0.556249204765],
+        [-0.937757598197, 0.000000000000, -0.381508393433],
+        [-0.758661833546, -0.551200086446, 0.556249204765],
+        [-0.289783034447, -0.891860474471, -0.381508393433],
+        [0.289783034447, -0.891860474471, 0.556249204765],
+        [0.758661833546, -0.551200086446, -0.381508393433],
+        [0.000000000000, -0.000000000000, -0.961074462327],
+        [0.000000000000, -0.000000000000, 0.087370405666]  // central atom
+    ];
 }
 
 function generateAugmentedPentagonalPrism() {
-    // JAPPR-11: Augmented Pentagonal Prism (J52) - Official CoSyMlib reference (normalized)
+    // JAPPR-11: Augmented Pentagonal Prism (J52, C2v) - from cosymlib
+    // 11 ligands + central atom (NOT at origin)
     return [
-        [-0.000000, -1.305264, 0.000000],
-        [-0.000000, 0.986976, 0.510294],
-        [0.825655, 0.386871, 0.510294],
-        [0.510294, -0.583708, 0.510294],
-        [-0.510294, -0.583708, 0.510294],
-        [-0.825655, 0.386871, 0.510294],
-        [-0.000000, 0.986976, -0.510294],
-        [0.825655, 0.386871, -0.510294],
-        [0.510294, -0.583708, -0.510294],
-        [-0.510294, -0.583708, -0.510294],
-        [-0.825655, 0.386871, -0.510294]
-    ].map(normalize);
+        [-0.000000000000, -1.305263640364, 0.000000000000],
+        [-0.000000000000, 0.986976353582, 0.510293854396],
+        [0.825655456412, 0.386870780813, 0.510293854396],
+        [0.510293854396, -0.583708130248, 0.510293854396],
+        [-0.510293854396, -0.583708130248, 0.510293854396],
+        [-0.825655456412, 0.386870780813, 0.510293854396],
+        [-0.000000000000, 0.986976353582, -0.510293854396],
+        [0.825655456412, 0.386870780813, -0.510293854396],
+        [0.510293854396, -0.583708130248, -0.510293854396],
+        [-0.510293854396, -0.583708130248, -0.510293854396],
+        [-0.825655456412, 0.386870780813, -0.510293854396],
+        [-0.000000000000, 0.118660330942, 0.000000000000]  // central atom
+    ];
 }
 
 function generateAugmentedSphenocorona() {
-    // JASPC-11: Augmented Sphenocorona (J87) - Official CoSyMlib reference (normalized)
+    // JASPC-11: Augmented Sphenocorona (Cs) - from SHAPE v2.1 ideal geometry
+    // 11 ligands + central atom (normalized to unit RMS distance)
     return [
-        [-0.549649, -0.001864, 0.864507],
-        [0.549649, -0.001864, 0.864507],
-        [-0.000000, 0.867614, 0.476754],
-        [-0.867816, 0.476159, -0.072895],
-        [-0.549649, -0.576090, -0.072895],
-        [0.549649, -0.576090, -0.072895],
-        [0.867816, 0.476159, -0.072895],
-        [-0.000000, 0.867614, -0.622545],
-        [-0.549649, -0.001864, -1.010297],
-        [0.549649, -0.001864, -1.010297],
-        [-0.000000, -0.951821, 0.801846]
-    ].map(normalize);
+        [-0.135880780062, 0.884924656491, 0.497947971017],    // L1
+        [-0.145869179840, 0.818007298375, -0.599250682391],   // L2
+        [0.779607723696, 0.608546126683, -0.044230241544],    // L3
+        [0.489550498626, 0.057215981321, 0.861515882135],     // L4
+        [-0.551850887058, -0.130546252923, 0.563684434578],   // L5
+        [-0.561839286836, -0.197463611039, -0.533514218829],  // L6
+        [0.473756033953, -0.048474081351, -0.870807226099],   // L7
+        [0.956397479366, -0.474530996004, 0.020226919583],    // L8
+        [0.165640962979, -0.962240447216, 0.607869572511],    // L9
+        [0.155652563202, -1.029157805332, -0.489329080897],   // L10
+        [-1.068344643048, 0.637724062979, -0.029173835968],   // L11
+        [-0.556820484977, -0.164004931981, 0.015060505904]    // central atom (M)
+    ];
 }
 
 // CN=12 Geometries (13 total from SHAPE 2.1) - COMPLETE SET
+// CRITICAL: CN=12 geometries INCLUDE the central atom (13 points total)
+// Reference coordinates from cosymlib ideal_structures_center.yaml (already normalized)
+
 function generateDodecagon() {
-    // DP-12: Planar 12-gon
-    const coords = [];
-    for (let i = 0; i < 12; i++) {
-        const angle = (i * 2 * Math.PI) / 12;
-        coords.push([Math.cos(angle), Math.sin(angle), 0]);
-    }
-    return coords.map(normalize);
+    // DP-12: Dodecagon (D12h) - from cosymlib
+    // 12 ligands + central atom at origin
+    return [
+        [1.040832999733, 0.000000000000, 0.000000000000],
+        [0.901387818866, 0.520416499867, 0.000000000000],
+        [0.520416499867, 0.901387818866, 0.000000000000],
+        [0.000000000000, 1.040832999733, 0.000000000000],
+        [-0.520416499867, 0.901387818866, 0.000000000000],
+        [-0.901387818866, 0.520416499867, 0.000000000000],
+        [-1.040832999733, 0.000000000000, 0.000000000000],
+        [-0.901387818866, -0.520416499867, 0.000000000000],
+        [-0.520416499867, -0.901387818866, 0.000000000000],
+        [-0.000000000000, -1.040832999733, 0.000000000000],
+        [0.520416499867, -0.901387818866, 0.000000000000],
+        [0.901387818866, -0.520416499867, 0.000000000000],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHendecagonalPyramid() {
-    // HPY-12: Hendecagonal Pyramid - Official CoSyMlib reference (normalized)
+    // HPY-12: Hendecagonal Pyramid (C11v) - from cosymlib
+    // 11 base ligands + 1 apex + central atom
     return [
-        [0.000000, -0.000000, -0.963863],
-        [1.044185, -0.000000, 0.080322],
-        [0.878424, 0.564529, 0.080322],
-        [0.433770, 0.949824, 0.080322],
-        [-0.148603, 1.033557, 0.080322],
-        [-0.683796, 0.789142, 0.080322],
-        [-1.001888, 0.294181, 0.080322],
-        [-1.001888, -0.294181, 0.080322],
-        [-0.683796, -0.789142, 0.080322],
-        [-0.148603, -1.033557, 0.080322],
-        [0.433770, -0.949824, 0.080322],
-        [0.878424, -0.564529, 0.080322]
-    ].map(normalize);
+        [0.000000000000, -0.000000000000, -0.963863194683],
+        [1.044185127573, -0.000000000000, 0.080321932890],
+        [0.878424427501, 0.564529100946, 0.080321932890],
+        [0.433770178347, 0.949824201114, 0.080321932890],
+        [-0.148603037558, 1.033556828565, 0.080321932890],
+        [-0.683795839017, 0.789142465711, 0.080321932890],
+        [-1.001888293059, 0.294180945807, 0.080321932890],
+        [-1.001888293059, -0.294180945807, 0.080321932890],
+        [-0.683795839017, -0.789142465711, 0.080321932890],
+        [-0.148603037558, -1.033556828565, 0.080321932890],
+        [0.433770178347, -0.949824201114, 0.080321932890],
+        [0.878424427501, -0.564529100946, 0.080321932890],
+        [0.000000000000, -0.000000000000, 0.080321932890]  // central atom
+    ];
 }
 
 function generateDecagonalBipyramid() {
-    // DBPY-12: Decagonal Bipyramid - Official CoSyMlib reference (normalized)
+    // DBPY-12: Decagonal Bipyramid (D10h) - from cosymlib
+    // 10 equatorial + 2 axial + central atom at origin
     return [
-        [0.000000, -0.000000, -1.040833],
-        [1.040833, -0.000000, 0.000000],
-        [0.842052, 0.611786, 0.000000],
-        [0.321635, 0.989891, 0.000000],
-        [-0.321635, 0.989891, 0.000000],
-        [-0.842052, 0.611786, 0.000000],
-        [-1.040833, 0.000000, 0.000000],
-        [-0.842052, -0.611786, 0.000000],
-        [-0.321635, -0.989891, 0.000000],
-        [0.321635, -0.989891, 0.000000],
-        [0.842052, -0.611786, 0.000000],
-        [0.000000, -0.000000, 1.040833]
-    ].map(normalize);
+        [0.000000000000, -0.000000000000, -1.040832999733],
+        [1.040832999733, -0.000000000000, 0.000000000000],
+        [0.842051585090, 0.611786287342, 0.000000000000],
+        [0.321635085224, 0.989891006771, 0.000000000000],
+        [-0.321635085224, 0.989891006771, 0.000000000000],
+        [-0.842051585090, 0.611786287342, 0.000000000000],
+        [-1.040832999733, 0.000000000000, 0.000000000000],
+        [-0.842051585090, -0.611786287342, 0.000000000000],
+        [-0.321635085224, -0.989891006771, 0.000000000000],
+        [0.321635085224, -0.989891006771, 0.000000000000],
+        [0.842051585090, -0.611786287342, 0.000000000000],
+        [0.000000000000, -0.000000000000, 1.040832999733],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHexagonalPrism() {
-    // HPR-12: Hexagonal Prism - Official CoSyMlib reference (normalized)
+    // HPR-12: Hexagonal Prism (D6h) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.930949, -0.000000, -0.465475],
-        [0.465475, 0.806226, -0.465475],
-        [-0.465475, 0.806226, -0.465475],
-        [-0.930949, 0.000000, -0.465475],
-        [-0.465475, -0.806226, -0.465475],
-        [0.465475, -0.806226, -0.465475],
-        [0.930949, -0.000000, 0.465475],
-        [0.465475, 0.806226, 0.465475],
-        [-0.465475, 0.806226, 0.465475],
-        [-0.930949, 0.000000, 0.465475],
-        [-0.465475, -0.806226, 0.465475],
-        [0.465475, -0.806226, 0.465475]
-    ].map(normalize);
+        [0.930949336251, -0.000000000000, -0.465474668126],
+        [0.465474668126, 0.806225774830, -0.465474668126],
+        [-0.465474668126, 0.806225774830, -0.465474668126],
+        [-0.930949336251, 0.000000000000, -0.465474668126],
+        [-0.465474668126, -0.806225774830, -0.465474668126],
+        [0.465474668126, -0.806225774830, -0.465474668126],
+        [0.930949336251, -0.000000000000, 0.465474668126],
+        [0.465474668126, 0.806225774830, 0.465474668126],
+        [-0.465474668126, 0.806225774830, 0.465474668126],
+        [-0.930949336251, 0.000000000000, 0.465474668126],
+        [-0.465474668126, -0.806225774830, 0.465474668126],
+        [0.465474668126, -0.806225774830, 0.465474668126],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateHexagonalAntiprism() {
-    // HAPR-12: Hexagonal Antiprism - Official CoSyMlib reference (normalized)
+    // HAPR-12: Hexagonal Antiprism (D6d) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.828737, 0.478472, -0.409380],
-        [0.000000, 0.956944, -0.409380],
-        [-0.828737, 0.478472, -0.409380],
-        [-0.828737, -0.478472, -0.409380],
-        [-0.000000, -0.956944, -0.409380],
-        [0.828737, -0.478472, -0.409380],
-        [0.956944, -0.000000, 0.409380],
-        [0.478472, 0.828737, 0.409380],
-        [-0.478472, 0.828737, 0.409380],
-        [-0.956944, 0.000000, 0.409380],
-        [-0.478472, -0.828737, 0.409380],
-        [0.478472, -0.828737, 0.409380]
-    ].map(normalize);
+        [0.828737481092, 0.478471807796, -0.409380324284],
+        [0.000000000000, 0.956943615592, -0.409380324284],
+        [-0.828737481092, 0.478471807796, -0.409380324284],
+        [-0.828737481092, -0.478471807796, -0.409380324284],
+        [-0.000000000000, -0.956943615592, -0.409380324284],
+        [0.828737481092, -0.478471807796, -0.409380324284],
+        [0.956943615592, -0.000000000000, 0.409380324284],
+        [0.478471807796, 0.828737481092, 0.409380324284],
+        [-0.478471807796, 0.828737481092, 0.409380324284],
+        [-0.956943615592, 0.000000000000, 0.409380324284],
+        [-0.478471807796, -0.828737481092, 0.409380324284],
+        [0.478471807796, -0.828737481092, 0.409380324284],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateTruncatedTetrahedron() {
-    // TT-12: Truncated Tetrahedron - Official CoSyMlib reference (normalized)
+    // TT-12: Truncated Tetrahedron (Td) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.000000, 0.443813, -0.941469],
-        [0.443813, 0.887625, -0.313823],
-        [-0.443813, 0.887625, -0.313823],
-        [-0.000000, -0.443813, -0.941469],
-        [0.443813, -0.887625, -0.313823],
-        [-0.443813, -0.887625, -0.313823],
-        [0.887625, 0.443813, 0.313823],
-        [0.887625, -0.443813, 0.313823],
-        [0.443813, 0.000000, 0.941469],
-        [-0.887625, 0.443813, 0.313823],
-        [-0.887625, -0.443813, 0.313823],
-        [-0.443813, 0.000000, 0.941469]
-    ].map(normalize);
+        [0.000000000000, 0.443812682299, -0.941468871691],
+        [0.443812682299, 0.887625364599, -0.313822957230],
+        [-0.443812682299, 0.887625364599, -0.313822957230],
+        [-0.000000000000, -0.443812682299, -0.941468871691],
+        [0.443812682299, -0.887625364599, -0.313822957230],
+        [-0.443812682299, -0.887625364599, -0.313822957230],
+        [0.887625364599, 0.443812682299, 0.313822957230],
+        [0.887625364599, -0.443812682299, 0.313822957230],
+        [0.443812682299, 0.000000000000, 0.941468871691],
+        [-0.887625364599, 0.443812682299, 0.313822957230],
+        [-0.887625364599, -0.443812682299, 0.313822957230],
+        [-0.443812682299, 0.000000000000, 0.941468871691],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateCuboctahedron() {
-    // COC-12: Cuboctahedral - Official CoSyMlib reference (normalized)
+    // COC-12: Cuboctahedron (Oh) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.520416, 0.520416, -0.735980],
-        [0.520416, -0.520416, -0.735980],
-        [1.040833, -0.000000, 0.000000],
-        [-0.520416, 0.520416, -0.735980],
-        [0.000000, 1.040833, 0.000000],
-        [-0.520416, -0.520416, -0.735980],
-        [-1.040833, 0.000000, 0.000000],
-        [-0.000000, -1.040833, 0.000000],
-        [0.520416, 0.520416, 0.735980],
-        [0.520416, -0.520416, 0.735980],
-        [-0.520416, 0.520416, 0.735980],
-        [-0.520416, -0.520416, 0.735980]
-    ].map(normalize);
+        [0.520416499867, 0.520416499867, -0.735980072194],
+        [0.520416499867, -0.520416499867, -0.735980072194],
+        [1.040832999733, -0.000000000000, 0.000000000000],
+        [-0.520416499867, 0.520416499867, -0.735980072194],
+        [0.000000000000, 1.040832999733, 0.000000000000],
+        [-0.520416499867, -0.520416499867, -0.735980072194],
+        [-1.040832999733, 0.000000000000, 0.000000000000],
+        [-0.000000000000, -1.040832999733, 0.000000000000],
+        [0.520416499867, 0.520416499867, 0.735980072194],
+        [0.520416499867, -0.520416499867, 0.735980072194],
+        [-0.520416499867, 0.520416499867, 0.735980072194],
+        [-0.520416499867, -0.520416499867, 0.735980072194],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateAnticuboctahedron() {
-    // ACOC-12: Anticuboctahedron (J27) - Official CoSyMlib reference (normalized)
+    // ACOC-12: Anticuboctahedron (J27, D3h) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.600925, -0.000000, -0.849837],
-        [-0.300463, 0.520416, -0.849837],
-        [-0.300463, -0.520416, -0.849837],
-        [0.901388, 0.520416, -0.000000],
-        [0.000000, 1.040833, -0.000000],
-        [-0.901388, 0.520416, -0.000000],
-        [-0.901388, -0.520416, -0.000000],
-        [-0.000000, -1.040833, -0.000000],
-        [0.901388, -0.520416, -0.000000],
-        [0.600925, -0.000000, 0.849837],
-        [-0.300463, 0.520416, 0.849837],
-        [-0.300463, -0.520416, 0.849837]
-    ].map(normalize);
+        [0.600925212577, -0.000000000000, -0.849836585599],
+        [-0.300462606289, 0.520416499867, -0.849836585599],
+        [-0.300462606289, -0.520416499867, -0.849836585599],
+        [0.901387818866, 0.520416499867, -0.000000000000],
+        [0.000000000000, 1.040832999733, -0.000000000000],
+        [-0.901387818866, 0.520416499867, -0.000000000000],
+        [-0.901387818866, -0.520416499867, -0.000000000000],
+        [-0.000000000000, -1.040832999733, -0.000000000000],
+        [0.901387818866, -0.520416499867, -0.000000000000],
+        [0.600925212577, -0.000000000000, 0.849836585599],
+        [-0.300462606289, 0.520416499867, 0.849836585599],
+        [-0.300462606289, -0.520416499867, 0.849836585599],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateIcosahedron() {
-    // IC-12: Icosahedral - Official CoSyMlib reference (normalized)
+    // IC-12: Icosahedron (Ih) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.753154, 0.547198, -0.465475],
-        [-0.287679, 0.885385, -0.465475],
-        [-0.930949, 0.000000, -0.465475],
-        [-0.287679, -0.885385, -0.465475],
-        [0.753154, -0.547198, -0.465475],
-        [0.930949, -0.000000, 0.465475],
-        [0.287679, 0.885385, 0.465475],
-        [-0.753154, 0.547198, 0.465475],
-        [-0.753154, -0.547198, 0.465475],
-        [0.287679, -0.885385, 0.465475],
-        [0.000000, -0.000000, -1.040833],
-        [0.000000, -0.000000, 1.040833]
-    ].map(normalize);
+        [0.753153833929, 0.547198290480, -0.465474668126],
+        [-0.287679165804, 0.885385432582, -0.465474668126],
+        [-0.930949336251, 0.000000000000, -0.465474668126],
+        [-0.287679165804, -0.885385432582, -0.465474668126],
+        [0.753153833929, -0.547198290480, -0.465474668126],
+        [0.930949336251, -0.000000000000, 0.465474668126],
+        [0.287679165804, 0.885385432582, 0.465474668126],
+        [-0.753153833929, 0.547198290480, 0.465474668126],
+        [-0.753153833929, -0.547198290480, 0.465474668126],
+        [0.287679165804, -0.885385432582, 0.465474668126],
+        [0.000000000000, -0.000000000000, -1.040832999733],
+        [0.000000000000, -0.000000000000, 1.040832999733],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateSquareCupola() {
-    // JSC-12: Square Cupola (J4) - Official CoSyMlib reference (normalized)
+    // JSC-12: Square Cupola (J4, C4v) - from SHAPE v2.1
+    // 12 ligands + central atom (normalized to unit RMS distance)
     return [
-        [1.141165, 0.000000, 0.190029],
-        [0.806926, 0.806926, 0.190029],
-        [0.000000, 1.141165, 0.190029],
-        [-0.806926, 0.806926, 0.190029],
-        [-1.141165, 0.000000, 0.190029],
-        [-0.806926, -0.806926, 0.190029],
-        [-0.000000, -1.141165, 0.190029],
-        [0.806926, -0.806926, 0.190029],
-        [0.570583, 0.236343, -0.427565],
-        [-0.236343, 0.570583, -0.427565],
-        [-0.570583, -0.236343, -0.427565],
-        [0.236343, -0.570583, -0.427565]
-    ].map(normalize);
+        [-0.436709906779, 0.154875257084, -1.060046672844],  // L1
+        [0.436709906779, 0.154875257084, -1.060046672844],   // L2
+        [1.054287189226, -0.041425183869, -0.474456073562],  // L3
+        [1.054287189226, -0.318965687956, 0.353683228319],   // L4
+        [0.436709906779, -0.515215194699, 0.939273827601],   // L5
+        [-0.436709906779, -0.515215194699, 0.939273827601],  // L6
+        [-1.054287189226, -0.318965687956, 0.353683228319],  // L7
+        [-1.054287189226, -0.041425183869, -0.474456073562], // L8
+        [0.000000000000, 0.601670137218, -0.449702048055],   // L9
+        [0.617577282447, 0.405420630474, 0.135888551227],    // L10
+        [0.000000000000, 0.209120189521, 0.721428216300],    // L11
+        [-0.617577282447, 0.405420630474, 0.135888551227],   // L12
+        [0.000000000000, -0.180169968808, -0.060411889726]   // central atom
+    ];
 }
 
 function generateElongatedPentagonalBipyramid() {
-    // JEPBPY-12: Elongated Pentagonal Bipyramid (J16) - Official CoSyMlib reference (normalized)
+    // JEPBPY-12: Elongated Pentagonal Bipyramid (J16, D5h) - from cosymlib
+    // 12 ligands + central atom at origin
     return [
-        [0.891336, -0.000000, 0.523914],
-        [0.891336, -0.000000, -0.523914],
-        [0.275438, 0.847711, 0.523914],
-        [0.275438, 0.847711, -0.523914],
-        [-0.721106, 0.523914, 0.523914],
-        [-0.721106, 0.523914, -0.523914],
-        [-0.721106, -0.523914, 0.523914],
-        [-0.721106, -0.523914, -0.523914],
-        [0.275438, -0.847711, 0.523914],
-        [0.275438, -0.847711, -0.523914],
-        [0.000000, -0.000000, 1.074790],
-        [0.000000, -0.000000, -1.074790]
-    ].map(normalize);
+        [0.891335774160, -0.000000000000, 0.523914022892],
+        [0.891335774160, -0.000000000000, -0.523914022892],
+        [0.275437901910, 0.847710696222, 0.523914022892],
+        [0.275437901910, 0.847710696222, -0.523914022892],
+        [-0.721105788990, 0.523914022892, 0.523914022892],
+        [-0.721105788990, 0.523914022892, -0.523914022892],
+        [-0.721105788990, -0.523914022892, 0.523914022892],
+        [-0.721105788990, -0.523914022892, -0.523914022892],
+        [0.275437901910, -0.847710696222, 0.523914022892],
+        [0.275437901910, -0.847710696222, -0.523914022892],
+        [0.000000000000, -0.000000000000, 1.074789826711],
+        [0.000000000000, -0.000000000000, -1.074789826711],
+        [0.000000000000, 0.000000000000, 0.000000000000]  // central atom
+    ];
 }
 
 function generateBiaugmentedPentagonalPrism() {
-    // JBAPPR-12: Biaugmented Pentagonal Prism (J53) - Official CoSyMlib reference (normalized)
+    // JBAPPR-12: Biaugmented Pentagonal Prism (J53, C2v) - from SHAPE v2.1
+    // 12 ligands + central atom (normalized to unit RMS distance)
     return [
-        [0.852576, 0.489340, -0.061742],
-        [0.277323, 0.489340, 0.730026],
-        [-0.653457, 0.489340, 0.427597],
-        [-0.653457, 0.489340, -0.551082],
-        [0.277323, 0.489340, -0.853511],
-        [0.852576, -0.489340, -0.061742],
-        [0.277323, -0.489340, 0.730026],
-        [-0.653457, -0.489340, 0.427597],
-        [-0.653457, -0.489340, -0.551082],
-        [0.277323, -0.489340, -0.853511],
-        [-1.345488, 0.000000, -0.061742],
-        [1.124814, 0.000000, 0.740907]
-    ].map(normalize);
+        [0.489352857915, -0.227101852955, 0.824086661565],   // L1
+        [0.489352857915, 0.661764193361, 0.414607413973],    // L2
+        [0.489352857915, 0.547009375864, -0.557325251921],   // L3
+        [0.489352857915, -0.412780179072, -0.748518775845],  // L4
+        [0.489352857915, -0.891247778161, 0.105224168657],   // L5
+        [-0.489352857915, -0.227101852955, 0.824086661565],  // L6
+        [-0.489352857915, 0.661764193361, 0.414607413973],   // L7
+        [-0.489352857915, 0.547009375864, -0.557325251921],  // L8
+        [-0.489352857915, -0.412780179072, -0.748518775845], // L9
+        [-0.489352857915, -0.891247778161, 0.105224168657],  // L10
+        [0.000000000000, 0.202309513022, -1.331629996453],   // L11
+        [0.000000000000, 0.506854865526, 1.247886071880],    // L12
+        [0.000000000000, -0.064451896621, 0.007595491715]    // central atom
+    ];
 }
 
 function generateSphenomegacorona() {
-    // JSPMC-12: Sphenomegacorona (J88) - Official CoSyMlib reference (normalized)
+    // JSPMC-12: Sphenomegacorona (J88, Cs) - from SHAPE v2.1
+    // 12 ligands + central atom (normalized to unit RMS distance)
     return [
-        [-0.506162, -0.030252, -0.601961],
-        [-0.865277, 0.700144, 0.000000],
-        [0.000000, 0.841196, -0.506162],
-        [-1.298915, -0.214600, 0.000000],
-        [0.506162, -0.030252, -0.601961],
-        [-0.506162, -0.844158, 0.000000],
-        [0.000000, 0.841196, 0.506162],
-        [-0.506162, -0.030252, 0.601961],
-        [0.865277, 0.700144, 0.000000],
-        [0.506162, -0.844158, 0.000000],
-        [0.506162, -0.030252, 0.601961],
-        [1.298915, -0.214600, 0.000000]
-    ].map(normalize);
+        [0.203895776479, 0.612140404898, -0.450754925952],   // L1
+        [0.889387128501, -0.102391114233, -0.661411376256],  // L2
+        [0.885801922685, 0.343352403149, 0.247489515330],    // L3
+        [0.131320967318, 0.078047172764, -1.307619115979],   // L4
+        [-0.057516944734, 0.581973458818, 0.526777048398],   // L5
+        [-0.672174873277, 0.169674789976, -0.698697516742],  // L6
+        [0.714326650228, -0.651388559117, 0.170919762545],   // L7
+        [0.000000000000, -0.570875079935, -0.541819153678],  // L8
+        [0.442465614922, -0.154018077984, 1.009653054589],   // L9
+        [-0.933587594490, 0.139456626670, 0.278783240381],   // L10
+        [-0.261463938439, -0.601093243241, 0.435712820671],  // L11
+        [-0.539573475310, 0.000555509912, 1.200898176260],   // L12
+        [-0.802881233884, 0.154565708323, -0.209931529567]   // central atom
+    ];
 }
 
 // CN=20 Geometries (1 geometry from CoSyMlib)
 function generateDodecahedron20() {
-    // DD-20: Dodecahedron - Official CoSyMlib reference (normalized)
-    return [
+    // DD-20: Dodecahedron - 20 ligands + central atom at origin
+    // Vertices already centered at origin, normalized to unit RMS distance
+    const ligands = [
         [0.814279, 0.591608, -0.192225],
         [-0.311027, 0.957242, -0.192225],
         [-1.006504, -0.000000, -0.192225],
@@ -1248,13 +1610,15 @@ function generateDodecahedron20() {
         [-0.503252, -0.365634, 0.814279],
         [0.192225, -0.591608, 0.814279],
         [0.622053, -0.000000, 0.814279]
-    ].map(normalize);
+    ];
+    // Add central atom and normalize with centroid-based scaling
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=24 Geometries (2 geometries from CoSyMlib)
 function generateTruncatedCube() {
-    // TCU-24: Truncated Cube - Official CoSyMlib reference (normalized)
-    return [
+    // TCU-24: Truncated Cube - 24 ligands + central atom at origin
+    const ligands = [
         [0.286881, 0.692592, 0.692592],
         [-0.286881, -0.692592, -0.692592],
         [0.286881, -0.692592, -0.692592],
@@ -1279,12 +1643,13 @@ function generateTruncatedCube() {
         [0.692592, 0.692592, -0.286881],
         [-0.692592, 0.692592, 0.286881],
         [0.692592, -0.692592, 0.286881]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 function generateTruncatedOctahedron() {
-    // TOC-24: Truncated Octahedron - Official CoSyMlib reference (normalized)
-    return [
+    // TOC-24: Truncated Octahedron - 24 ligands + central atom at origin
+    const ligands = [
         [0.912871, 0.456435, 0.000000],
         [-0.912871, -0.456435, 0.000000],
         [0.912871, -0.456435, 0.000000],
@@ -1309,13 +1674,14 @@ function generateTruncatedOctahedron() {
         [-0.912871, 0.000000, -0.456435],
         [0.912871, 0.000000, -0.456435],
         [-0.912871, 0.000000, 0.456435]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=48 Geometries (1 geometry from CoSyMlib)
 function generateTruncatedCuboctahedron() {
-    // TCOC-48: Truncated Cuboctahedron - Official CoSyMlib reference (normalized)
-    return [
+    // TCOC-48: Truncated Cuboctahedron - 48 ligands + central atom at origin
+    const ligands = [
         [0.217975, 0.526238, 0.834502],
         [-0.217975, -0.526238, -0.834502],
         [0.217975, -0.526238, -0.834502],
@@ -1364,14 +1730,14 @@ function generateTruncatedCuboctahedron() {
         [0.834502, 0.217975, -0.526238],
         [-0.834502, 0.217975, 0.526238],
         [0.834502, -0.217975, 0.526238]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // CN=60 Geometries (1 geometry from CoSyMlib)
 function generateTruncatedIcosahedron() {
-    // TIC-60: Truncated Icosahedron - Official CoSyMlib reference (normalized)
-    // Famous "soccer ball" or "buckyball" geometry, used for fullerenes like C60
-    return [
+    // TIC-60: Truncated Icosahedron (C60 Fullerene/Buckyball) - 60 ligands + central atom
+    const ligands = [
         [0.799214169418, 0.329186766636, -0.519191166048],
         [0.560045966052, 0.658373533272, -0.519191166048],
         [-0.066104440661, 0.861822142285, -0.519191166048],
@@ -1432,7 +1798,8 @@ function generateTruncatedIcosahedron() {
         [-0.106959281355, -0.329186766636, 0.947028210087],
         [0.560045966052, -0.406897218026, 0.733109688067],
         [0.280023003371, -0.203448609013, 0.947028210087]
-    ].map(normalize);
+    ];
+    return normalizeScale([...ligands, [0, 0, 0]]);
 }
 
 // COMPLETE SHAPE 2.1 REFERENCE GEOMETRY LIBRARY
@@ -1490,7 +1857,7 @@ const REFERENCE_GEOMETRIES = {
         "BTPR-8 (Biaugmented Trigonal Prism)": generateSphericalBiaugmentedTrigonalPrism(),
         "JSD-8 (Snub Disphenoid, J84)": generateSnubDisphenoid(),
         "TT-8 (Triakis Tetrahedron)": generateTriakisTetrahedron(),
-        "ETBPY-8 (Elongated Trigonal Bipyramid)": generateElongatedTriangularBipyramid()
+        "ETBPY-8 (Elongated Trigonal Bipyramid)": generateSphericalElongatedTrigonalBipyramid()
     },
     9: {
         "EP-9 (Enneagon)": generateEnneagon(),

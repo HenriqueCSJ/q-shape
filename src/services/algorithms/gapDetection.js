@@ -7,7 +7,7 @@
  * coordination shells.
  */
 
-import { GAP_DETECTION } from '../../constants/algorithmConstants';
+import { GAP_DETECTION } from '../../constants/algorithmConstants.js';
 
 /**
  * Find optimal radius for a target coordination number

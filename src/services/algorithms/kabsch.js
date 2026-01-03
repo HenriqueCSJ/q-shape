@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { KABSCH } from '../../constants/algorithmConstants';
+import { KABSCH } from '../../constants/algorithmConstants.js';
 
 /**
  * IMPROVED Kabsch Algorithm with robust numerical SVD
@@ -10,7 +10,7 @@ import { KABSCH } from '../../constants/algorithmConstants';
  * providing better numerical stability than traditional methods.
  *
  * Algorithm Steps:
- * 1. Center both point sets by subtracting their centroids
+ * 1. Center both point sets by subtracting their centroids (optional)
  * 2. Compute the covariance matrix H = P^T * Q
  * 3. Perform Singular Value Decomposition (SVD) on H
  * 4. Calculate rotation matrix R = V * U^T
@@ -18,6 +18,7 @@ import { KABSCH } from '../../constants/algorithmConstants';
  *
  * @param {Array<Array<number>>} P - First point set, array of [x, y, z] coordinates
  * @param {Array<Array<number>>} Q - Second point set, array of [x, y, z] coordinates
+ * @param {boolean} skipCentering - If true, skip centering (use when points are already centered)
  * @returns {THREE.Matrix4} Rotation matrix that aligns P to Q, or identity matrix on failure
  *
  * @example
@@ -25,45 +26,53 @@ import { KABSCH } from '../../constants/algorithmConstants';
  * const Q = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]];
  * const rotationMatrix = kabschAlignment(P, Q);
  */
-export default function kabschAlignment(P, Q) {
+export default function kabschAlignment(P, Q, skipCentering = false) {
     try {
         const N = P.length;
         if (N !== Q.length || N === 0) {
             throw new Error(`Point set size mismatch: P has ${P.length}, Q has ${Q.length}`);
         }
 
-        // Step 1: Center both point sets
-        const centroidP = [0, 0, 0];
-        const centroidQ = [0, 0, 0];
+        let P_centered, Q_centered;
 
-        for (let i = 0; i < N; i++) {
-            centroidP[0] += P[i][0];
-            centroidP[1] += P[i][1];
-            centroidP[2] += P[i][2];
-            centroidQ[0] += Q[i][0];
-            centroidQ[1] += Q[i][1];
-            centroidQ[2] += Q[i][2];
+        if (skipCentering) {
+            // Use points as-is (they're already centered on central atom)
+            P_centered = P;
+            Q_centered = Q;
+        } else {
+            // Step 1: Center both point sets
+            const centroidP = [0, 0, 0];
+            const centroidQ = [0, 0, 0];
+
+            for (let i = 0; i < N; i++) {
+                centroidP[0] += P[i][0];
+                centroidP[1] += P[i][1];
+                centroidP[2] += P[i][2];
+                centroidQ[0] += Q[i][0];
+                centroidQ[1] += Q[i][1];
+                centroidQ[2] += Q[i][2];
+            }
+
+            centroidP[0] /= N;
+            centroidP[1] /= N;
+            centroidP[2] /= N;
+            centroidQ[0] /= N;
+            centroidQ[1] /= N;
+            centroidQ[2] /= N;
+
+            // Step 2: Translate points to origin
+            P_centered = P.map(p => [
+                p[0] - centroidP[0],
+                p[1] - centroidP[1],
+                p[2] - centroidP[2]
+            ]);
+
+            Q_centered = Q.map(q => [
+                q[0] - centroidQ[0],
+                q[1] - centroidQ[1],
+                q[2] - centroidQ[2]
+            ]);
         }
-
-        centroidP[0] /= N;
-        centroidP[1] /= N;
-        centroidP[2] /= N;
-        centroidQ[0] /= N;
-        centroidQ[1] /= N;
-        centroidQ[2] /= N;
-
-        // Step 2: Translate points to origin
-        const P_centered = P.map(p => [
-            p[0] - centroidP[0],
-            p[1] - centroidP[1],
-            p[2] - centroidP[2]
-        ]);
-
-        const Q_centered = Q.map(q => [
-            q[0] - centroidQ[0],
-            q[1] - centroidQ[1],
-            q[2] - centroidQ[2]
-        ]);
 
         // Step 3: Compute covariance matrix H = P^T * Q
         const H = [
@@ -105,11 +114,12 @@ export default function kabschAlignment(P, Q) {
 }
 
 /**
- * Jacobi SVD algorithm for 3x3 matrices
+ * Proper SVD for 3x3 matrices using eigendecomposition
  *
- * This implementation uses the two-sided Jacobi method, which iteratively
- * applies Givens rotations to diagonalize the matrix. It's more numerically
- * stable than alternative methods for small matrices.
+ * Computes A = U * S * V^T by:
+ * 1. Compute B = A^T * A (symmetric positive semi-definite)
+ * 2. Find eigenvalues and eigenvectors of B (gives V and singular values)
+ * 3. Compute U = A * V * S^{-1}
  *
  * @param {Array<Array<number>>} A - 3x3 input matrix
  * @returns {{U: Array<Array<number>>, V: Array<Array<number>>}}
@@ -119,27 +129,26 @@ export function jacobiSVD(A) {
     const maxIterations = KABSCH.MAX_ITERATIONS;
     const tolerance = KABSCH.TOLERANCE;
 
-    // Initialize U and V as identity matrices
-    const U = [
+    // Step 1: Compute B = A^T * A (symmetric matrix)
+    const At = transpose3x3(A);
+    const B = multiplyMatrices3x3(At, A);
+
+    // Step 2: Find eigenvectors of B using Jacobi eigenvalue algorithm
+    // Initialize V as identity
+    let V = [
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1]
     ];
 
-    const V = [
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
+    // Copy B for iteration
+    let D = [
+        [B[0][0], B[0][1], B[0][2]],
+        [B[1][0], B[1][1], B[1][2]],
+        [B[2][0], B[2][1], B[2][2]]
     ];
 
-    // Copy A to S
-    let S = [
-        [A[0][0], A[0][1], A[0][2]],
-        [A[1][0], A[1][1], A[1][2]],
-        [A[2][0], A[2][1], A[2][2]]
-    ];
-
-    // Iterative Jacobi rotations
+    // Jacobi iteration to diagonalize B
     for (let iter = 0; iter < maxIterations; iter++) {
         // Find largest off-diagonal element
         let maxVal = 0;
@@ -147,7 +156,7 @@ export function jacobiSVD(A) {
 
         for (let i = 0; i < 3; i++) {
             for (let j = i + 1; j < 3; j++) {
-                const val = Math.abs(S[i][j]);
+                const val = Math.abs(D[i][j]);
                 if (val > maxVal) {
                     maxVal = val;
                     p = i;
@@ -161,45 +170,41 @@ export function jacobiSVD(A) {
             break;
         }
 
-        // Compute Jacobi rotation
-        const Spp = S[p][p];
-        const Sqq = S[q][q];
-        const Spq = S[p][q];
+        // Compute Jacobi rotation angle
+        const Dpp = D[p][p];
+        const Dqq = D[q][q];
+        const Dpq = D[p][q];
 
         let c, s;
-        if (Math.abs(Spq) < KABSCH.TOLERANCE) {
+        if (Math.abs(Dpq) < tolerance) {
             c = 1;
             s = 0;
         } else {
-            const tau = (Sqq - Spp) / (2 * Spq);
-            const t = Math.sign(tau) / (Math.abs(tau) + Math.sqrt(1 + tau * tau));
+            const theta = (Dqq - Dpp) / (2 * Dpq);
+            const t = Math.sign(theta) / (Math.abs(theta) + Math.sqrt(1 + theta * theta));
             c = 1 / Math.sqrt(1 + t * t);
             s = c * t;
         }
 
-        // Apply rotation to S
-        const Sp = [...S[p]];
-        const Sq = [...S[q]];
+        // Apply Givens rotation: D = G^T * D * G
+        // This is equivalent to rotating rows p,q and then columns p,q
+        const Dp = [D[p][0], D[p][1], D[p][2]];
+        const Dq = [D[q][0], D[q][1], D[q][2]];
 
         for (let i = 0; i < 3; i++) {
-            S[p][i] = c * Sp[i] - s * Sq[i];
-            S[q][i] = s * Sp[i] + c * Sq[i];
+            D[p][i] = c * Dp[i] - s * Dq[i];
+            D[q][i] = s * Dp[i] + c * Dq[i];
         }
 
         for (let i = 0; i < 3; i++) {
-            const Sip = S[i][p];
-            const Siq = S[i][q];
-            S[i][p] = c * Sip - s * Siq;
-            S[i][q] = s * Sip + c * Siq;
+            const Dip = D[i][p];
+            const Diq = D[i][q];
+            D[i][p] = c * Dip - s * Diq;
+            D[i][q] = s * Dip + c * Diq;
         }
 
-        // Update U and V
+        // Update V (eigenvectors): V = V * G
         for (let i = 0; i < 3; i++) {
-            const Uip = U[i][p];
-            const Uiq = U[i][q];
-            U[i][p] = c * Uip - s * Uiq;
-            U[i][q] = s * Uip + c * Uiq;
-
             const Vip = V[i][p];
             const Viq = V[i][q];
             V[i][p] = c * Vip - s * Viq;
@@ -207,7 +212,66 @@ export function jacobiSVD(A) {
         }
     }
 
+    // Step 3: Compute singular values (square roots of eigenvalues)
+    const singularValues = [
+        Math.sqrt(Math.max(0, D[0][0])),
+        Math.sqrt(Math.max(0, D[1][1])),
+        Math.sqrt(Math.max(0, D[2][2]))
+    ];
+
+    // Step 4: Compute U = A * V * S^{-1}
+    const AV = multiplyMatrices3x3(A, V);
+    const U = [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+    ];
+
+    for (let j = 0; j < 3; j++) {
+        if (singularValues[j] > tolerance) {
+            for (let i = 0; i < 3; i++) {
+                U[i][j] = AV[i][j] / singularValues[j];
+            }
+        } else {
+            // For zero singular values, set corresponding column of U to zero
+            // (will be handled by Kabsch determinant check)
+            for (let i = 0; i < 3; i++) {
+                U[i][j] = 0;
+            }
+        }
+    }
+
+    // Ensure U is orthogonal (handle numerical errors for small singular values)
+    // Use Gram-Schmidt if needed
+    orthogonalize(U);
+
     return { U, V };
+}
+
+/**
+ * Orthogonalize a 3x3 matrix using Gram-Schmidt
+ */
+function orthogonalize(M) {
+    // Column 0
+    let norm0 = Math.sqrt(M[0][0]*M[0][0] + M[1][0]*M[1][0] + M[2][0]*M[2][0]);
+    if (norm0 > 1e-10) {
+        M[0][0] /= norm0; M[1][0] /= norm0; M[2][0] /= norm0;
+    }
+
+    // Column 1: subtract projection onto column 0
+    let dot01 = M[0][0]*M[0][1] + M[1][0]*M[1][1] + M[2][0]*M[2][1];
+    M[0][1] -= dot01 * M[0][0];
+    M[1][1] -= dot01 * M[1][0];
+    M[2][1] -= dot01 * M[2][0];
+    let norm1 = Math.sqrt(M[0][1]*M[0][1] + M[1][1]*M[1][1] + M[2][1]*M[2][1]);
+    if (norm1 > 1e-10) {
+        M[0][1] /= norm1; M[1][1] /= norm1; M[2][1] /= norm1;
+    }
+
+    // Column 2: cross product of columns 0 and 1
+    M[0][2] = M[1][0]*M[2][1] - M[2][0]*M[1][1];
+    M[1][2] = M[2][0]*M[0][1] - M[0][0]*M[2][1];
+    M[2][2] = M[0][0]*M[1][1] - M[1][0]*M[0][1];
 }
 
 /**

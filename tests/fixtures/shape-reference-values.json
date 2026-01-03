@@ -1,0 +1,45 @@
+{
+  "version": "SHAPE 2.1",
+  "description": "Reference CShM values from SHAPE v2.1 for benchmark comparison",
+  "cases": {
+    "ml5-ag-example": {
+      "file": "ml5-ag-example.xyz",
+      "coordinationNumber": 5,
+      "metalIndex": 0,
+      "metalElement": "Ag",
+      "source": "User-provided ML5 benchmark case",
+      "shapeResults": {
+        "SPY-5 (Square Pyramidal)": 4.22501,
+        "TBPY-5 (Trigonal Bipyramidal)": 5.06871,
+        "vOC-5 (Square Pyramid, J1)": 6.19703,
+        "JTBPY-5 (Johnson Trigonal Bipyramid, J12)": 7.23858,
+        "PP-5 (Pentagon)": 29.86497
+      },
+      "expectedRanking": [
+        "SPY-5 (Square Pyramidal)",
+        "TBPY-5 (Trigonal Bipyramidal)",
+        "vOC-5 (Square Pyramid, J1)",
+        "JTBPY-5 (Johnson Trigonal Bipyramid, J12)",
+        "PP-5 (Pentagon)"
+      ],
+      "notes": [
+        "SHAPE clearly separates TBPY-5 (5.07) from JTBPY-5 (7.24)",
+        "This case is used to validate that Q-Shape does not produce degeneracy between regular and Johnson geometries"
+      ]
+    }
+  },
+  "tolerances": {
+    "default": {
+      "relativeErrorMedian": 0.03,
+      "relativeError90th": 0.08,
+      "absoluteDegeneracyThreshold": 0.001,
+      "bestGeometryMatchRate": 0.95
+    },
+    "description": {
+      "relativeErrorMedian": "Median relative error should be <= 3%",
+      "relativeError90th": "90th percentile relative error should be <= 8%",
+      "absoluteDegeneracyThreshold": "Two geometries are considered degenerate if |diff| < this value",
+      "bestGeometryMatchRate": "Best geometry should match SHAPE >= 95% of the time"
+    }
+  }
+}

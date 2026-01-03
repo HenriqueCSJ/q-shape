@@ -323,11 +323,52 @@ function kabschAlignment(P_coords, Q_coords) {
     } catch (e) { return new Matrix4(); }
 }
 
+// --- SCALE NORMALIZATION (CENTROID-BASED) ---
+
+function scaleNormalize(vectors) {
+    if (!vectors || vectors.length === 0) {
+        return { normalized: [], scale: 1 };
+    }
+    const n = vectors.length;
+
+    // Centroid-based normalization for all CNs (standard SHAPE/cosymlib approach)
+    const centroid = new Vector3(0, 0, 0);
+    for (const v of vectors) {
+        centroid.add(v);
+    }
+    centroid.multiplyScalar(1 / n);
+
+    const centered = vectors.map(v => v.clone().sub(centroid));
+
+    let sumSq = 0;
+    for (const v of centered) {
+        sumSq += v.lengthSq();
+    }
+    const rms = Math.sqrt(sumSq / n);
+    if (rms < 1e-10) {
+        return { normalized: centered, scale: 1 };
+    }
+    const normalized = centered.map(v => v.clone().multiplyScalar(1 / rms));
+    return { normalized, scale: rms };
+}
+
 // --- OPTIMIZED CSHM CALCULATION ---
 
 function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCallback, smartAlignments = []) {
-    const N = actualCoords.length;
-    if (N !== referenceCoords.length || N === 0) {
+    let workingActualCoords = actualCoords;
+    let workingRefCoords = referenceCoords;
+
+    // SHAPE/cosymlib include central atom in CShM calculations
+    // Reference geometries have N+1 points (N ligands + 1 central atom)
+    // Add central atom at origin to input coordinates when needed
+    // This applies to ALL coordination numbers (CN=3 through CN=12)
+    const needsCentralAtom = (referenceCoords.length === actualCoords.length + 1);
+    if (needsCentralAtom) {
+        workingActualCoords = [...actualCoords, [0, 0, 0]];
+    }
+
+    const N = workingActualCoords.length;
+    if (N !== workingRefCoords.length || N === 0) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new Matrix4() };
     }
 
@@ -349,13 +390,19 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode, progressCall
     for (let i = 0; i < N; i++) costMatrix[i] = new Float64Array(N);
 
     // 3. Coordinate Buffers (N vectors)
-    // P_vecs: Immutable source
-    const P_vecs = actualCoords.map(c => new Vector3(...c).normalize());
-    if (P_vecs.some(v => v.lengthSq() < 1e-8)) {
+    // P_vecs: Scale-normalized actual coordinates (centroid-based)
+    const rawP = workingActualCoords.map(c => new Vector3(...c));
+    const { normalized: P_vecs } = scaleNormalize(rawP);
+
+    // Check for ligands at center (skip central atom if we added one)
+    const ligandsToCheck = needsCentralAtom
+        ? P_vecs.slice(0, -1)
+        : P_vecs;
+    if (ligandsToCheck.some(v => v.lengthSq() < 1e-8)) {
         return { measure: Infinity, alignedCoords: [], rotationMatrix: new Matrix4() };
     }
-    // Q_vecs: Immutable reference
-    const Q_vecs = referenceCoords.map(c => new Vector3(...c));
+    // Q_vecs: Immutable reference (already normalized)
+    const Q_vecs = workingRefCoords.map(c => new Vector3(...c));
     // Rotated P: Reused buffer
     const rotatedP = Array(N).fill(null).map(() => new Vector3());
 
