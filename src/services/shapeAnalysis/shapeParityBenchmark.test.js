@@ -946,6 +946,99 @@ describe('SHAPE Parity Benchmark - CN=10 FeL10 Complex', () => {
     });
 });
 
+describe('SHAPE Parity Benchmark - CN=12 NbL12 Complex', () => {
+    // NbL12 coordinates from SHAPE v2.1
+    // Nb at (-2.1708, 0.0000, -6.0691), ligands relative to Nb
+    const metalCoords = [-2.1708, 0.0000, -6.0691];
+    const ligandCoords = [
+        [-2.1708 - metalCoords[0], 1.5122 - metalCoords[1], -7.9777 - metalCoords[2]],   // C1
+        [-1.0169 - metalCoords[0], 0.6831 - metalCoords[1], -8.1021 - metalCoords[2]],   // C2
+        [-1.4576 - metalCoords[0], -0.6585 - metalCoords[1], -8.3031 - metalCoords[2]],  // C3
+        [-2.8840 - metalCoords[0], -0.6585 - metalCoords[1], -8.3031 - metalCoords[2]],  // C4
+        [-3.3247 - metalCoords[0], 0.6831 - metalCoords[1], -8.1021 - metalCoords[2]],   // C5
+        [-2.1708 - metalCoords[0], 1.3961 - metalCoords[1], -4.2035 - metalCoords[2]],   // C6
+        [-3.4566 - metalCoords[0], 0.7823 - metalCoords[1], -4.2878 - metalCoords[2]],   // C7
+        [-3.7738 - metalCoords[0], -0.5953 - metalCoords[1], -4.4802 - metalCoords[2]],  // C8
+        [-2.8845 - metalCoords[0], -1.7001 - metalCoords[1], -4.6367 - metalCoords[2]],  // C9
+        [-1.4571 - metalCoords[0], -1.7001 - metalCoords[1], -4.6367 - metalCoords[2]],  // C10
+        [-0.5678 - metalCoords[0], -0.5953 - metalCoords[1], -4.4802 - metalCoords[2]],  // C11
+        [-0.8851 - metalCoords[0], 0.7823 - metalCoords[1], -4.2878 - metalCoords[2]]    // C12
+    ];
+
+    // SHAPE v2.1 reference values
+    const SHAPE_REF_CN12 = {
+        'DP-12 (Dodecagon)': 35.34260,
+        'HPY-12 (Hendecagonal Pyramid)': 29.55505,
+        'DBPY-12 (Decagonal Bipyramid)': 25.26317,
+        'HPR-12 (Hexagonal Prism)': 22.42110,
+        'HAPR-12 (Hexagonal Antiprism)': 19.30552,
+        'TT-12 (Truncated Tetrahedron)': 19.71226,
+        'COC-12 (Cuboctahedral)': 21.69330,
+        'ACOC-12 (Anticuboctahedron, J27)': 22.45136,
+        'IC-12 (Icosahedral)': 25.52485,
+        'JSC-12 (Square Cupola, J4)': 25.96201,
+        'JEPBPY-12 (Elongated Pentagonal Bipyramid, J16)': 23.49135,
+        'JBAPPR-12 (Biaugmented Pentagonal Prism, J53)': 17.93587,
+        'JSPMC-12 (Sphenomegacorona, J88)': 26.77845
+    };
+
+    let cn12Results;
+
+    beforeAll(() => {
+        const geometries = REFERENCE_GEOMETRIES[12];
+        cn12Results = {};
+        for (const [name, refCoords] of Object.entries(geometries)) {
+            const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
+            cn12Results[name] = measure;
+        }
+    });
+
+    test('Log CN=12 Q-Shape vs SHAPE comparison', () => {
+        console.log('\n=== CN=12 [NbL12] Biaugmented Pentagonal Prism Complex ===\n');
+        console.log('Geometry                                         Q-Shape     SHAPE      Diff     Rel.Err');
+        console.log('─'.repeat(90));
+
+        const sorted = Object.entries(cn12Results).sort((a, b) => a[1] - b[1]);
+
+        for (const [name, qshapeValue] of sorted) {
+            const shapeValue = SHAPE_REF_CN12[name];
+            if (shapeValue !== undefined) {
+                const diff = qshapeValue - shapeValue;
+                const relErr = shapeValue > 0 ? Math.abs(diff) / shapeValue * 100 : 0;
+                console.log(
+                    `${name.padEnd(47)} ${qshapeValue.toFixed(5).padStart(10)} ${shapeValue.toFixed(5).padStart(10)} ${diff.toFixed(5).padStart(10)} ${relErr.toFixed(2).padStart(8)}%`
+                );
+            }
+        }
+        console.log('─'.repeat(90));
+
+        expect(true).toBe(true);
+    });
+
+    test('Ranking should match SHAPE (JBAPPR-12 best)', () => {
+        const sorted = Object.entries(cn12Results).sort((a, b) => a[1] - b[1]);
+        expect(sorted[0][0]).toBe('JBAPPR-12 (Biaugmented Pentagonal Prism, J53)');
+    });
+
+    test('JBAPPR-12 CShM should be close to SHAPE', () => {
+        const jbappr12 = cn12Results['JBAPPR-12 (Biaugmented Pentagonal Prism, J53)'];
+        const shapeValue = SHAPE_REF_CN12['JBAPPR-12 (Biaugmented Pentagonal Prism, J53)'];
+        // Allow 5% relative error
+        const relError = Math.abs(jbappr12 - shapeValue) / shapeValue;
+        expect(relError).toBeLessThan(0.05);
+    });
+
+    test('All CN=12 geometries should match SHAPE within 1%', () => {
+        for (const [name, shapeValue] of Object.entries(SHAPE_REF_CN12)) {
+            const qshapeValue = cn12Results[name];
+            if (qshapeValue !== undefined) {
+                const relError = Math.abs(qshapeValue - shapeValue) / shapeValue;
+                expect(relError).toBeLessThan(0.01);
+            }
+        }
+    });
+});
+
 describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
     // Test that perfect reference geometries give CShM ≈ 0
     // This validates the algorithm works for higher CNs even without external SHAPE values
