@@ -1021,14 +1021,12 @@ describe('SHAPE Parity Benchmark - CN=11 NbL11 Complex', () => {
         expect(relError).toBeLessThan(0.05);
     });
 
-    test('All CN=11 geometries should match SHAPE within 2%', () => {
-        // Note: JASPC-11 reference geometry has ~1.3% deviation
-        // This is still much better than old Q-Shape (which had up to 11.5% errors)
+    test('All CN=11 geometries should match SHAPE within 1%', () => {
         for (const [name, shapeValue] of Object.entries(SHAPE_REF_CN11)) {
             const qshapeValue = cn11Results[name];
             if (qshapeValue !== undefined) {
                 const relError = Math.abs(qshapeValue - shapeValue) / shapeValue;
-                expect(relError).toBeLessThan(0.02);
+                expect(relError).toBeLessThan(0.01);
             }
         }
     });
