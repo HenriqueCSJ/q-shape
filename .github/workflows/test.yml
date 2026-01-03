@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -27,10 +28,17 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Run tests with coverage
-      run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary
+    - name: Run unit tests with coverage (excluding parity benchmarks)
+      run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --testPathIgnorePatterns=shapeParityBenchmark
       env:
         CI: true
+      timeout-minutes: 10
+
+    - name: Run parity benchmark tests (without coverage)
+      run: npm test -- --watchAll=false --testPathPattern=shapeParityBenchmark
+      env:
+        CI: true
+      timeout-minutes: 5
 
     - name: Upload coverage to Codecov
       if: matrix.node-version == '20.x'
