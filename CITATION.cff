@@ -10,8 +10,8 @@ authors:
 repository-code: "https://github.com/HenriqueCSJ/q-shape"
 url: "https://henriquecsj.github.io/q-shape"
 license: MIT
-version: "v1.4.0"
-date-released: "2025-11-25"
+version: "v1.5.0"
+date-released: "2026-01-09"
 keywords:
   - "coordination chemistry"
   - "continuous shape measures"
@@ -26,7 +26,7 @@ identifiers:
 preferred-citation:
   type: software
   title: "Q-Shape - Quantitative Shape Analyzer"
-  version: "v1.4.0"
+  version: "v1.5.0"
   year: 2025
   authors:
     - given-names: Henrique
