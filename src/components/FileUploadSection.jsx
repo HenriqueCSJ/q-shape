@@ -176,8 +176,8 @@ export default function FileUploadSection({
                 </div>
             )}
 
-            {/* Current structure info */}
-            {structures.length > 0 && structures[selectedStructureIndex] && (
+            {/* Current structure info - only show in single structure mode */}
+            {!isBatchMode && structures.length > 0 && structures[selectedStructureIndex] && (
                 <div style={{
                     marginTop: '0.5rem',
                     padding: '0.5rem',

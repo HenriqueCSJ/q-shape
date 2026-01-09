@@ -10,7 +10,7 @@
 import { useState, useCallback } from 'react';
 import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
-import { calculateShapeMeasures } from '../services/shapeAnalysis/shapeCalculator';
+import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 
 /**
@@ -41,9 +41,48 @@ function getCoordinationAtoms(atoms, metalIndex, radius) {
 }
 
 /**
+ * Calculate shape measures for all reference geometries of a given CN
+ */
+function calculateAllShapeMeasures(coordAtoms, refGeometries) {
+    // Extract just the coordinates from coordAtoms
+    const actualCoords = coordAtoms.map(c => [c.atom.x, c.atom.y, c.atom.z]);
+
+    const results = [];
+    const geometryNames = Object.keys(refGeometries);
+
+    for (const name of geometryNames) {
+        const refCoords = refGeometries[name];
+
+        try {
+            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+                actualCoords,
+                refCoords,
+                'default', // Use default mode for batch (faster)
+                null // No progress callback for batch
+            );
+
+            // Only include valid results
+            if (typeof measure === 'number' && isFinite(measure)) {
+                results.push({
+                    name,
+                    shapeMeasure: measure,
+                    refCoords,
+                    alignedCoords,
+                    rotationMatrix
+                });
+            }
+        } catch (error) {
+            console.warn(`Failed to calculate shape measure for ${name}:`, error.message);
+        }
+    }
+
+    return results;
+}
+
+/**
  * Analyze a single structure
  */
-async function analyzeStructure(structure, onProgress) {
+function analyzeStructure(structure) {
     const { atoms, name } = structure;
 
     // Detect metal center
@@ -100,12 +139,8 @@ async function analyzeStructure(structure, onProgress) {
         };
     }
 
-    // Calculate shape measures
-    if (onProgress) {
-        onProgress({ stage: 'analyzing', structure: name });
-    }
-
-    const geometryResults = await calculateShapeMeasures(coordAtoms, refGeometries);
+    // Calculate shape measures for all geometries
+    const geometryResults = calculateAllShapeMeasures(coordAtoms, refGeometries);
 
     // Sort by shape measure (best first)
     geometryResults.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
@@ -159,10 +194,10 @@ export function useBatchAnalysis() {
                     percentage: Math.round(((i + 1) / total) * 100)
                 });
 
-                const result = await analyzeStructure(structure, (p) => {
-                    setProgress(prev => ({ ...prev, ...p }));
-                });
+                // Use setTimeout to allow UI updates between structures
+                await new Promise(resolve => setTimeout(resolve, 10));
 
+                const result = analyzeStructure(structure);
                 results.push(result);
             }
 
