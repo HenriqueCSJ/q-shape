@@ -10,7 +10,7 @@ import { useThreeScene } from './hooks/useThreeScene';
 
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
-import { generatePDFReport, generateCSVReport } from './services/reportGenerator';
+import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateBatchCSVReport } from './services/reportGenerator';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -18,6 +18,10 @@ import AnalysisControls from './components/AnalysisControls';
 import CoordinationSummary from './components/CoordinationSummary';
 import Visualization3D from './components/Visualization3D';
 import ResultsDisplay from './components/ResultsDisplay';
+import BatchResultsDisplay from './components/BatchResultsDisplay';
+
+// Batch Analysis Hook
+import useBatchAnalysis from './hooks/useBatchAnalysis';
 
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
@@ -39,8 +43,30 @@ export default function CoordinationGeometryAnalyzer() {
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // File Upload Hook
-    const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
+    // File Upload Hook (v1.5.0 - supports multiple files/structures)
+    const {
+        atoms,
+        fileName,
+        error,
+        uploadMetadata,
+        handleFileUpload,
+        structures,
+        selectedStructureIndex,
+        currentStructure,
+        selectStructure
+    } = useFileUpload();
+
+    // Batch Analysis Hook (v1.5.0 - analyze all structures at once)
+    const {
+        batchResults,
+        isAnalyzing: isBatchAnalyzing,
+        progress: batchProgress,
+        runBatchAnalysis,
+        clearResults: clearBatchResults
+    } = useBatchAnalysis();
+
+    // Determine if we're in batch mode (multiple structures loaded)
+    const isBatchMode = structures.length > 1;
 
     // Stable callback for radius changes
     const handleRadiusChange = useCallback((radius, isAuto) => {
@@ -239,7 +265,9 @@ export default function CoordinationGeometryAnalyzer() {
                 fileName,
                 analysisMode: analysisParams.mode,
                 intensiveMetadata,
-                imgData
+                imgData,
+                structureName: currentStructure?.name || null,
+                fileFormat: currentStructure?.format || 'xyz'
             });
         } catch (err) {
             console.error("Report generation failed:", err);
@@ -253,12 +281,53 @@ export default function CoordinationGeometryAnalyzer() {
         if (!geometryResults || geometryResults.length === 0) return;
 
         try {
-            generateCSVReport({ geometryResults, fileName });
+            generateCSVReport({
+                geometryResults,
+                fileName,
+                structureName: currentStructure?.name || null
+            });
         } catch (err) {
             console.error("CSV generation failed:", err);
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
-    }, [geometryResults, fileName]);
+    }, [geometryResults, fileName, currentStructure]);
+
+    // Batch PDF Report generation
+    const handleGenerateBatchReport = useCallback(() => {
+        if (!batchResults || batchResults.length === 0) return;
+
+        try {
+            generateBatchPDFReport({
+                batchResults,
+                fileName
+            });
+        } catch (err) {
+            console.error("Batch report generation failed:", err);
+            setWarnings(prev => [...prev, `Batch report failed: ${err.message}`]);
+        }
+    }, [batchResults, fileName]);
+
+    // Batch CSV Export
+    const handleGenerateBatchCSV = useCallback(() => {
+        if (!batchResults || batchResults.length === 0) return;
+
+        try {
+            generateBatchCSVReport({
+                batchResults,
+                fileName
+            });
+        } catch (err) {
+            console.error("Batch CSV generation failed:", err);
+            setWarnings(prev => [...prev, `Batch CSV export failed: ${err.message}`]);
+        }
+    }, [batchResults, fileName]);
+
+    // Clear batch results when new files are uploaded
+    useEffect(() => {
+        if (uploadMetadata?.uploadTime) {
+            clearBatchResults();
+        }
+    }, [uploadMetadata?.uploadTime, clearBatchResults]);
 
     return (
     <div className="app-container">
@@ -276,10 +345,10 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.4.0 | Built: November 25, 2025
+            Version 1.5.0 | Built: January 2026
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
+            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
         </p>
       </header>
 
@@ -318,9 +387,87 @@ export default function CoordinationGeometryAnalyzer() {
       <FileUploadSection
         fileInputRef={fileInputRef}
         onFileUpload={handleFileUpload}
+        structures={structures}
+        selectedStructureIndex={selectedStructureIndex}
+        onSelectStructure={selectStructure}
+        uploadMetadata={uploadMetadata}
+        isBatchMode={isBatchMode}
       />
 
-      {atoms.length > 0 && (
+      {/* Batch Mode UI - Multiple Structures */}
+      {isBatchMode && structures.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            border: '2px solid #93c5fd',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e40af' }}>
+              📦 Batch Mode: {structures.length} Structures Loaded
+            </h3>
+            <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
+              Multi-geometry file or multiple files detected. Use batch analysis to process all structures at once.
+            </p>
+          </div>
+
+          <BatchResultsDisplay
+            batchResults={batchResults}
+            isAnalyzing={isBatchAnalyzing}
+            progress={batchProgress}
+            onRunAnalysis={runBatchAnalysis}
+            structures={structures}
+          />
+
+          {/* Batch Report Buttons */}
+          {batchResults.length > 0 && (
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              justifyContent: 'center',
+              marginTop: '1.5rem',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={handleGenerateBatchReport}
+                style={{
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(79, 70, 229, 0.3)'
+                }}
+              >
+                📄 Generate Batch PDF Report
+              </button>
+              <button
+                onClick={handleGenerateBatchCSV}
+                style={{
+                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.3)'
+                }}
+              >
+                📊 Export Batch CSV
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Single Structure Mode UI */}
+      {!isBatchMode && atoms.length > 0 && (
       <>
         <AnalysisControls
           atoms={atoms}
