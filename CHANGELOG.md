@@ -5,40 +5,13 @@ All notable changes to Q-Shape will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2026-01-09
+## [1.5.0] - 2025-01-28
 
 ### 🎯 Overview
 
-**Multi-File Support & CIF Format** - This release adds support for multiple file formats, multi-geometry XYZ files, and simultaneous analysis of multiple structures. Additionally, comprehensive support for half-sandwich (piano stool) complexes has been added.
+**Piano Stool Complex Support** - This release adds comprehensive support for half-sandwich (piano stool) complexes, a major class of organometallic compounds that were previously not properly analyzed by the software.
 
 ### ✨ New Features
-
-#### Multi-Format File Support
-- **CIF File Support** - Parse Crystallographic Information Files using the `crystcif-parse` library
-  - Automatic fractional-to-Cartesian coordinate conversion
-  - Multi-block CIF files supported (each data block becomes a separate structure)
-  - Cell parameters and space group metadata preserved
-  - File validation with informative error messages
-
-- **Multi-Geometry XYZ Files** - Read XYZ files containing multiple concatenated structures
-  - Automatic frame detection and counting
-  - Structure names extracted from comment lines
-  - Perfect for analyzing conformational isomers or trajectory snapshots
-
-- **Multiple File Upload** - Upload several XYZ/CIF files simultaneously
-  - All structures loaded and accessible via navigator
-  - Mix different file formats in a single session
-
-#### Structure Navigator UI
-- **Dropdown Selector** - Easy switching between loaded structures
-- **Navigation Buttons** - First/Prev/Next/Last for quick browsing (shown for >5 structures)
-- **Structure Counter Badge** - Shows loaded structure count and file formats
-- **Per-Structure Analysis** - Each structure analyzed independently with proper naming
-
-#### Enhanced Reports
-- **Structure Names in PDF** - Reports now include structure name and source file
-- **Structure Column in CSV** - CSV exports include structure identification
-- **Multi-Structure Awareness** - Reports indicate which structure from which file
 
 #### Piano Stool (Half-Sandwich) Complex Recognition
 - **Problem:** Piano stool complexes like [CpMn(CO)₃] were analyzed as CN=8 (all atoms separately), giving poor CShM values (>15.0)
@@ -84,23 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔧 Technical Details
 
-**New Files:**
-- `src/utils/cifParser.js` - Complete CIF file parser with validation and metadata extraction
-- `src/utils/fileParser.test.js` - Extended with 14 new tests for multi-frame XYZ functions
-
-**Modified Files (Multi-File/CIF Support):**
-- `src/utils/fileParser.js` - Added `parseXYZAuto()`, `parseMultiXYZ()`, `isMultiFrameXYZ()`, `countXYZFrames()`, `validateMultiXYZ()`
-- `src/hooks/useFileUpload.js` - Rewritten for multi-file/multi-format support with structure state management
-- `src/components/FileUploadSection.jsx` - Added structure selector UI with navigation buttons
-- `src/services/reportGenerator.js` - Added structure name and format to PDF/CSV reports
-- `src/App.js` - Updated to use new structure selection props
-
-**Modified Files (Piano Stool Support):**
+**Modified Files:**
 - `src/constants/algorithmConstants.js` - Added `PIANO_STOOL_GEOMETRIES` constant
 - `src/services/coordination/patterns/geometryBuilder.js` - Implemented intelligent geometry filtering
-
-**New Dependencies:**
-- `crystcif-parse` (^0.2.9) - CIF file parsing library with fractional-to-Cartesian conversion
 
 **Key Algorithm Changes:**
 1. Piano stool patterns detected with 85% confidence
