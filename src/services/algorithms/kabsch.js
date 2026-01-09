@@ -74,6 +74,21 @@ export default function kabschAlignment(P, Q, skipCentering = false) {
             ]);
         }
 
+        // Early return for identical or near-identical point sets
+        // (avoids SVD numerical issues with symmetric degenerate covariance matrix)
+        const IDENTITY_THRESHOLD = 1e-10;
+        let isIdentical = true;
+        for (let i = 0; i < N && isIdentical; i++) {
+            if (Math.abs(P_centered[i][0] - Q_centered[i][0]) > IDENTITY_THRESHOLD ||
+                Math.abs(P_centered[i][1] - Q_centered[i][1]) > IDENTITY_THRESHOLD ||
+                Math.abs(P_centered[i][2] - Q_centered[i][2]) > IDENTITY_THRESHOLD) {
+                isIdentical = false;
+            }
+        }
+        if (isIdentical) {
+            return new THREE.Matrix4(); // Identity rotation
+        }
+
         // Step 3: Compute covariance matrix H = P^T * Q
         const H = [
             [0, 0, 0],
@@ -249,29 +264,96 @@ export function jacobiSVD(A) {
 }
 
 /**
- * Orthogonalize a 3x3 matrix using Gram-Schmidt
+ * Orthogonalize a 3x3 matrix using modified Gram-Schmidt with fallback
+ * Handles degenerate cases where columns may be zero or near-zero
  */
 function orthogonalize(M) {
-    // Column 0
-    let norm0 = Math.sqrt(M[0][0]*M[0][0] + M[1][0]*M[1][0] + M[2][0]*M[2][0]);
-    if (norm0 > 1e-10) {
-        M[0][0] /= norm0; M[1][0] /= norm0; M[2][0] /= norm0;
+    const EPSILON = 1e-10;
+
+    // Standard basis vectors for fallback
+    const e1 = [1, 0, 0];
+    const e2 = [0, 1, 0];
+    const e3 = [0, 0, 1];
+
+    // Helper to compute norm
+    const norm = (v) => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+
+    // Helper to normalize in place, returns success
+    const normalizeCol = (col) => {
+        const n = norm([M[0][col], M[1][col], M[2][col]]);
+        if (n > EPSILON) {
+            M[0][col] /= n; M[1][col] /= n; M[2][col] /= n;
+            return true;
+        }
+        return false;
+    };
+
+    // Helper to set column from array
+    const setCol = (col, v) => {
+        M[0][col] = v[0]; M[1][col] = v[1]; M[2][col] = v[2];
+    };
+
+    // Helper to get column as array
+    const getCol = (col) => [M[0][col], M[1][col], M[2][col]];
+
+    // Helper for cross product
+    const cross = (a, b) => [
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0]
+    ];
+
+    // Helper for dot product
+    const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+
+    // Column 0: normalize or use fallback
+    if (!normalizeCol(0)) {
+        // Column 0 is zero, use e1
+        setCol(0, e1);
     }
 
-    // Column 1: subtract projection onto column 0
-    let dot01 = M[0][0]*M[0][1] + M[1][0]*M[1][1] + M[2][0]*M[2][1];
-    M[0][1] -= dot01 * M[0][0];
-    M[1][1] -= dot01 * M[1][0];
-    M[2][1] -= dot01 * M[2][0];
-    let norm1 = Math.sqrt(M[0][1]*M[0][1] + M[1][1]*M[1][1] + M[2][1]*M[2][1]);
-    if (norm1 > 1e-10) {
-        M[0][1] /= norm1; M[1][1] /= norm1; M[2][1] /= norm1;
+    // Column 1: subtract projection onto column 0, then normalize
+    let col0 = getCol(0);
+    let col1 = getCol(1);
+    let proj = dot(col0, col1);
+    M[0][1] -= proj * col0[0];
+    M[1][1] -= proj * col0[1];
+    M[2][1] -= proj * col0[2];
+
+    if (!normalizeCol(1)) {
+        // Column 1 is zero or parallel to column 0
+        // Find a vector perpendicular to column 0
+        col0 = getCol(0);
+        // Try crossing with e1, e2, or e3
+        let perp = cross(col0, e1);
+        if (norm(perp) < EPSILON) {
+            perp = cross(col0, e2);
+        }
+        if (norm(perp) < EPSILON) {
+            perp = cross(col0, e3);
+        }
+        const n = norm(perp);
+        if (n > EPSILON) {
+            setCol(1, [perp[0]/n, perp[1]/n, perp[2]/n]);
+        } else {
+            // Fallback: use e2 if e1 was used for col0
+            setCol(1, Math.abs(col0[0]) > 0.9 ? e2 : e1);
+            // Re-orthogonalize
+            col0 = getCol(0);
+            col1 = getCol(1);
+            proj = dot(col0, col1);
+            M[0][1] -= proj * col0[0];
+            M[1][1] -= proj * col0[1];
+            M[2][1] -= proj * col0[2];
+            normalizeCol(1);
+        }
     }
 
-    // Column 2: cross product of columns 0 and 1
-    M[0][2] = M[1][0]*M[2][1] - M[2][0]*M[1][1];
-    M[1][2] = M[2][0]*M[0][1] - M[0][0]*M[2][1];
-    M[2][2] = M[0][0]*M[1][1] - M[1][0]*M[0][1];
+    // Column 2: cross product of columns 0 and 1 (guaranteed orthonormal)
+    col0 = getCol(0);
+    col1 = getCol(1);
+    const col2 = cross(col0, col1);
+    setCol(2, col2);
 }
 
 /**
