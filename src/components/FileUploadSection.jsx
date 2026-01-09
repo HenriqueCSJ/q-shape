@@ -14,9 +14,12 @@ export default function FileUploadSection({
     structures = [],
     selectedStructureIndex = 0,
     onSelectStructure,
-    uploadMetadata
+    uploadMetadata,
+    isBatchMode = false
 }) {
     const hasMultipleStructures = structures.length > 1;
+    // In batch mode, don't show individual structure selector (batch analysis handles all structures)
+    const showStructureSelector = hasMultipleStructures && !isBatchMode;
 
     return (
         <div className="card">
@@ -65,8 +68,8 @@ export default function FileUploadSection({
                 </div>
             )}
 
-            {/* Structure selector dropdown */}
-            {hasMultipleStructures && (
+            {/* Structure selector dropdown - hidden in batch mode */}
+            {showStructureSelector && (
                 <div style={{ marginTop: '0.75rem' }}>
                     <label className="control-label" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
                         🔍 Select Structure to Analyze
