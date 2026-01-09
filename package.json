@@ -27,7 +27,6 @@
     ]
   },
   "jest": {
-    "testTimeout": 60000,
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",
       "!src/index.js",
