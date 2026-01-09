@@ -96,6 +96,7 @@ function normalizeScale(coords) {
  * @param {number[][]} coords - Array of 3D coordinate vectors (metal at origin)
  * @returns {number[][]} Coordinates with unit RMS distance from origin
  */
+// eslint-disable-next-line no-unused-vars
 function normalizeScaleFromOrigin(coords) {
     if (!coords || coords.length === 0) return coords;
 
