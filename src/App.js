@@ -39,8 +39,18 @@ export default function CoordinationGeometryAnalyzer() {
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // File Upload Hook
-    const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
+    // File Upload Hook (v1.5.0 - supports multiple files/structures)
+    const {
+        atoms,
+        fileName,
+        error,
+        uploadMetadata,
+        handleFileUpload,
+        structures,
+        selectedStructureIndex,
+        currentStructure,
+        selectStructure
+    } = useFileUpload();
 
     // Stable callback for radius changes
     const handleRadiusChange = useCallback((radius, isAuto) => {
@@ -239,7 +249,9 @@ export default function CoordinationGeometryAnalyzer() {
                 fileName,
                 analysisMode: analysisParams.mode,
                 intensiveMetadata,
-                imgData
+                imgData,
+                structureName: currentStructure?.name || null,
+                fileFormat: currentStructure?.format || 'xyz'
             });
         } catch (err) {
             console.error("Report generation failed:", err);
@@ -253,12 +265,16 @@ export default function CoordinationGeometryAnalyzer() {
         if (!geometryResults || geometryResults.length === 0) return;
 
         try {
-            generateCSVReport({ geometryResults, fileName });
+            generateCSVReport({
+                geometryResults,
+                fileName,
+                structureName: currentStructure?.name || null
+            });
         } catch (err) {
             console.error("CSV generation failed:", err);
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
-    }, [geometryResults, fileName]);
+    }, [geometryResults, fileName, currentStructure]);
 
     return (
     <div className="app-container">
@@ -276,10 +292,10 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.4.0 | Built: November 25, 2025
+            Version 1.5.0 | Built: January 2026
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
+            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
         </p>
       </header>
 
@@ -318,6 +334,10 @@ export default function CoordinationGeometryAnalyzer() {
       <FileUploadSection
         fileInputRef={fileInputRef}
         onFileUpload={handleFileUpload}
+        structures={structures}
+        selectedStructureIndex={selectedStructureIndex}
+        onSelectStructure={selectStructure}
+        uploadMetadata={uploadMetadata}
       />
 
       {atoms.length > 0 && (
