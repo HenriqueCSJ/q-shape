@@ -53,14 +53,12 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
     let bestMeasure = Infinity;
     let bestMatching = null;
     let bestRotation = new THREE.Matrix4();
-    let permCount = 0;
 
     // Generate all permutations of reference vertices for each ligand
     // For each permutation, actual ligand i maps to reference vertex perm[i]
     const ligandIndices = Array.from({ length: numLigands }, (_, i) => i);
 
     for (const perm of permutations([...ligandIndices])) {
-        permCount++;
         // Build matching: actual ligand i → reference vertex perm[i]
         // Central atom (index N-1) always maps to itself
         const matching = [];
