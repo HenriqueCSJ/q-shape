@@ -727,3 +727,371 @@ export function generateCSVReport({ geometryResults, fileName }) {
     link.click();
     document.body.removeChild(link);
 }
+
+/**
+ * Generate Batch PDF Report - v1.5.0
+ *
+ * Creates a comprehensive PDF report for multiple structures with:
+ * - Batch summary table
+ * - Per-structure detail sections with full geometry lists
+ *
+ * @param {Object} params - Report parameters
+ * @param {Array} params.structures - Array of Structure objects
+ * @param {Map} params.batchResults - Map of structureIndex -> results
+ * @param {string} params.fileName - Base filename
+ * @param {string} params.fileFormat - File format (xyz/cif)
+ */
+export function generateBatchPDFReport({ structures, batchResults, fileName, fileFormat }) {
+    if (!structures || structures.length === 0) {
+        throw new Error('No structures available for batch report');
+    }
+
+    if (!batchResults || batchResults.size === 0) {
+        throw new Error('No batch results available for report');
+    }
+
+    const date = new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' });
+    const analyzedCount = batchResults.size;
+
+    // Build summary table rows
+    const summaryRows = [];
+    structures.forEach((structure, index) => {
+        const result = batchResults.get(index);
+        if (result && result.bestGeometry) {
+            const interpretation = interpretShapeMeasure(result.bestGeometry.shapeMeasure);
+            summaryRows.push(`
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${escapeHtml(structure.id)}</strong></td>
+                    <td>${structure.atoms[result.metalIndex]?.element || 'N/A'}</td>
+                    <td style="text-align: center;">${result.coordinationNumber || 'N/A'}</td>
+                    <td>${result.bestGeometry.name}</td>
+                    <td style="font-family: monospace; color: ${interpretation.color};">${result.bestGeometry.shapeMeasure.toFixed(4)}</td>
+                    <td style="text-align: center;">${interpretation.confidence}%</td>
+                </tr>
+            `);
+        }
+    });
+
+    // Build per-structure detail sections
+    const detailSections = [];
+    structures.forEach((structure, index) => {
+        const result = batchResults.get(index);
+        if (result && result.geometryResults) {
+            const geomRows = result.geometryResults.map((r, i) => {
+                const interp = interpretShapeMeasure(r.shapeMeasure);
+                return `
+                    <tr class="${i === 0 ? 'best-result' : ''}">
+                        <td>${i + 1}</td>
+                        <td><strong>${r.name}</strong></td>
+                        <td style="font-family: monospace;">${POINT_GROUPS[r.name] || '—'}</td>
+                        <td style="font-family: monospace; color: ${interp.color};">${r.shapeMeasure.toFixed(4)}</td>
+                        <td style="color: ${interp.color};">${interp.text}</td>
+                        <td>${interp.confidence}%</td>
+                    </tr>
+                `;
+            }).join('');
+
+            detailSections.push(`
+                <div class="structure-section" style="page-break-inside: avoid; margin-top: 2rem;">
+                    <h3 style="color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">
+                        📄 Structure: ${escapeHtml(structure.id)}
+                    </h3>
+                    <div class="summary-grid" style="margin-bottom: 1rem;">
+                        <div class="summary-item">
+                            <strong>Metal Center</strong>
+                            <span>${structure.atoms[result.metalIndex]?.element || 'N/A'}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>Coordination Number</strong>
+                            <span>${result.coordinationNumber || 'N/A'}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>Best Geometry</strong>
+                            <span>${result.bestGeometry?.name || 'N/A'}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>CShM</strong>
+                            <span>${result.bestGeometry?.shapeMeasure?.toFixed(4) || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Geometry</th>
+                                <th>Point Group</th>
+                                <th>CShM</th>
+                                <th>Interpretation</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${geomRows}
+                        </tbody>
+                    </table>
+                </div>
+            `);
+        }
+    });
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Q-Shape Batch Report: ${escapeHtml(fileName)}</title>
+<style>
+${getBatchReportStyles()}
+</style>
+</head>
+<body>
+<div class="no-print" style="text-align: center; margin-bottom: 2rem;">
+  <button class="download-btn" onclick="window.print()">📄 Download as PDF</button>
+</div>
+
+<header>
+  <h1>🔬 Q-Shape Batch Analysis Report</h1>
+  <p><strong>File:</strong> ${escapeHtml(fileName)}.${fileFormat || 'xyz'}</p>
+  <p><strong>Generated:</strong> ${date}</p>
+  <p><strong>Structures Analyzed:</strong> ${analyzedCount} of ${structures.length}</p>
+</header>
+
+<main>
+  <h2>📊 Batch Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Structure ID</th>
+        <th>Metal</th>
+        <th>CN</th>
+        <th>Best Geometry</th>
+        <th>CShM</th>
+        <th>Confidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${summaryRows.join('')}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 3rem;">📋 Detailed Results by Structure</h2>
+  ${detailSections.join('')}
+</main>
+
+<footer>
+  <p>Generated by <strong>Q-Shape v1.5.0</strong></p>
+  <p>Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer. Zenodo.</p>
+</footer>
+</body>
+</html>`;
+
+    const reportWindow = window.open("", "_blank");
+    if (reportWindow) {
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+    } else {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+    }
+}
+
+/**
+ * Generate Wide Summary CSV - v1.5.0
+ *
+ * Creates a CSV with one row per structure (best match + key metrics)
+ *
+ * @param {Object} params
+ * @param {Array} params.structures
+ * @param {Map} params.batchResults
+ * @param {string} params.fileName
+ */
+export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
+    if (!structures || !batchResults || batchResults.size === 0) {
+        throw new Error('No batch results available for CSV export');
+    }
+
+    const headers = [
+        'Structure_ID',
+        'Metal_Element',
+        'Coordination_Number',
+        'Radius_Å',
+        'Best_Geometry',
+        'Point_Group',
+        'CShM',
+        'Interpretation',
+        'Confidence_%',
+        'Analysis_Mode'
+    ];
+
+    const rows = [];
+    structures.forEach((structure, index) => {
+        const result = batchResults.get(index);
+        if (result && result.bestGeometry) {
+            const interpretation = interpretShapeMeasure(result.bestGeometry.shapeMeasure);
+            rows.push([
+                `"${structure.id}"`,
+                structure.atoms[result.metalIndex]?.element || '',
+                result.coordinationNumber || '',
+                result.radius?.toFixed(3) || '',
+                `"${result.bestGeometry.name}"`,
+                POINT_GROUPS[result.bestGeometry.name] || '',
+                result.bestGeometry.shapeMeasure.toFixed(4),
+                `"${interpretation.text}"`,
+                interpretation.confidence,
+                result.analysisMode || 'default'
+            ]);
+        }
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadCSV(csvContent, `${fileName}_batch_summary.csv`);
+}
+
+/**
+ * Generate Long Detailed CSV - v1.5.0
+ *
+ * Creates a CSV with one row per (structure, geometry) pair - all results for all geometries
+ *
+ * @param {Object} params
+ * @param {Array} params.structures
+ * @param {Map} params.batchResults
+ * @param {string} params.fileName
+ */
+export function generateLongDetailedCSV({ structures, batchResults, fileName }) {
+    if (!structures || !batchResults || batchResults.size === 0) {
+        throw new Error('No batch results available for CSV export');
+    }
+
+    const headers = [
+        'Structure_ID',
+        'Metal_Element',
+        'Coordination_Number',
+        'Geometry_Rank',
+        'Geometry_Name',
+        'Point_Group',
+        'CShM',
+        'Interpretation',
+        'Confidence_%',
+        'Is_Best_Match'
+    ];
+
+    const rows = [];
+    structures.forEach((structure, index) => {
+        const result = batchResults.get(index);
+        if (result && result.geometryResults) {
+            result.geometryResults.forEach((geom, geomIndex) => {
+                const interpretation = interpretShapeMeasure(geom.shapeMeasure);
+                rows.push([
+                    `"${structure.id}"`,
+                    structure.atoms[result.metalIndex]?.element || '',
+                    result.coordinationNumber || '',
+                    geomIndex + 1,
+                    `"${geom.name}"`,
+                    POINT_GROUPS[geom.name] || '',
+                    geom.shapeMeasure.toFixed(4),
+                    `"${interpretation.text}"`,
+                    interpretation.confidence,
+                    geomIndex === 0 ? 'Yes' : 'No'
+                ]);
+            });
+        }
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadCSV(csvContent, `${fileName}_all_geometries.csv`);
+}
+
+/**
+ * Helper: Download CSV content
+ */
+function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename.replace(/[<>:"/\\|?*]/g, '_');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * Helper: Get batch report CSS styles
+ */
+function getBatchReportStyles() {
+    return `
+@media print {
+  body { margin: 0; padding: 20px; background: white !important; }
+  .no-print { display: none; }
+  @page { size: A4; margin: 15mm; }
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+  color: #1e293b;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+header {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+h1 { margin: 0; color: #312e81; font-size: 2rem; }
+h2 { color: #312e81; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+h3 { color: #1e293b; }
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.summary-item {
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border-left: 3px solid #4f46e5;
+}
+.summary-item strong {
+  display: block;
+  font-size: 0.75em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+th { background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: white; font-size: 0.85em; }
+.best-result { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important; font-weight: 600; }
+.download-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e2e8f0;
+  text-align: center;
+  color: #64748b;
+}
+    `;
+}

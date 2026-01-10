@@ -1,7 +1,8 @@
 /**
- * Results Display Component
+ * Results Display Component - v1.5.0
  *
- * Displays geometry analysis results table and references
+ * Displays geometry analysis results table and references.
+ * Updated for batch mode with structure ID display.
  */
 
 import React from 'react';
@@ -15,7 +16,10 @@ export default function ResultsDisplay({
     progress,
     selectedMetal,
     selectedGeometryIndex = 0,
-    onGeometrySelect
+    onGeometrySelect,
+    // v1.5.0 batch mode props
+    structureId = null,
+    batchMode = false
 }) {
     return (
         <div>
@@ -23,9 +27,27 @@ export default function ResultsDisplay({
                 margin: '0 0 0.5rem 0',
                 color: '#1e293b',
                 fontSize: '1.25rem',
-                fontWeight: 700
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.5rem'
             }}>
-                📈 Geometry Analysis Results
+                <span>📈 Geometry Analysis Results</span>
+                {batchMode && structureId && (
+                    <span style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: '#1e40af',
+                        background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '6px',
+                        border: '1px solid #3b82f6'
+                    }}>
+                        Structure: {structureId}
+                    </span>
+                )}
             </h3>
             {geometryResults.length > 0 && (
                 <p style={{

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import './App.css';
 
 // Custom Hooks
@@ -6,11 +6,12 @@ import useFileUpload from './hooks/useFileUpload';
 import useRadiusControl from './hooks/useRadiusControl';
 import useCoordination from './hooks/useCoordination';
 import useShapeAnalysis from './hooks/useShapeAnalysis';
+import useBatchAnalysis from './hooks/useBatchAnalysis';
 import { useThreeScene } from './hooks/useThreeScene';
 
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
-import { generatePDFReport, generateCSVReport } from './services/reportGenerator';
+import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateWideSummaryCSV, generateLongDetailedCSV } from './services/reportGenerator';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -18,6 +19,8 @@ import AnalysisControls from './components/AnalysisControls';
 import CoordinationSummary from './components/CoordinationSummary';
 import Visualization3D from './components/Visualization3D';
 import ResultsDisplay from './components/ResultsDisplay';
+import BatchModePanel from './components/BatchModePanel';
+import ManualOverridePanel from './components/ManualOverridePanel';
 
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
@@ -28,7 +31,8 @@ export default function CoordinationGeometryAnalyzer() {
     const [showIdeal, setShowIdeal] = useState(true);
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
-    const [selectedGeometryIndex, setSelectedGeometryIndex] = useState(0); // Index of geometry to visualize
+    const [selectedGeometryIndex, setSelectedGeometryIndex] = useState(0);
+    const [showManualOverride, setShowManualOverride] = useState(false);
 
     // Intensive Analysis State
     const [intensiveMetadata, setIntensiveMetadata] = useState(null);
@@ -39,15 +43,23 @@ export default function CoordinationGeometryAnalyzer() {
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // File Upload Hook
-    const { atoms, fileName, error, uploadMetadata, handleFileUpload } = useFileUpload();
+    // File Upload Hook - v1.5.0 with multi-structure support
+    const {
+        structures,
+        atoms,
+        currentStructure,
+        selectedStructureIndex,
+        fileName,
+        fileFormat,
+        error,
+        uploadMetadata,
+        handleFileUpload,
+        selectStructure,
+        batchMode,
+        structureCount
+    } = useFileUpload();
 
-    // Stable callback for radius changes
-    const handleRadiusChange = useCallback((radius, isAuto) => {
-        // Analysis will trigger automatically via coordAtoms dependency in useShapeAnalysis
-        // No need to manually set analysisParams.key here
-    }, []);
-
+    // Warning and error handlers
     const handleWarning = useCallback((msg) => {
         setWarnings(prev => [...prev, msg]);
     }, []);
@@ -56,7 +68,34 @@ export default function CoordinationGeometryAnalyzer() {
         setWarnings(prev => [...prev, `Error: ${msg}`]);
     }, []);
 
-    // Radius Control Hook (v1.1.0) - defined before use
+    // Batch Analysis Hook
+    const {
+        batchResults,
+        getBatchSummary,
+        structureOverrides,
+        setStructureOverride,
+        applyOverrideToAll,
+        analyzeAllStructures,
+        cancelBatchAnalysis,
+        setStructureResult,
+        isBatchRunning,
+        batchProgress
+    } = useBatchAnalysis({
+        structures,
+        onWarning: handleWarning,
+        onError: handleError
+    });
+
+    // Get effective metal and radius (with override support)
+    const effectiveMetal = useMemo(() => {
+        const override = structureOverrides.get(selectedStructureIndex);
+        if (override?.metalIndex !== undefined) {
+            return override.metalIndex;
+        }
+        return selectedMetal;
+    }, [selectedMetal, selectedStructureIndex, structureOverrides]);
+
+    // Radius Control Hook
     const {
         coordRadius,
         autoRadius,
@@ -73,14 +112,14 @@ export default function CoordinationGeometryAnalyzer() {
         setTargetCNInput
     } = useRadiusControl({
         atoms,
-        selectedMetal,
-        onRadiusChange: handleRadiusChange,
+        selectedMetal: effectiveMetal,
+        onRadiusChange: useCallback(() => {}, []),
         onWarning: handleWarning
     });
 
-    // Intensive Analysis Handler (after coordRadius is defined)
+    // Intensive Analysis Handler
     const handleIntensiveAnalysis = useCallback(async () => {
-        if (!atoms || selectedMetal === null || !coordRadius) {
+        if (!atoms || effectiveMetal === null || !coordRadius) {
             handleWarning('Cannot run intensive analysis: Missing required data');
             return;
         }
@@ -91,31 +130,41 @@ export default function CoordinationGeometryAnalyzer() {
         try {
             const results = await runIntensiveAnalysisAsync(
                 atoms,
-                selectedMetal,
+                effectiveMetal,
                 coordRadius,
                 (progress) => {
                     setIntensiveProgress(progress);
                 }
             );
 
-            // Validate results before setting state
             if (!results || !results.geometryResults || !results.ligandGroups || !results.metadata) {
                 throw new Error('Invalid results structure from intensive analysis');
             }
 
-            // Store metadata AND geometry results from intensive analysis
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
                 metadata: results.metadata
             });
 
-            // Use the intensive geometry results instead of running default analysis
-            // This ensures the UI shows the improved CShM values from intensive mode
             setAnalysisParams({
                 mode: 'intensive',
                 key: Date.now(),
                 intensiveResults: results.geometryResults
             });
+
+            // Store result in batch results if in batch mode
+            if (batchMode) {
+                setStructureResult(selectedStructureIndex, {
+                    geometryResults: results.geometryResults,
+                    bestGeometry: results.geometryResults[0] || null,
+                    ligandGroups: results.ligandGroups,
+                    metadata: results.metadata,
+                    metalIndex: effectiveMetal,
+                    radius: coordRadius,
+                    coordinationNumber: results.metadata?.coordinationNumber || 0,
+                    analysisMode: 'intensive'
+                });
+            }
 
             setIntensiveProgress(null);
 
@@ -126,12 +175,12 @@ export default function CoordinationGeometryAnalyzer() {
         } finally {
             setIsRunningIntensive(false);
         }
-    }, [atoms, selectedMetal, coordRadius, handleWarning, handleError]);
+    }, [atoms, effectiveMetal, coordRadius, handleWarning, handleError, batchMode, selectedStructureIndex, setStructureResult]);
 
     // Coordination Hook
     const { coordAtoms } = useCoordination({
         atoms,
-        selectedMetal,
+        selectedMetal: effectiveMetal,
         coordRadius
     });
 
@@ -150,6 +199,11 @@ export default function CoordinationGeometryAnalyzer() {
         onError: handleError
     });
 
+    // Scene key for forcing 3D re-render when selection changes
+    const sceneKey = useMemo(() => {
+        return `${currentStructure?.id || 'none'}-${effectiveMetal}-${coordRadius?.toFixed(2) || '0'}-${selectedGeometryIndex}`;
+    }, [currentStructure?.id, effectiveMetal, coordRadius, selectedGeometryIndex]);
+
     // Reset selected geometry to best match when new results arrive
     useEffect(() => {
         if (geometryResults && geometryResults.length > 0) {
@@ -162,54 +216,103 @@ export default function CoordinationGeometryAnalyzer() {
         ? geometryResults[selectedGeometryIndex]
         : bestGeometry;
 
-    // Three.js Scene Hook
+    // Three.js Scene Hook with scene key for proper re-rendering
     const { sceneRef, rendererRef, cameraRef } = useThreeScene({
         canvasRef,
         atoms,
-        selectedMetal,
+        selectedMetal: effectiveMetal,
         coordAtoms,
-        bestGeometry: displayGeometry, // Use selected geometry instead of always using best
+        bestGeometry: displayGeometry,
         autoRotate,
         showIdeal,
-        showLabels
+        showLabels,
+        sceneKey // Pass scene key to trigger re-renders
     });
 
-    // Sync upload metadata with state (set metal center and radius after upload)
-    // Track processed uploads to prevent re-processing the same upload
+    // Sync upload metadata with state on new file upload
     const processedUploadTime = useRef(null);
 
     useEffect(() => {
         if (uploadMetadata && uploadMetadata.uploadTime !== processedUploadTime.current) {
-            // Mark this upload as processed
             processedUploadTime.current = uploadMetadata.uploadTime;
 
-            // Reset all state to prevent lingering data from previous calculations
+            // Reset all state for new upload
             setWarnings([]);
             setSelectedMetal(null);
             setAnalysisParams({ mode: 'default', key: 0 });
             setIntensiveMetadata(null);
             setIntensiveProgress(null);
+            setSelectedGeometryIndex(0);
+            setShowManualOverride(false);
 
-            // Reset file input to allow re-uploading the same file
+            // Reset file input
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
 
-            // Set new values from uploaded file
+            // Set values from uploaded file
             if (uploadMetadata.detectedMetalIndex != null) {
                 setSelectedMetal(uploadMetadata.detectedMetalIndex);
             }
             if (uploadMetadata.suggestedRadius) {
-                setCoordRadius(uploadMetadata.suggestedRadius, true); // true = auto-detected
+                setCoordRadius(uploadMetadata.suggestedRadius, true);
             }
             setAnalysisParams({ mode: 'default', key: Date.now() });
         }
     }, [uploadMetadata, setCoordRadius]);
 
+    // Update analysis when structure selection changes in batch mode
+    useEffect(() => {
+        if (batchMode && uploadMetadata?.structureMetadata) {
+            const metadata = uploadMetadata.structureMetadata[selectedStructureIndex];
+            if (metadata) {
+                // Check if we have an override for this structure
+                const override = structureOverrides.get(selectedStructureIndex);
+
+                if (override?.metalIndex !== undefined) {
+                    setSelectedMetal(override.metalIndex);
+                } else if (metadata.detectedMetalIndex != null) {
+                    setSelectedMetal(metadata.detectedMetalIndex);
+                }
+
+                if (override?.radius !== undefined) {
+                    setCoordRadius(override.radius, false);
+                } else if (metadata.suggestedRadius) {
+                    setCoordRadius(metadata.suggestedRadius, true);
+                }
+
+                // Reset to default analysis for new structure
+                setAnalysisParams({ mode: 'default', key: Date.now() });
+                setIntensiveMetadata(null);
+                setSelectedGeometryIndex(0);
+            }
+        }
+    }, [selectedStructureIndex, batchMode, uploadMetadata, setCoordRadius, structureOverrides]);
+
+    // Handle structure selection
+    const handleSelectStructure = useCallback((index) => {
+        selectStructure(index);
+    }, [selectStructure]);
+
+    // Handle metal change with override storage
+    const handleMetalChange = useCallback((metalIndex) => {
+        setSelectedMetal(metalIndex);
+        if (batchMode) {
+            setStructureOverride(selectedStructureIndex, { metalIndex });
+        }
+    }, [batchMode, selectedStructureIndex, setStructureOverride]);
+
+    // Handle radius change with override storage
+    const handleRadiusChangeWithOverride = useCallback((radius) => {
+        setCoordRadius(radius, false);
+        if (batchMode) {
+            setStructureOverride(selectedStructureIndex, { radius });
+        }
+    }, [batchMode, selectedStructureIndex, setStructureOverride, setCoordRadius]);
 
     // Report generation using service
     const handleGenerateReport = useCallback(() => {
-        if (!atoms.length || selectedMetal == null || !bestGeometry) return;
+        if (!atoms.length || effectiveMetal == null || !bestGeometry) return;
 
         try {
             const canvas = canvasRef.current;
@@ -228,7 +331,7 @@ export default function CoordinationGeometryAnalyzer() {
 
             generatePDFReport({
                 atoms,
-                selectedMetal,
+                selectedMetal: effectiveMetal,
                 bestGeometry,
                 coordAtoms,
                 coordRadius,
@@ -236,29 +339,90 @@ export default function CoordinationGeometryAnalyzer() {
                 additionalMetrics,
                 qualityMetrics,
                 warnings,
-                fileName,
+                fileName: currentStructure?.id || fileName,
                 analysisMode: analysisParams.mode,
                 intensiveMetadata,
-                imgData
+                imgData,
+                structureId: currentStructure?.id
             });
         } catch (err) {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [atoms, selectedMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata]);
+    }, [atoms, effectiveMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
-    // CSV Export using service
+    // Batch PDF Report
+    const handleGenerateBatchReport = useCallback(() => {
+        if (!batchMode || batchResults.size === 0) {
+            handleWarning('No batch results available for report generation');
+            return;
+        }
+
+        try {
+            generateBatchPDFReport({
+                structures,
+                batchResults,
+                fileName,
+                fileFormat
+            });
+        } catch (err) {
+            console.error("Batch report generation failed:", err);
+            setWarnings(prev => [...prev, `Batch report generation failed: ${err.message}`]);
+        }
+    }, [batchMode, batchResults, structures, fileName, fileFormat, handleWarning]);
+
+    // CSV Export - Single structure (all geometries)
     const handleGenerateCSV = useCallback(() => {
         if (!geometryResults || geometryResults.length === 0) return;
 
         try {
-            generateCSVReport({ geometryResults, fileName });
+            generateCSVReport({
+                geometryResults,
+                fileName: currentStructure?.id || fileName
+            });
         } catch (err) {
             console.error("CSV generation failed:", err);
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
-    }, [geometryResults, fileName]);
+    }, [geometryResults, fileName, currentStructure]);
+
+    // CSV Export - Wide summary (batch mode)
+    const handleGenerateWideSummaryCSV = useCallback(() => {
+        if (!batchMode || batchResults.size === 0) {
+            handleWarning('No batch results available for CSV export');
+            return;
+        }
+
+        try {
+            generateWideSummaryCSV({
+                structures,
+                batchResults,
+                fileName
+            });
+        } catch (err) {
+            console.error("Wide CSV generation failed:", err);
+            setWarnings(prev => [...prev, `Wide CSV export failed: ${err.message}`]);
+        }
+    }, [batchMode, batchResults, structures, fileName, handleWarning]);
+
+    // CSV Export - Long detailed (batch mode, all geometries)
+    const handleGenerateLongDetailedCSV = useCallback(() => {
+        if (!batchMode || batchResults.size === 0) {
+            handleWarning('No batch results available for CSV export');
+            return;
+        }
+
+        try {
+            generateLongDetailedCSV({
+                structures,
+                batchResults,
+                fileName
+            });
+        } catch (err) {
+            console.error("Long CSV generation failed:", err);
+            setWarnings(prev => [...prev, `Long CSV export failed: ${err.message}`]);
+        }
+    }, [batchMode, batchResults, structures, fileName, handleWarning]);
 
     return (
     <div className="app-container">
@@ -276,10 +440,10 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.4.0 | Built: November 25, 2025
+            Version 1.5.0-dev | Built: January 2026
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
+            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
         </p>
       </header>
 
@@ -288,7 +452,7 @@ export default function CoordinationGeometryAnalyzer() {
           <strong>⚠️ Error:</strong> {error}
         </div>
       )}
-      
+
       {warnings.length > 0 && (
         <div className="alert alert-warning">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
@@ -314,18 +478,37 @@ export default function CoordinationGeometryAnalyzer() {
           </ul>
         </div>
       )}
-      
+
       <FileUploadSection
         fileInputRef={fileInputRef}
         onFileUpload={handleFileUpload}
+        batchMode={batchMode}
+        structureCount={structureCount}
+        fileFormat={fileFormat}
+        currentStructureId={currentStructure?.id}
       />
 
       {atoms.length > 0 && (
       <>
+        {/* Batch Mode Panel - shown when multiple structures detected */}
+        {batchMode && (
+          <BatchModePanel
+            structures={structures}
+            selectedStructureIndex={selectedStructureIndex}
+            onSelectStructure={handleSelectStructure}
+            batchResults={batchResults}
+            isBatchRunning={isBatchRunning}
+            batchProgress={batchProgress}
+            onAnalyzeAll={analyzeAllStructures}
+            onCancelBatch={cancelBatchAnalysis}
+            getBatchSummary={getBatchSummary}
+          />
+        )}
+
         <AnalysisControls
           atoms={atoms}
-          selectedMetal={selectedMetal}
-          onMetalChange={setSelectedMetal}
+          selectedMetal={effectiveMetal}
+          onMetalChange={handleMetalChange}
           coordRadius={coordRadius}
           autoRadius={autoRadius}
           radiusInput={radiusInput}
@@ -336,14 +519,53 @@ export default function CoordinationGeometryAnalyzer() {
           onFindRadiusForCN={handleFindRadiusForCN}
           onIncrementRadius={incrementRadius}
           onDecrementRadius={decrementRadius}
-          onCoordRadiusChange={setCoordRadius}
+          onCoordRadiusChange={handleRadiusChangeWithOverride}
           onAutoRadiusChange={setAutoRadius}
           onTargetCNInputChange={setTargetCNInput}
         />
 
+        {/* Manual Override Toggle */}
+        <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+          <button
+            onClick={() => setShowManualOverride(!showManualOverride)}
+            style={{
+              background: 'transparent',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              padding: '0.5rem 1rem',
+              fontSize: '0.85rem',
+              color: '#64748b',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span>🔧</span>
+            {showManualOverride ? 'Hide Manual Overrides' : 'Show Manual Overrides'}
+            <span style={{ fontSize: '0.75rem' }}>{showManualOverride ? '▲' : '▼'}</span>
+          </button>
+        </div>
+
+        {/* Manual Override Panel */}
+        {showManualOverride && (
+          <ManualOverridePanel
+            atoms={atoms}
+            currentMetal={effectiveMetal}
+            currentRadius={coordRadius}
+            currentCN={coordAtoms?.length}
+            onMetalChange={handleMetalChange}
+            onRadiusChange={handleRadiusChangeWithOverride}
+            onFindRadiusForCN={handleFindRadiusForCN}
+            batchMode={batchMode}
+            onApplyToAll={applyOverrideToAll}
+            structureId={currentStructure?.id}
+          />
+        )}
+
         <CoordinationSummary
           atoms={atoms}
-          selectedMetal={selectedMetal}
+          selectedMetal={effectiveMetal}
           coordAtoms={coordAtoms}
           additionalMetrics={additionalMetrics}
           qualityMetrics={qualityMetrics}
@@ -358,10 +580,17 @@ export default function CoordinationGeometryAnalyzer() {
           onIntensiveAnalysis={handleIntensiveAnalysis}
           onGenerateReport={handleGenerateReport}
           onGenerateCSV={handleGenerateCSV}
+          batchMode={batchMode}
+          batchResults={batchResults}
+          onGenerateBatchReport={handleGenerateBatchReport}
+          onGenerateWideSummaryCSV={handleGenerateWideSummaryCSV}
+          onGenerateLongDetailedCSV={handleGenerateLongDetailedCSV}
+          structureId={currentStructure?.id}
         />
 
         <div className="main-layout">
           <Visualization3D
+            key={sceneKey}
             canvasRef={canvasRef}
             showIdeal={showIdeal}
             showLabels={showLabels}
@@ -376,14 +605,16 @@ export default function CoordinationGeometryAnalyzer() {
             geometryResults={geometryResults}
             analysisParams={analysisParams}
             progress={progress}
-            selectedMetal={selectedMetal}
+            selectedMetal={effectiveMetal}
             selectedGeometryIndex={selectedGeometryIndex}
             onGeometrySelect={setSelectedGeometryIndex}
+            structureId={currentStructure?.id}
+            batchMode={batchMode}
           />
         </div>
       </>
       )}
-      
+
       <footer style={{
         marginTop: '3rem',
         paddingTop: '1.5rem',
@@ -401,9 +632,8 @@ export default function CoordinationGeometryAnalyzer() {
         </div>
       </footer>
 
-      
+
     </div>
 </div>
     );
 }
-

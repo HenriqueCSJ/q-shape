@@ -1,7 +1,8 @@
 /**
- * Coordination Summary Component
+ * Coordination Summary Component - v1.5.0
  *
- * Displays coordination information, quality metrics, and action buttons
+ * Displays coordination information, quality metrics, and action buttons.
+ * Updated for batch mode with structure ID display and batch export options.
  */
 
 import React from 'react';
@@ -22,11 +23,20 @@ export default function CoordinationSummary({
     geometryResults,
     onIntensiveAnalysis,
     onGenerateReport,
-    onGenerateCSV
+    onGenerateCSV,
+    // v1.5.0 batch mode props
+    batchMode = false,
+    batchResults,
+    onGenerateBatchReport,
+    onGenerateWideSummaryCSV,
+    onGenerateLongDetailedCSV,
+    structureId = null
 }) {
     if (selectedMetal == null) {
         return null;
     }
+
+    const hasBatchResults = batchResults && batchResults.size > 0;
 
     return (
         <div style={{
@@ -37,6 +47,25 @@ export default function CoordinationSummary({
             marginBottom: '2rem',
             boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
         }}>
+            {/* Structure ID indicator for batch mode */}
+            {batchMode && structureId && (
+                <div style={{
+                    marginBottom: '1rem',
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                    borderRadius: '8px',
+                    border: '1px solid #3b82f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                }}>
+                    <span style={{ fontSize: '1.1rem' }}>📄</span>
+                    <span style={{ fontWeight: 600, color: '#1e40af' }}>
+                        Structure: {structureId}
+                    </span>
+                </div>
+            )}
+
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
@@ -120,7 +149,7 @@ export default function CoordinationSummary({
                 )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Single Structure Action Buttons */}
             <div style={{
                 display: 'flex',
                 gap: '0.75rem',
@@ -197,6 +226,91 @@ export default function CoordinationSummary({
                     📊 Download CSV
                 </button>
             </div>
+
+            {/* Batch Export Buttons - shown when in batch mode with results */}
+            {batchMode && hasBatchResults && (
+                <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1rem',
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    <div style={{
+                        fontWeight: 700,
+                        color: '#374151',
+                        marginBottom: '0.75rem',
+                        fontSize: '0.95rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }}>
+                        <span>📚</span> Batch Export Options
+                    </div>
+                    <div style={{
+                        display: 'flex',
+                        gap: '0.75rem',
+                        flexWrap: 'wrap'
+                    }}>
+                        <button
+                            onClick={onGenerateBatchReport}
+                            style={{
+                                padding: '0.75rem 1.25rem',
+                                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            📄 Batch PDF Report
+                        </button>
+
+                        <button
+                            onClick={onGenerateWideSummaryCSV}
+                            style={{
+                                padding: '0.75rem 1.25rem',
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            📊 Summary CSV (Wide)
+                        </button>
+
+                        <button
+                            onClick={onGenerateLongDetailedCSV}
+                            style={{
+                                padding: '0.75rem 1.25rem',
+                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            📋 All Geometries CSV (Long)
+                        </button>
+                    </div>
+                    <p style={{
+                        marginTop: '0.5rem',
+                        marginBottom: 0,
+                        fontSize: '0.8rem',
+                        color: '#64748b'
+                    }}>
+                        <strong>Wide:</strong> One row per structure (best match only) |
+                        <strong> Long:</strong> One row per (structure, geometry) pair
+                    </p>
+                </div>
+            )}
 
             {/* Progress Display */}
             {progress && (
@@ -294,10 +408,9 @@ export default function CoordinationSummary({
                         </div>
                     </div>
 
-                    {/* Worker details would go here if needed */}
                     {intensiveProgress.workerDetails && intensiveProgress.workerDetails.estimatedRemaining > 0 && (
                         <div style={{ fontSize: '0.85rem', color: '#16a34a', marginBottom: '0.75rem' }}>
-                            ⏱️ Estimated time remaining: {intensiveProgress.workerDetails.estimatedRemaining}s
+                            Estimated time remaining: {intensiveProgress.workerDetails.estimatedRemaining}s
                             {' | '}
                             Elapsed: {intensiveProgress.workerDetails.elapsed}s
                         </div>
@@ -319,18 +432,17 @@ export default function CoordinationSummary({
                         <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
-                    {/* Structure type identification (for info only) */}
                     {(() => {
                         const rings = intensiveMetadata.ligandGroups?.rings?.length || 0;
                         const mono = intensiveMetadata.ligandGroups?.monodentate?.length || 0;
                         let structureType = '';
 
                         if (rings === 1 && mono > 0) {
-                            structureType = '🎹 Piano Stool Structure';
+                            structureType = 'Piano Stool Structure';
                         } else if (rings === 2) {
-                            structureType = '🥪 Sandwich Structure';
+                            structureType = 'Sandwich Structure';
                         } else if (rings === 1 && mono === 0) {
-                            structureType = '⭕ Macrocyclic Structure';
+                            structureType = 'Macrocyclic Structure';
                         }
 
                         return structureType ? (
@@ -347,14 +459,14 @@ export default function CoordinationSummary({
                     {intensiveMetadata.ligandGroups?.rings?.length > 0 && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
                             {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
-                                <div key={i}>• Ring {i + 1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
+                                <div key={i}>Ring {i + 1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
                             ))}
                         </div>
                     )}
 
                     {intensiveMetadata.metadata?.bestGeometry && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                            → Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
+                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
                         </div>
                     )}
                 </div>
