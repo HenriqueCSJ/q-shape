@@ -7,6 +7,7 @@
 
 import { REFERENCE_GEOMETRIES, POINT_GROUPS } from '../constants/referenceGeometries';
 import { interpretShapeMeasure } from '../utils/geometry';
+import { calculateAdditionalMetrics, calculateQualityMetrics } from './shapeAnalysis/qualityMetrics';
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
@@ -773,11 +774,24 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
         }
     });
 
-    // Build per-structure detail sections
+    // Build per-structure detail sections with full metrics
     const detailSections = [];
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
         if (result && result.geometryResults) {
+            // Get coordAtoms from the best geometry result
+            const coordAtoms = result.bestGeometry?.coordAtoms || [];
+
+            // Calculate metrics
+            const additionalMetrics = calculateAdditionalMetrics(coordAtoms);
+            const qualityMetrics = result.bestGeometry
+                ? calculateQualityMetrics(coordAtoms, result.bestGeometry, result.bestGeometry.shapeMeasure)
+                : null;
+
+            const bestInterp = result.bestGeometry
+                ? interpretShapeMeasure(result.bestGeometry.shapeMeasure)
+                : null;
+
             const geomRows = result.geometryResults.map((r, i) => {
                 const interp = interpretShapeMeasure(r.shapeMeasure);
                 return `
@@ -792,29 +806,122 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                 `;
             }).join('');
 
+            // Get ligand elements
+            const ligandElements = coordAtoms.length > 0
+                ? coordAtoms.map(c => c.atom?.element || '?').join(', ')
+                : 'N/A';
+
             detailSections.push(`
-                <div class="structure-section" style="page-break-inside: avoid; margin-top: 2rem;">
-                    <h3 style="color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">
+                <div class="structure-section" style="page-break-before: always; margin-top: 2rem;">
+                    <h3 style="color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem; font-size: 1.3rem;">
                         📄 Structure: ${escapeHtml(structure.id)}
                     </h3>
-                    <div class="summary-grid" style="margin-bottom: 1rem;">
-                        <div class="summary-item">
-                            <strong>Metal Center</strong>
-                            <span>${structure.atoms[result.metalIndex]?.element || 'N/A'}</span>
-                        </div>
-                        <div class="summary-item">
-                            <strong>Coordination Number</strong>
-                            <span>${result.coordinationNumber || 'N/A'}</span>
-                        </div>
-                        <div class="summary-item">
-                            <strong>Best Geometry</strong>
-                            <span>${result.bestGeometry?.name || 'N/A'}</span>
-                        </div>
-                        <div class="summary-item">
-                            <strong>CShM</strong>
-                            <span>${result.bestGeometry?.shapeMeasure?.toFixed(4) || 'N/A'}</span>
+
+                    <!-- Analysis Summary -->
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; color: #374151;">📊 Analysis Summary</h4>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <strong>Metal Center</strong>
+                                <span>${structure.atoms[result.metalIndex]?.element || 'N/A'} (#${(result.metalIndex || 0) + 1})</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Coordination Number</strong>
+                                <span>${result.coordinationNumber || coordAtoms.length || 'N/A'}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Coordination Radius</strong>
+                                <span>${result.radius?.toFixed(3) || 'N/A'} Å</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Best Match Geometry</strong>
+                                <span>${result.bestGeometry?.name || 'N/A'}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Point Group</strong>
+                                <span>${POINT_GROUPS[result.bestGeometry?.name] || '—'}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>CShM Value</strong>
+                                <span style="color: ${bestInterp?.color || '#374151'};">${result.bestGeometry?.shapeMeasure?.toFixed(4) || 'N/A'}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Interpretation</strong>
+                                <span style="color: ${bestInterp?.color || '#374151'};">${bestInterp?.text || 'N/A'}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Ligands</strong>
+                                <span>${ligandElements}</span>
+                            </div>
                         </div>
                     </div>
+
+                    ${qualityMetrics ? `
+                    <!-- Quality Metrics -->
+                    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #86efac; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; color: #15803d;">🎯 Quality Metrics</h4>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <strong>Overall Quality Score</strong>
+                                <span style="font-size: 1.2em; font-weight: 700; color: ${qualityMetrics.overallQualityScore > 80 ? '#059669' : qualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626'};">${qualityMetrics.overallQualityScore.toFixed(1)}/100</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Angular Distortion Index</strong>
+                                <span>${qualityMetrics.angularDistortionIndex.toFixed(3)}°</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Bond Length Uniformity</strong>
+                                <span>${qualityMetrics.bondLengthUniformityIndex.toFixed(1)}%</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Shape Deviation Parameter</strong>
+                                <span>${qualityMetrics.shapeDeviationParameter.toFixed(4)}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>RMSD</strong>
+                                <span>${qualityMetrics.rmsd.toFixed(4)} Å</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${additionalMetrics && additionalMetrics.meanBondLength > 0 ? `
+                    <!-- Bond Statistics -->
+                    <div style="background: #f1f5f9; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; color: #374151;">📈 Bond Statistics</h4>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <strong>Mean Bond Length</strong>
+                                <span>${additionalMetrics.meanBondLength.toFixed(4)} Å</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Std Dev Bond Length</strong>
+                                <span>${additionalMetrics.stdDevBondLength.toFixed(4)} Å</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Bond Length Range</strong>
+                                <span>${additionalMetrics.minBondLength.toFixed(3)} - ${additionalMetrics.maxBondLength.toFixed(3)} Å</span>
+                            </div>
+                            ${additionalMetrics.angleStats && additionalMetrics.angleStats.count > 0 ? `
+                            <div class="summary-item">
+                                <strong>Mean L-M-L Angle</strong>
+                                <span>${additionalMetrics.angleStats.mean.toFixed(2)}° ± ${additionalMetrics.angleStats.stdDev.toFixed(2)}°</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Angle Range</strong>
+                                <span>${additionalMetrics.angleStats.min.toFixed(1)}° - ${additionalMetrics.angleStats.max.toFixed(1)}°</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Number of L-M-L Angles</strong>
+                                <span>${additionalMetrics.angleStats.count}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- All Geometries Table -->
+                    <h4 style="margin: 1rem 0 0.5rem 0; color: #374151;">📋 All Geometry Comparisons</h4>
                     <table>
                         <thead>
                             <tr>

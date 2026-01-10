@@ -32,7 +32,8 @@ export default function CoordinationSummary({
     onCancelBatch,
     structureId = null
 }) {
-    if (selectedMetal == null) {
+    // Safety check: ensure selectedMetal is valid and within bounds
+    if (selectedMetal == null || !atoms || selectedMetal >= atoms.length || !atoms[selectedMetal]) {
         return null;
     }
 

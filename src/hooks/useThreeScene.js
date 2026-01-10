@@ -52,7 +52,8 @@ export function useThreeScene({
     bestGeometry,
     autoRotate,
     showIdeal,
-    showLabels
+    showLabels,
+    sceneKey // v1.5.0: Key to force scene re-render when structure/geometry changes
 }) {
     const sceneRef = useRef(null);
     const rendererRef = useRef(null);
@@ -300,7 +301,7 @@ export function useThreeScene({
             renderer.dispose();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [atoms, selectedMetal, coordAtoms, bestGeometry, autoRotate, showIdeal, showLabels]);
+    }, [atoms, selectedMetal, coordAtoms, bestGeometry, autoRotate, showIdeal, showLabels, sceneKey]);
 
     // Update auto-rotation when toggle changes
     useEffect(() => {

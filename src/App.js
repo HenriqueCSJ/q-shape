@@ -469,18 +469,13 @@ export default function CoordinationGeometryAnalyzer() {
 
       {atoms.length > 0 && (
       <>
-        {/* Batch Mode Panel - shown when multiple structures detected */}
+        {/* Batch Mode Panel - structure selector (shown when multiple structures detected) */}
         {batchMode && (
           <BatchModePanel
             structures={structures}
             selectedStructureIndex={selectedStructureIndex}
             onSelectStructure={handleSelectStructure}
             batchResults={batchResults}
-            isBatchRunning={isBatchRunning}
-            batchProgress={batchProgress}
-            onAnalyzeAll={analyzeAllStructures}
-            onCancelBatch={cancelBatchAnalysis}
-            getBatchSummary={getBatchSummary}
           />
         )}
 
