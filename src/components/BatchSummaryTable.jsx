@@ -123,6 +123,12 @@ export default function BatchSummaryTable({
                                         ? interpretShapeMeasure(row.bestCShM)
                                         : null;
 
+                                    // Color scheme: selected rows use cohesive blue palette
+                                    // Non-selected rows use semantic colors for quality indicators
+                                    const selectedBlue = '#1e40af';
+                                    const selectedBlueMedium = '#2563eb';
+                                    const selectedBlueBadgeBg = '#1e40af20';
+
                                     return (
                                         <tr
                                             key={row.id}
@@ -133,42 +139,61 @@ export default function BatchSummaryTable({
                                                     ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
                                                     : idx % 2 === 0 ? '#f8fafc' : 'white',
                                                 borderLeft: isSelected ? '4px solid #3b82f6' : '4px solid transparent',
-                                                transition: 'background 0.2s'
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isSelected) {
+                                                    e.currentTarget.style.background = '#f1f5f9';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isSelected) {
+                                                    e.currentTarget.style.background = idx % 2 === 0 ? '#f8fafc' : 'white';
+                                                }
                                             }}
                                         >
                                             <td style={{
                                                 padding: '0.75rem',
-                                                fontWeight: isSelected ? 700 : 400
+                                                fontWeight: isSelected ? 700 : 400,
+                                                color: isSelected ? selectedBlue : '#374151'
                                             }}>
                                                 {idx + 1}
                                             </td>
                                             <td style={{
                                                 padding: '0.75rem',
                                                 fontWeight: isSelected ? 700 : 600,
-                                                color: isSelected ? '#1e40af' : '#374151'
+                                                color: isSelected ? selectedBlue : '#374151'
                                             }}>
                                                 {row.id}
                                                 {isSelected && (
                                                     <span style={{
                                                         marginLeft: '0.5rem',
                                                         fontSize: '0.8rem',
-                                                        color: '#3b82f6'
+                                                        color: selectedBlueMedium
                                                     }}>
                                                         ◀
                                                     </span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '0.75rem', fontWeight: 600 }}>
+                                            <td style={{
+                                                padding: '0.75rem',
+                                                fontWeight: 600,
+                                                color: isSelected ? selectedBlue : '#374151'
+                                            }}>
                                                 {row.metalElement}
                                             </td>
                                             <td style={{
                                                 padding: '0.75rem',
                                                 textAlign: 'center',
-                                                fontFamily: 'monospace'
+                                                fontFamily: 'monospace',
+                                                color: isSelected ? selectedBlue : '#374151'
                                             }}>
                                                 {row.coordinationNumber}
                                             </td>
-                                            <td style={{ padding: '0.75rem' }}>
+                                            <td style={{
+                                                padding: '0.75rem',
+                                                color: isSelected ? selectedBlue : '#374151'
+                                            }}>
                                                 {row.bestGeometry}
                                             </td>
                                             <td style={{
@@ -176,7 +201,7 @@ export default function BatchSummaryTable({
                                                 textAlign: 'right',
                                                 fontFamily: 'monospace',
                                                 fontWeight: 600,
-                                                color: interpretation?.color || '#374151'
+                                                color: isSelected ? selectedBlue : (interpretation?.color || '#374151')
                                             }}>
                                                 {row.bestCShM !== null ? row.bestCShM.toFixed(4) : '—'}
                                             </td>
@@ -191,8 +216,8 @@ export default function BatchSummaryTable({
                                                         borderRadius: '4px',
                                                         fontSize: '0.8rem',
                                                         fontWeight: 600,
-                                                        background: interpretation.color + '20',
-                                                        color: interpretation.color
+                                                        background: isSelected ? selectedBlueBadgeBg : (interpretation.color + '20'),
+                                                        color: isSelected ? selectedBlue : interpretation.color
                                                     }}>
                                                         {interpretation.confidence}%
                                                     </span>

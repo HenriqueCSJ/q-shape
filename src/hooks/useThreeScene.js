@@ -99,14 +99,24 @@ export function useThreeScene({
         camera.lookAt(center);
         cameraRef.current = camera;
 
-        // Initialize controls
+        // Initialize controls with full rotation freedom
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.target.copy(center);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 5;
-        controls.maxDistance = 50;
+        controls.screenSpacePanning = true; // Better panning behavior
+        controls.minDistance = 3;
+        controls.maxDistance = 60;
+        // Allow full vertical rotation (0 to π allows 180° which is standard)
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = Math.PI;
+        // No limits on horizontal rotation (already unlimited by default)
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        // Smooth rotation
+        controls.rotateSpeed = 0.8;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
         controls.autoRotate = autoRotate;
         controls.autoRotateSpeed = 1.0;
         controlsRef.current = controls;
