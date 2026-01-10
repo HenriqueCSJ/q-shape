@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import './App.css';
 
+// Constants
+import { APP_VERSION, BUILD_DATE, APP_FULL_NAME, getCitationString, CITATION } from './constants/appMetadata';
+
 // Custom Hooks
 import useFileUpload from './hooks/useFileUpload';
 import useRadiusControl from './hooks/useRadiusControl';
@@ -408,7 +411,7 @@ export default function CoordinationGeometryAnalyzer() {
       <div className="app-content">
       <header className="app-header">
         <h1>
-            🔬 Q-Shape (Quantitative Shape Analyzer)
+            🔬 {APP_FULL_NAME}
         </h1>
         <p>
             <strong>Advanced Coordination Geometry Analysis</strong>
@@ -419,10 +422,10 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version 1.5.0 | Built: January 2025
+            Version {APP_VERSION} | Built: {BUILD_DATE}
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo. <a href="https://doi.org/10.5281/zenodo.17717110" target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>https://doi.org/10.5281/zenodo.17717110</a>
+            Cite this: {getCitationString()} <a href={CITATION.url} target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>{CITATION.url}</a>
         </p>
       </header>
 
