@@ -3,7 +3,7 @@
  *
  * Manages a pool of Web Workers for parallel CShM calculations.
  *
- * TODO: Currently unused in v1.4.0 (reverted to sequential execution).
+ * TODO: Currently unused in v1.5.0 (reverted to sequential execution).
  * Keep for future re-integration of parallel processing.
  * Distributes work across workers, aggregates progress, handles errors.
  *

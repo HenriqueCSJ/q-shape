@@ -1,7 +1,7 @@
 /**
  * Handles intensive CShM optimization with progress reporting.
  *
- * TODO: This worker is currently disconnected from the main application flow (v1.4.0).
+ * TODO: This worker is currently disconnected from the main application flow (v1.5.0).
  * It was reverted due to memory issues but has been optimized.
  * Re-integrate in future versions for parallel processing.
  *

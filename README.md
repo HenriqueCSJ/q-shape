@@ -4,7 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.4.0)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17717110.svg)](https://doi.org/10.5281/zenodo.17717110)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
@@ -46,6 +46,16 @@
 ✅ **Comprehensive Metrics** - Bond statistics, angular distortion, quality scoring
 ✅ **PDF Reports** - Professional output suitable for publication
 
+### Multi-Structure Batch Analysis (v1.5.0)
+
+✅ **Batch Processing** - Analyze multiple structures from a single file
+✅ **Multi-Structure XYZ/CIF Support** - Load files with multiple conformers or structures
+✅ **Batch Summary Table** - Visual overview of all analyzed structures at a glance
+✅ **Parallel Analysis** - Run intensive analysis on all structures with progress tracking
+✅ **Batch PDF Reports** - Comprehensive reports with per-structure details
+✅ **CSV Export** - Wide summary or detailed geometry results for all structures
+✅ **Structure Selector** - Navigate between structures with instant visualization updates
+
 ### Analysis Modes
 
 **Standard Mode** (~5-10 seconds)
@@ -70,12 +80,20 @@ Visit **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-
 
 ### Basic Workflow
 
-1. **Upload** your XYZ file (drag-and-drop or file picker)
+1. **Upload** your XYZ or CIF file (drag-and-drop or file picker)
 2. **Select** metal center (auto-detected or manual selection)
 3. **Adjust** coordination sphere radius if needed
 4. **Run** analysis (standard or intensive mode)
 5. **Visualize** results in 3D and review shape measures
 6. **Export** PDF report for your records
+
+### Batch Analysis Workflow (v1.5.0)
+
+1. **Upload** a multi-structure XYZ or CIF file
+2. **Review** the batch summary table showing all structures
+3. **Run Batch Analysis** to analyze all structures with intensive mode
+4. **Navigate** between structures using the structure selector
+5. **Export** batch PDF report or CSV files with all results
 
 ---
 
@@ -339,7 +357,7 @@ If you use Q-Shape in your research, please cite:
 
 **APA:**
 ```
-Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.4.0).
+Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0).
 Zenodo. https://doi.org/10.5281/zenodo.17717110
 ```
 
@@ -348,7 +366,7 @@ Zenodo. https://doi.org/10.5281/zenodo.17717110
 @software{qshape2025,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
-  version = {1.4.0},
+  version = {1.5.0},
   year = {2025},
   doi = {10.5281/zenodo.17717110},
   url = {https://doi.org/10.5281/zenodo.17717110},
