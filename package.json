@@ -1,6 +1,6 @@
 {
   "name": "q-shape",
-  "version": "1.4.0",
+  "version": "1.5.0-dev",
   "description": "Quantitative Shape Analyzer for Coordination Geometry Analysis",
   "homepage": "https://HenriqueCSJ.github.io/q-shape",
   "private": true,
