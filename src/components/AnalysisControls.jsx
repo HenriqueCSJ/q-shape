@@ -23,15 +23,39 @@ export default function AnalysisControls({
     onDecrementRadius,
     onCoordRadiusChange,
     onAutoRadiusChange,
-    onTargetCNInputChange
+    onTargetCNInputChange,
+    // v1.5.0 batch mode props
+    batchMode = false,
+    onApplyMetalToAll,
+    onApplyRadiusToAll
 }) {
     return (
         <div className="controls-section">
             {/* Metal Center Selector */}
             <div className="card">
-                <label className="control-label">
-                    🎯 Metal Center
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label className="control-label" style={{ margin: 0 }}>
+                        🎯 Metal Center
+                    </label>
+                    {batchMode && selectedMetal !== null && onApplyMetalToAll && (
+                        <button
+                            onClick={() => onApplyMetalToAll(selectedMetal)}
+                            style={{
+                                padding: '0.25rem 0.5rem',
+                                fontSize: '0.75rem',
+                                background: '#8b5cf6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                            }}
+                            title="Apply this metal selection to all structures in batch"
+                        >
+                            Apply to All
+                        </button>
+                    )}
+                </div>
                 <select
                     value={selectedMetal ?? ''}
                     onChange={(e) => onMetalChange(Number(e.target.value))}
@@ -52,15 +76,35 @@ export default function AnalysisControls({
                     <label className="control-label">
                         📏 Coordination Radius: {coordRadius.toFixed(2)} Å
                     </label>
-                    <label className="checkbox-label">
-                        <input
-                            type="checkbox"
-                            checked={autoRadius}
-                            onChange={(e) => onAutoRadiusChange(e.target.checked)}
-                            style={{ cursor: 'pointer' }}
-                        />
-                        Auto
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {batchMode && onApplyRadiusToAll && (
+                            <button
+                                onClick={() => onApplyRadiusToAll(coordRadius)}
+                                style={{
+                                    padding: '0.25rem 0.5rem',
+                                    fontSize: '0.75rem',
+                                    background: '#8b5cf6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                }}
+                                title="Apply this radius to all structures in batch"
+                            >
+                                Apply to All
+                            </button>
+                        )}
+                        <label className="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={autoRadius}
+                                onChange={(e) => onAutoRadiusChange(e.target.checked)}
+                                style={{ cursor: 'pointer' }}
+                            />
+                            Auto
+                        </label>
+                    </div>
                 </div>
 
                 {/* Precise Radius Control */}

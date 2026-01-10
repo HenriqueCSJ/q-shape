@@ -11,7 +11,7 @@ import { useThreeScene } from './hooks/useThreeScene';
 
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
-import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateWideSummaryCSV, generateLongDetailedCSV } from './services/reportGenerator';
+import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateLongDetailedCSV } from './services/reportGenerator';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -20,7 +20,7 @@ import CoordinationSummary from './components/CoordinationSummary';
 import Visualization3D from './components/Visualization3D';
 import ResultsDisplay from './components/ResultsDisplay';
 import BatchModePanel from './components/BatchModePanel';
-import ManualOverridePanel from './components/ManualOverridePanel';
+import BatchSummaryTable from './components/BatchSummaryTable';
 
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
@@ -32,7 +32,6 @@ export default function CoordinationGeometryAnalyzer() {
     const [showLabels, setShowLabels] = useState(true);
     const [warnings, setWarnings] = useState([]);
     const [selectedGeometryIndex, setSelectedGeometryIndex] = useState(0);
-    const [showManualOverride, setShowManualOverride] = useState(false);
 
     // Intensive Analysis State
     const [intensiveMetadata, setIntensiveMetadata] = useState(null);
@@ -243,7 +242,6 @@ export default function CoordinationGeometryAnalyzer() {
             setIntensiveMetadata(null);
             setIntensiveProgress(null);
             setSelectedGeometryIndex(0);
-            setShowManualOverride(false);
 
             // Reset file input
             if (fileInputRef.current) {
@@ -386,25 +384,6 @@ export default function CoordinationGeometryAnalyzer() {
         }
     }, [geometryResults, fileName, currentStructure]);
 
-    // CSV Export - Wide summary (batch mode)
-    const handleGenerateWideSummaryCSV = useCallback(() => {
-        if (!batchMode || batchResults.size === 0) {
-            handleWarning('No batch results available for CSV export');
-            return;
-        }
-
-        try {
-            generateWideSummaryCSV({
-                structures,
-                batchResults,
-                fileName
-            });
-        } catch (err) {
-            console.error("Wide CSV generation failed:", err);
-            setWarnings(prev => [...prev, `Wide CSV export failed: ${err.message}`]);
-        }
-    }, [batchMode, batchResults, structures, fileName, handleWarning]);
-
     // CSV Export - Long detailed (batch mode, all geometries)
     const handleGenerateLongDetailedCSV = useCallback(() => {
         if (!batchMode || batchResults.size === 0) {
@@ -522,46 +501,10 @@ export default function CoordinationGeometryAnalyzer() {
           onCoordRadiusChange={handleRadiusChangeWithOverride}
           onAutoRadiusChange={setAutoRadius}
           onTargetCNInputChange={setTargetCNInput}
+          batchMode={batchMode}
+          onApplyMetalToAll={(metalIndex) => applyOverrideToAll({ metalIndex })}
+          onApplyRadiusToAll={(radius) => applyOverrideToAll({ radius })}
         />
-
-        {/* Manual Override Toggle */}
-        <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-          <button
-            onClick={() => setShowManualOverride(!showManualOverride)}
-            style={{
-              background: 'transparent',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              padding: '0.5rem 1rem',
-              fontSize: '0.85rem',
-              color: '#64748b',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <span>🔧</span>
-            {showManualOverride ? 'Hide Manual Overrides' : 'Show Manual Overrides'}
-            <span style={{ fontSize: '0.75rem' }}>{showManualOverride ? '▲' : '▼'}</span>
-          </button>
-        </div>
-
-        {/* Manual Override Panel */}
-        {showManualOverride && (
-          <ManualOverridePanel
-            atoms={atoms}
-            currentMetal={effectiveMetal}
-            currentRadius={coordRadius}
-            currentCN={coordAtoms?.length}
-            onMetalChange={handleMetalChange}
-            onRadiusChange={handleRadiusChangeWithOverride}
-            onFindRadiusForCN={handleFindRadiusForCN}
-            batchMode={batchMode}
-            onApplyToAll={applyOverrideToAll}
-            structureId={currentStructure?.id}
-          />
-        )}
 
         <CoordinationSummary
           atoms={atoms}
@@ -578,15 +521,27 @@ export default function CoordinationGeometryAnalyzer() {
           bestGeometry={bestGeometry}
           geometryResults={geometryResults}
           onIntensiveAnalysis={handleIntensiveAnalysis}
-          onGenerateReport={handleGenerateReport}
-          onGenerateCSV={handleGenerateCSV}
+          onGenerateReport={batchMode && batchResults.size > 0 ? handleGenerateBatchReport : handleGenerateReport}
+          onGenerateCSV={batchMode && batchResults.size > 0 ? handleGenerateLongDetailedCSV : handleGenerateCSV}
           batchMode={batchMode}
           batchResults={batchResults}
-          onGenerateBatchReport={handleGenerateBatchReport}
-          onGenerateWideSummaryCSV={handleGenerateWideSummaryCSV}
-          onGenerateLongDetailedCSV={handleGenerateLongDetailedCSV}
+          isBatchRunning={isBatchRunning}
+          onAnalyzeAll={analyzeAllStructures}
+          onCancelBatch={cancelBatchAnalysis}
           structureId={currentStructure?.id}
         />
+
+        {/* Batch Summary Table - positioned below action buttons, close to 3D viewer */}
+        {batchMode && (
+          <BatchSummaryTable
+            structures={structures}
+            selectedStructureIndex={selectedStructureIndex}
+            onSelectStructure={handleSelectStructure}
+            batchResults={batchResults}
+            batchProgress={batchProgress}
+            getBatchSummary={getBatchSummary}
+          />
+        )}
 
         <div className="main-layout">
           <Visualization3D

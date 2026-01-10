@@ -2,7 +2,7 @@
  * Coordination Summary Component - v1.5.0
  *
  * Displays coordination information, quality metrics, and action buttons.
- * Updated for batch mode with structure ID display and batch export options.
+ * Buttons are context-aware - they automatically handle batch vs single mode.
  */
 
 import React from 'react';
@@ -27,9 +27,9 @@ export default function CoordinationSummary({
     // v1.5.0 batch mode props
     batchMode = false,
     batchResults,
-    onGenerateBatchReport,
-    onGenerateWideSummaryCSV,
-    onGenerateLongDetailedCSV,
+    isBatchRunning = false,
+    onAnalyzeAll,
+    onCancelBatch,
     structureId = null
 }) {
     if (selectedMetal == null) {
@@ -37,6 +37,10 @@ export default function CoordinationSummary({
     }
 
     const hasBatchResults = batchResults && batchResults.size > 0;
+    const canGenerateReport = batchMode ? hasBatchResults : (bestGeometry && !isLoading);
+    const canGenerateCSV = batchMode
+        ? hasBatchResults
+        : (geometryResults && geometryResults.length > 0 && !isLoading);
 
     return (
         <div style={{
@@ -61,7 +65,10 @@ export default function CoordinationSummary({
                 }}>
                     <span style={{ fontSize: '1.1rem' }}>📄</span>
                     <span style={{ fontWeight: 600, color: '#1e40af' }}>
-                        Structure: {structureId}
+                        Viewing: {structureId}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#3b82f6', marginLeft: 'auto' }}>
+                        (use structure selector above to switch)
                     </span>
                 </div>
             )}
@@ -149,7 +156,7 @@ export default function CoordinationSummary({
                 )}
             </div>
 
-            {/* Single Structure Action Buttons */}
+            {/* Action Buttons - context-aware for batch vs single mode */}
             <div style={{
                 display: 'flex',
                 gap: '0.75rem',
@@ -170,7 +177,7 @@ export default function CoordinationSummary({
                         boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
                     onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -180,23 +187,23 @@ export default function CoordinationSummary({
 
                 <button
                     onClick={onGenerateReport}
-                    disabled={!bestGeometry || isLoading}
+                    disabled={!canGenerateReport}
                     style={{
                         padding: '1rem 2rem',
-                        background: bestGeometry && !isLoading
+                        background: canGenerateReport
                             ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)'
                             : '#cbd5e1',
                         color: 'white',
                         border: 'none',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        cursor: bestGeometry && !isLoading ? 'pointer' : 'not-allowed',
-                        boxShadow: bestGeometry && !isLoading ? '0 4px 6px rgba(79, 70, 229, 0.4)' : 'none',
+                        cursor: canGenerateReport ? 'pointer' : 'not-allowed',
+                        boxShadow: canGenerateReport ? '0 4px 6px rgba(79, 70, 229, 0.4)' : 'none',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
-                    onMouseOver={(e) => bestGeometry && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => canGenerateReport && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     📄 Generate Report
@@ -204,113 +211,57 @@ export default function CoordinationSummary({
 
                 <button
                     onClick={onGenerateCSV}
-                    disabled={!geometryResults || geometryResults.length === 0 || isLoading}
+                    disabled={!canGenerateCSV}
                     style={{
                         padding: '1rem 2rem',
-                        background: geometryResults && geometryResults.length > 0 && !isLoading
+                        background: canGenerateCSV
                             ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                             : '#cbd5e1',
                         color: 'white',
                         border: 'none',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        cursor: geometryResults && geometryResults.length > 0 && !isLoading ? 'pointer' : 'not-allowed',
-                        boxShadow: geometryResults && geometryResults.length > 0 && !isLoading ? '0 4px 6px rgba(16, 185, 129, 0.4)' : 'none',
+                        cursor: canGenerateCSV ? 'pointer' : 'not-allowed',
+                        boxShadow: canGenerateCSV ? '0 4px 6px rgba(16, 185, 129, 0.4)' : 'none',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
-                    onMouseOver={(e) => geometryResults && geometryResults.length > 0 && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => canGenerateCSV && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     📊 Download CSV
                 </button>
+
+                {/* Analyze All Structures button - only in batch mode */}
+                {batchMode && (
+                    <button
+                        onClick={isBatchRunning ? onCancelBatch : onAnalyzeAll}
+                        disabled={false}
+                        style={{
+                            padding: '1rem 2rem',
+                            background: isBatchRunning
+                                ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                                : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '10px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: isBatchRunning
+                                ? '0 4px 6px rgba(239, 68, 68, 0.4)'
+                                : '0 4px 6px rgba(139, 92, 246, 0.4)',
+                            transition: 'all 0.2s',
+                            fontSize: '1rem',
+                            minWidth: '200px'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                        {isBatchRunning ? '⏹️ Cancel' : '🚀 Analyze All Structures'}
+                    </button>
+                )}
             </div>
-
-            {/* Batch Export Buttons - shown when in batch mode with results */}
-            {batchMode && hasBatchResults && (
-                <div style={{
-                    marginTop: '1.5rem',
-                    padding: '1rem',
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0'
-                }}>
-                    <div style={{
-                        fontWeight: 700,
-                        color: '#374151',
-                        marginBottom: '0.75rem',
-                        fontSize: '0.95rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    }}>
-                        <span>📚</span> Batch Export Options
-                    </div>
-                    <div style={{
-                        display: 'flex',
-                        gap: '0.75rem',
-                        flexWrap: 'wrap'
-                    }}>
-                        <button
-                            onClick={onGenerateBatchReport}
-                            style={{
-                                padding: '0.75rem 1.25rem',
-                                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontSize: '0.9rem'
-                            }}
-                        >
-                            📄 Batch PDF Report
-                        </button>
-
-                        <button
-                            onClick={onGenerateWideSummaryCSV}
-                            style={{
-                                padding: '0.75rem 1.25rem',
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontSize: '0.9rem'
-                            }}
-                        >
-                            📊 Summary CSV (Wide)
-                        </button>
-
-                        <button
-                            onClick={onGenerateLongDetailedCSV}
-                            style={{
-                                padding: '0.75rem 1.25rem',
-                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontSize: '0.9rem'
-                            }}
-                        >
-                            📋 All Geometries CSV (Long)
-                        </button>
-                    </div>
-                    <p style={{
-                        marginTop: '0.5rem',
-                        marginBottom: 0,
-                        fontSize: '0.8rem',
-                        color: '#64748b'
-                    }}>
-                        <strong>Wide:</strong> One row per structure (best match only) |
-                        <strong> Long:</strong> One row per (structure, geometry) pair
-                    </p>
-                </div>
-            )}
 
             {/* Progress Display */}
             {progress && (
