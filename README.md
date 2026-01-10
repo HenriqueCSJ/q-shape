@@ -5,7 +5,7 @@
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
 [![Version](https://img.shields.io/badge/version-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17717110.svg)](https://doi.org/10.5281/zenodo.17717110)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18209621.svg)](https://doi.org/10.5281/zenodo.18209621)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
 [![Tests](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml/badge.svg)](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml)
@@ -357,8 +357,8 @@ If you use Q-Shape in your research, please cite:
 
 **APA:**
 ```
-Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0).
-Zenodo. https://doi.org/10.5281/zenodo.17717110
+Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.5.0).
+Zenodo. https://doi.org/10.5281/zenodo.18209621
 ```
 
 **BibTeX:**
@@ -367,9 +367,9 @@ Zenodo. https://doi.org/10.5281/zenodo.17717110
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
   version = {1.5.0},
-  year = {2025},
-  doi = {10.5281/zenodo.17717110},
-  url = {https://doi.org/10.5281/zenodo.17717110},
+  year = {2026},
+  doi = {10.5281/zenodo.18209621},
+  url = {https://doi.org/10.5281/zenodo.18209621},
   publisher = {Zenodo}
 }
 ```
@@ -412,7 +412,7 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
 ```
 MIT License
-Copyright (c) 2025 Henrique C. S. Junior
+Copyright (c) 2026 Henrique C. S. Junior
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

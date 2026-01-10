@@ -6,17 +6,17 @@
  */
 
 export const APP_VERSION = '1.5.0';
-export const BUILD_DATE = 'January 2025';
+export const BUILD_DATE = 'January 2026';
 export const APP_NAME = 'Q-Shape';
 export const APP_FULL_NAME = 'Q-Shape (Quantitative Shape Analyzer)';
 
 // Citation information
 export const CITATION = {
     author: 'Castro Silva Junior, H.',
-    year: 2025,
+    year: 2026,
     title: 'Q-Shape - Quantitative Shape Analyzer',
-    doi: '10.5281/zenodo.17717110',
-    url: 'https://doi.org/10.5281/zenodo.17717110'
+    doi: '10.5281/zenodo.18209621',
+    url: 'https://doi.org/10.5281/zenodo.18209621'
 };
 
 // Format citation string

@@ -11,7 +11,7 @@ repository-code: "https://github.com/HenriqueCSJ/q-shape"
 url: "https://henriquecsj.github.io/q-shape"
 license: MIT
 version: "v1.5.0"
-date-released: "2025-11-25"
+date-released: "2026-01-10"
 keywords:
   - "coordination chemistry"
   - "continuous shape measures"
@@ -21,17 +21,17 @@ keywords:
   - "coordination geometry"
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.17717110"
+    value: "10.5281/zenodo.18209621"
     description: "Zenodo DOI for Q-Shape"
 preferred-citation:
   type: software
   title: "Q-Shape - Quantitative Shape Analyzer"
   version: "v1.5.0"
-  year: 2025
+  year: 2026
   authors:
     - given-names: Henrique
       family-names: Castro Silva Junior
       orcid: "https://orcid.org/0000-0003-1453-7274"
-  doi: "10.5281/zenodo.17717110"
-  url: "https://doi.org/10.5281/zenodo.17717110"
+  doi: "10.5281/zenodo.18209621"
+  url: "https://doi.org/10.5281/zenodo.18209621"
   repository-code: "https://github.com/HenriqueCSJ/q-shape"
