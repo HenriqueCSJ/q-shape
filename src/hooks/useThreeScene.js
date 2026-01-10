@@ -63,6 +63,13 @@ export function useThreeScene({
     useEffect(() => {
         if (!canvasRef.current || atoms.length === 0 || selectedMetal == null) return;
 
+        // Safety check: ensure selected metal atom exists
+        const metal = atoms[selectedMetal];
+        if (!metal || typeof metal.x !== 'number' || typeof metal.y !== 'number' || typeof metal.z !== 'number') {
+            console.warn('useThreeScene: Invalid metal atom at index', selectedMetal);
+            return;
+        }
+
         const canvas = canvasRef.current;
         const container = canvas.parentElement;
 
@@ -93,7 +100,6 @@ export function useThreeScene({
 
         // Initialize camera
         const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-        const metal = atoms[selectedMetal];
         const center = new THREE.Vector3(metal.x, metal.y, metal.z);
         camera.position.set(center.x + 12, center.y + 8, center.z + 12);
         camera.lookAt(center);
@@ -198,6 +204,12 @@ export function useThreeScene({
 
         // Render bonds as cylinders
         coordAtoms.forEach((c) => {
+            // Safety check: ensure atom coordinates exist
+            if (!c?.atom || typeof c.atom.x !== 'number' || typeof c.atom.y !== 'number' || typeof c.atom.z !== 'number') {
+                console.warn('useThreeScene: Invalid coordinating atom, skipping bond');
+                return;
+            }
+
             const p0 = center;
             const p1 = new THREE.Vector3(c.atom.x, c.atom.y, c.atom.z);
             const bondVec = p1.clone().sub(p0);

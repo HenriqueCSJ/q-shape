@@ -779,8 +779,8 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
         if (result && result.geometryResults) {
-            // Get coordAtoms from the best geometry result
-            const coordAtoms = result.bestGeometry?.coordAtoms || [];
+            // Get coordAtoms from the result (stored during batch analysis)
+            const coordAtoms = result.coordAtoms || [];
 
             // Calculate metrics
             const additionalMetrics = calculateAdditionalMetrics(coordAtoms);
@@ -811,11 +811,25 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                 ? coordAtoms.map(c => c.atom?.element || '?').join(', ')
                 : 'N/A';
 
+            // Calculate total available geometries
+            const totalAvailableGeometries = Object.values(REFERENCE_GEOMETRIES).reduce(
+                (sum, geoms) => sum + Object.keys(geoms).length, 0
+            );
+            const cnGeometries = coordAtoms.length > 0
+                ? Object.keys(REFERENCE_GEOMETRIES[coordAtoms.length] || {}).length
+                : 0;
+
             detailSections.push(`
                 <div class="structure-section" style="page-break-before: always; margin-top: 2rem;">
                     <h3 style="color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem; font-size: 1.3rem;">
                         📄 Structure: ${escapeHtml(structure.id)}
                     </h3>
+
+                    <!-- Q-Shape Analysis Info Box -->
+                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Q-Shape</strong> analyzed this structure against <strong>${totalAvailableGeometries} reference geometries</strong>.</p>
+                        <p style="margin: 0;">For CN=${coordAtoms.length}, <strong>${cnGeometries} reference geometries</strong> were evaluated using Kabsch alignment and Hungarian algorithm.</p>
+                    </div>
 
                     <!-- Analysis Summary -->
                     <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
@@ -920,6 +934,31 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     </div>
                     ` : ''}
 
+                    ${result.ligandGroups && (result.ligandGroups.ringCount > 0 || result.ligandGroups.hasSandwichStructure) ? `
+                    <!-- Ligand Groups Analysis -->
+                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0 0 0.75rem 0; color: #1e40af;">🔬 Ligand Groups Analysis</h4>
+                        <p style="margin: 0 0 0.5rem 0;"><strong>${result.ligandGroups.summary}</strong></p>
+                        ${result.ligandGroups.rings && result.ligandGroups.rings.length > 0 ? `
+                        <div style="margin-top: 0.5rem;">
+                            <p style="font-weight: 600; color: #1e40af; margin: 0 0 0.25rem 0;">Detected Rings:</p>
+                            <ul style="list-style: none; padding-left: 1rem; margin: 0;">
+                                ${result.ligandGroups.rings.map((ring, i) => `
+                                <li style="margin: 0.25rem 0;">
+                                    <strong>Ring ${i + 1}:</strong> ${ring.hapticity || 'Unknown'} (${ring.size} atoms${ring.distanceToMetal ? ', ' + ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
+                                </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        ${result.ligandGroups.hasSandwichStructure ? `
+                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 6px; border-left: 3px solid #10b981;">
+                            <p style="margin: 0; font-weight: 700; color: #15803d;">🥪 Sandwich Structure Detected</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+
                     ${coordAtoms.length > 0 ? `
                     <!-- Coordinating Atoms Table -->
                     <h4 style="margin: 1rem 0 0.5rem 0; color: #374151;">🔗 Coordinating Atoms</h4>
@@ -984,9 +1023,15 @@ ${getBatchReportStyles()}
 
 <header>
   <h1>🔬 Q-Shape Batch Analysis Report</h1>
+  <p><strong>Coordination Geometry Analysis - Multi-Structure Report</strong></p>
   <p><strong>File:</strong> ${escapeHtml(fileName)}.${fileFormat || 'xyz'}</p>
   <p><strong>Generated:</strong> ${date}</p>
   <p><strong>Structures Analyzed:</strong> ${analyzedCount} of ${structures.length}</p>
+  <p><strong>Analysis Mode:</strong> Intensive (High Precision) with Kabsch Alignment</p>
+  <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
+    Cite this: Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo.
+    <a href="https://doi.org/10.5281/zenodo.17717110" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17717110</a>
+  </p>
 </header>
 
 <main>
@@ -1013,8 +1058,24 @@ ${getBatchReportStyles()}
 </main>
 
 <footer>
-  <p>Generated by <strong>Q-Shape v1.5.0</strong></p>
-  <p>Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer. Zenodo.</p>
+  <p>Report generated by <strong>Q-Shape (Quantitative Shape Analyzer) v1.5.0</strong></p>
+  <p style="margin-top: 1rem;">Comprehensive analysis with optimized Kabsch alignment with Jacobi SVD • Enhanced Hungarian algorithm</p>
+  <p style="margin-top: 1rem; font-size: 0.85em;">
+    Castro Silva Junior, H. (2025). Q-Shape - Quantitative Shape Analyzer (v1.5.0). Zenodo.
+    <a href="https://doi.org/10.5281/zenodo.17717110" style="color: #4f46e5;">https://doi.org/10.5281/zenodo.17717110</a>
+  </p>
+  <p style="margin-top: 0.5rem; font-size: 0.85em; color: #64748b;">
+    Based on Continuous Shape Measures methodology: Pinsky & Avnir (1998), Alvarez et al. (2002)
+  </p>
+
+  <div class="university-section" style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+    <img src="${process.env.PUBLIC_URL}/UFRRJ.png" alt="UFRRJ Logo" style="width: 60px; height: 60px;" onerror="this.style.display='none'">
+    <div style="text-align: left;">
+      <p style="margin: 0.25rem 0; font-weight: bold; color: #1e293b;">Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
+      <p style="margin: 0.25rem 0;">Departamento de Química Fundamental</p>
+      <p style="margin: 0.25rem 0;">Prof. Dr. Henrique C. S. Junior</p>
+    </div>
+  </div>
 </footer>
 </body>
 </html>`;

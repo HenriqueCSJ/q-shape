@@ -15,6 +15,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { runIntensiveAnalysisAsync } from '../services/coordination/intensiveAnalysis';
 import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
+import { getCoordinatingAtoms } from '../services/coordination/sphereDetector';
 
 /**
  * @typedef {Object} StructureOverride
@@ -160,7 +161,11 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
             onProgress
         );
 
-        // Store result
+        // Compute coordinating atoms for this structure
+        // This is needed for the batch report to show full details
+        const coordAtoms = getCoordinatingAtoms(atoms, metalIndex, radius);
+
+        // Store result with coordAtoms included
         setStructureResult(structureIndex, {
             geometryResults: result.geometryResults,
             bestGeometry: result.geometryResults[0] || null,
@@ -168,8 +173,8 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
             metadata: result.metadata,
             metalIndex,
             radius,
-            coordinationNumber: result.geometryResults[0]?.coordAtoms?.length ||
-                               result.metadata?.coordinationNumber || 0,
+            coordAtoms, // Include coordAtoms for batch report
+            coordinationNumber: coordAtoms.length || result.metadata?.coordinationNumber || 0,
             analysisMode: 'intensive'
         });
 
