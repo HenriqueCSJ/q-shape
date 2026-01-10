@@ -9,9 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎯 Overview
 
-**Piano Stool Complex Support** - This release adds comprehensive support for half-sandwich (piano stool) complexes, a major class of organometallic compounds that were previously not properly analyzed by the software.
+**Multi-Structure Batch Analysis & Piano Stool Complex Support** - This major release introduces comprehensive batch analysis for multi-structure files (XYZ and CIF), along with support for half-sandwich (piano stool) complexes.
 
 ### ✨ New Features
+
+#### Multi-Structure Batch Analysis (Major Feature)
+- **Problem:** Users could only analyze one structure at a time, making it tedious to analyze files with multiple conformers or structures
+- **Solution:** Full batch analysis mode with parallel structure handling
+- **Implementation:**
+  - New `useFileUpload` hook with multi-structure support
+  - New `useBatchAnalysis` hook for orchestrating batch operations
+  - Unified input parser supporting multi-structure XYZ and CIF files
+  - New data model with `Structure` and `ParsedFile` types
+
+**New Components:**
+- `BatchModePanel.jsx` - Structure selector and batch controls
+- `BatchSummaryTable.jsx` - Visual overview of all analyzed structures
+- `ManualOverridePanel.jsx` - Per-structure parameter overrides
+
+**Batch Report Features:**
+- Comprehensive batch PDF report with per-structure details
+- Q-Shape analysis overview for each structure
+- Quality Metrics, Bond Statistics, Coordinating Atoms tables
+- Ligand Groups Analysis section
+- Wide summary CSV export (one row per structure)
+- Long detailed CSV export (all geometries for all structures)
+
+**UI Improvements:**
+- Context-aware action buttons (batch vs single mode)
+- Progress tracking for batch operations
+- Softer color scheme for selected rows
+- TrackballControls for unrestricted 360° 3D rotation
 
 #### Piano Stool (Half-Sandwich) Complex Recognition
 - **Problem:** Piano stool complexes like [CpMn(CO)₃] were analyzed as CN=8 (all atoms separately), giving poor CShM values (>15.0)

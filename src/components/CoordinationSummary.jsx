@@ -1,7 +1,8 @@
 /**
- * Coordination Summary Component
+ * Coordination Summary Component - v1.5.0
  *
- * Displays coordination information, quality metrics, and action buttons
+ * Displays coordination information, quality metrics, and action buttons.
+ * Buttons are context-aware - they automatically handle batch vs single mode.
  */
 
 import React from 'react';
@@ -22,11 +23,25 @@ export default function CoordinationSummary({
     geometryResults,
     onIntensiveAnalysis,
     onGenerateReport,
-    onGenerateCSV
+    onGenerateCSV,
+    // v1.5.0 batch mode props
+    batchMode = false,
+    batchResults,
+    isBatchRunning = false,
+    onAnalyzeAll,
+    onCancelBatch,
+    structureId = null
 }) {
-    if (selectedMetal == null) {
+    // Safety check: ensure selectedMetal is valid and within bounds
+    if (selectedMetal == null || !atoms || selectedMetal >= atoms.length || !atoms[selectedMetal]) {
         return null;
     }
+
+    const hasBatchResults = batchResults && batchResults.size > 0;
+    const canGenerateReport = batchMode ? hasBatchResults : (bestGeometry && !isLoading);
+    const canGenerateCSV = batchMode
+        ? hasBatchResults
+        : (geometryResults && geometryResults.length > 0 && !isLoading);
 
     return (
         <div style={{
@@ -37,6 +52,28 @@ export default function CoordinationSummary({
             marginBottom: '2rem',
             boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
         }}>
+            {/* Structure ID indicator for batch mode */}
+            {batchMode && structureId && (
+                <div style={{
+                    marginBottom: '1rem',
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                    borderRadius: '8px',
+                    border: '1px solid #3b82f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                }}>
+                    <span style={{ fontSize: '1.1rem' }}>📄</span>
+                    <span style={{ fontWeight: 600, color: '#1e40af' }}>
+                        Viewing: {structureId}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#3b82f6', marginLeft: 'auto' }}>
+                        (use structure selector above to switch)
+                    </span>
+                </div>
+            )}
+
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
@@ -120,7 +157,7 @@ export default function CoordinationSummary({
                 )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - context-aware for batch vs single mode */}
             <div style={{
                 display: 'flex',
                 gap: '0.75rem',
@@ -141,7 +178,7 @@ export default function CoordinationSummary({
                         boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
                     onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -151,23 +188,23 @@ export default function CoordinationSummary({
 
                 <button
                     onClick={onGenerateReport}
-                    disabled={!bestGeometry || isLoading}
+                    disabled={!canGenerateReport}
                     style={{
                         padding: '1rem 2rem',
-                        background: bestGeometry && !isLoading
+                        background: canGenerateReport
                             ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)'
                             : '#cbd5e1',
                         color: 'white',
                         border: 'none',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        cursor: bestGeometry && !isLoading ? 'pointer' : 'not-allowed',
-                        boxShadow: bestGeometry && !isLoading ? '0 4px 6px rgba(79, 70, 229, 0.4)' : 'none',
+                        cursor: canGenerateReport ? 'pointer' : 'not-allowed',
+                        boxShadow: canGenerateReport ? '0 4px 6px rgba(79, 70, 229, 0.4)' : 'none',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
-                    onMouseOver={(e) => bestGeometry && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => canGenerateReport && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     📄 Generate Report
@@ -175,27 +212,56 @@ export default function CoordinationSummary({
 
                 <button
                     onClick={onGenerateCSV}
-                    disabled={!geometryResults || geometryResults.length === 0 || isLoading}
+                    disabled={!canGenerateCSV}
                     style={{
                         padding: '1rem 2rem',
-                        background: geometryResults && geometryResults.length > 0 && !isLoading
+                        background: canGenerateCSV
                             ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                             : '#cbd5e1',
                         color: 'white',
                         border: 'none',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        cursor: geometryResults && geometryResults.length > 0 && !isLoading ? 'pointer' : 'not-allowed',
-                        boxShadow: geometryResults && geometryResults.length > 0 && !isLoading ? '0 4px 6px rgba(16, 185, 129, 0.4)' : 'none',
+                        cursor: canGenerateCSV ? 'pointer' : 'not-allowed',
+                        boxShadow: canGenerateCSV ? '0 4px 6px rgba(16, 185, 129, 0.4)' : 'none',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
-                        minWidth: '200px'
+                        minWidth: '180px'
                     }}
-                    onMouseOver={(e) => geometryResults && geometryResults.length > 0 && !isLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => canGenerateCSV && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     📊 Download CSV
                 </button>
+
+                {/* Analyze All Structures button - only in batch mode */}
+                {batchMode && (
+                    <button
+                        onClick={isBatchRunning ? onCancelBatch : onAnalyzeAll}
+                        disabled={false}
+                        style={{
+                            padding: '1rem 2rem',
+                            background: isBatchRunning
+                                ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                                : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '10px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: isBatchRunning
+                                ? '0 4px 6px rgba(239, 68, 68, 0.4)'
+                                : '0 4px 6px rgba(139, 92, 246, 0.4)',
+                            transition: 'all 0.2s',
+                            fontSize: '1rem',
+                            minWidth: '200px'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                        {isBatchRunning ? '⏹️ Cancel' : '🚀 Analyze All Structures'}
+                    </button>
+                )}
             </div>
 
             {/* Progress Display */}
@@ -294,10 +360,9 @@ export default function CoordinationSummary({
                         </div>
                     </div>
 
-                    {/* Worker details would go here if needed */}
                     {intensiveProgress.workerDetails && intensiveProgress.workerDetails.estimatedRemaining > 0 && (
                         <div style={{ fontSize: '0.85rem', color: '#16a34a', marginBottom: '0.75rem' }}>
-                            ⏱️ Estimated time remaining: {intensiveProgress.workerDetails.estimatedRemaining}s
+                            Estimated time remaining: {intensiveProgress.workerDetails.estimatedRemaining}s
                             {' | '}
                             Elapsed: {intensiveProgress.workerDetails.elapsed}s
                         </div>
@@ -319,18 +384,17 @@ export default function CoordinationSummary({
                         <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
-                    {/* Structure type identification (for info only) */}
                     {(() => {
                         const rings = intensiveMetadata.ligandGroups?.rings?.length || 0;
                         const mono = intensiveMetadata.ligandGroups?.monodentate?.length || 0;
                         let structureType = '';
 
                         if (rings === 1 && mono > 0) {
-                            structureType = '🎹 Piano Stool Structure';
+                            structureType = 'Piano Stool Structure';
                         } else if (rings === 2) {
-                            structureType = '🥪 Sandwich Structure';
+                            structureType = 'Sandwich Structure';
                         } else if (rings === 1 && mono === 0) {
-                            structureType = '⭕ Macrocyclic Structure';
+                            structureType = 'Macrocyclic Structure';
                         }
 
                         return structureType ? (
@@ -347,14 +411,14 @@ export default function CoordinationSummary({
                     {intensiveMetadata.ligandGroups?.rings?.length > 0 && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
                             {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
-                                <div key={i}>• Ring {i + 1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
+                                <div key={i}>Ring {i + 1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
                             ))}
                         </div>
                     )}
 
                     {intensiveMetadata.metadata?.bestGeometry && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                            → Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
+                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
                         </div>
                     )}
                 </div>
