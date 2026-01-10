@@ -920,6 +920,31 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     </div>
                     ` : ''}
 
+                    ${coordAtoms.length > 0 ? `
+                    <!-- Coordinating Atoms Table -->
+                    <h4 style="margin: 1rem 0 0.5rem 0; color: #374151;">🔗 Coordinating Atoms</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Element</th>
+                                <th>Distance (Å)</th>
+                                <th>Coordinates (x, y, z)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${coordAtoms.map((c, i) => `
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td><strong>${c.atom?.element || '?'}</strong></td>
+                                <td style="font-family: monospace;">${c.distance?.toFixed(4) || 'N/A'}</td>
+                                <td style="font-family: monospace; font-size: 0.9em;">${c.atom?.x?.toFixed(4) || '?'}, ${c.atom?.y?.toFixed(4) || '?'}, ${c.atom?.z?.toFixed(4) || '?'}</td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ` : ''}
+
                     <!-- All Geometries Table -->
                     <h4 style="margin: 1rem 0 0.5rem 0; color: #374151;">📋 All Geometry Comparisons</h4>
                     <table>

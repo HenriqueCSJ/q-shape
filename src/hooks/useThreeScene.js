@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { ATOMIC_DATA } from '../constants/atomicData';
 
 /**
@@ -99,35 +99,28 @@ export function useThreeScene({
         camera.lookAt(center);
         cameraRef.current = camera;
 
-        // Initialize controls with full rotation freedom
-        const controls = new OrbitControls(camera, renderer.domElement);
+        // Initialize TrackballControls for unrestricted 360° rotation
+        const controls = new TrackballControls(camera, renderer.domElement);
         controls.target.copy(center);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = true; // Better panning behavior
+        controls.rotateSpeed = 3.0;      // Rotation sensitivity
+        controls.zoomSpeed = 1.2;        // Zoom sensitivity
+        controls.panSpeed = 0.8;         // Pan sensitivity
+        controls.noZoom = false;         // Enable zoom
+        controls.noPan = false;          // Enable pan
+        controls.staticMoving = false;   // Smooth movement (false = damping)
+        controls.dynamicDampingFactor = 0.15;  // Damping amount
         controls.minDistance = 3;
         controls.maxDistance = 60;
-        // Allow full vertical rotation (0 to π allows 180° which is standard)
-        controls.minPolarAngle = 0;
-        controls.maxPolarAngle = Math.PI;
-        // No limits on horizontal rotation (already unlimited by default)
-        controls.minAzimuthAngle = -Infinity;
-        controls.maxAzimuthAngle = Infinity;
-        // Smooth rotation
-        controls.rotateSpeed = 0.8;
-        controls.zoomSpeed = 1.2;
-        controls.panSpeed = 0.8;
-        controls.autoRotate = autoRotate;
-        controls.autoRotateSpeed = 1.0;
         controlsRef.current = controls;
 
-        // Handle window resizing
+        // Handle window resizing (TrackballControls needs handleResize call)
         const handleResize = () => {
             const newWidth = container.clientWidth || 800;
             const newHeight = 600;
             camera.aspect = newWidth / newHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(newWidth, newHeight, false);
+            controls.handleResize(); // Required for TrackballControls
         };
 
         const resizeObserver = new ResizeObserver(handleResize);
@@ -287,10 +280,22 @@ export function useThreeScene({
         // Initial render
         renderer.render(scene, camera);
 
-        // Animation loop
+        // Animation loop with manual auto-rotation support
         let animationFrameId;
+        const autoRotateSpeed = 0.005; // radians per frame
         const animate = () => {
             animationFrameId = requestAnimationFrame(animate);
+
+            // Manual auto-rotation (TrackballControls doesn't have built-in autoRotate)
+            if (autoRotate) {
+                const offset = camera.position.clone().sub(controls.target);
+                const spherical = new THREE.Spherical().setFromVector3(offset);
+                spherical.theta += autoRotateSpeed;
+                offset.setFromSpherical(spherical);
+                camera.position.copy(controls.target).add(offset);
+                camera.lookAt(controls.target);
+            }
+
             controls.update();
             renderer.render(scene, camera);
         };
@@ -313,12 +318,8 @@ export function useThreeScene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [atoms, selectedMetal, coordAtoms, bestGeometry, autoRotate, showIdeal, showLabels, sceneKey]);
 
-    // Update auto-rotation when toggle changes
-    useEffect(() => {
-        if (controlsRef.current) {
-            controlsRef.current.autoRotate = autoRotate;
-        }
-    }, [autoRotate]);
+    // Note: Auto-rotation is handled in the animation loop since TrackballControls
+    // doesn't have built-in autoRotate support like OrbitControls
 
     return {
         sceneRef,
