@@ -108,7 +108,7 @@ Q-Shape uses the CShM methodology to quantify geometric distortion:
 Where:
 - **Q** = your actual molecular structure (normalized)
 - **P** = ideal reference geometry (normalized)
-- Minimization over all atom permutations **σ** and rotations **R**
+- Minimization over all atom permutations **σ**, rotations **R**, and isotropic scaling **c**
 
 ### Interpretation Guide
 
