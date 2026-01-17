@@ -203,7 +203,7 @@ export default function BatchSummaryTable({
                                                 fontWeight: 600,
                                                 color: isSelected ? selectedTextColor : (interpretation?.color || '#374151')
                                             }}>
-                                                {row.bestCShM !== null ? row.bestCShM.toFixed(4) : '—'}
+                                                {row.bestCShM !== null ? Math.max(0, row.bestCShM).toFixed(4) : '—'}
                                             </td>
                                             <td style={{
                                                 padding: '0.75rem',

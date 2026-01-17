@@ -160,7 +160,7 @@ export default function ResultsDisplay({
                                         color: inter.color,
                                         fontFamily: 'monospace'
                                     }}>
-                                        {r.shapeMeasure.toFixed(4)}
+                                        {Math.max(0, r.shapeMeasure).toFixed(4)}
                                     </div>
                                 </div>
                                 <div style={{

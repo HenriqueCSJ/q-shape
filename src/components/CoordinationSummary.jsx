@@ -149,7 +149,7 @@ export default function CoordinationSummary({
                         </div>
                         <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                <div><strong>RMSD:</strong> {qualityMetrics.rmsd.toFixed(4)}</div>
+                                <div><strong>RMSD:</strong> {Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd.toFixed(4) : '0.0000'}</div>
                                 <div><strong>Ang. Dist:</strong> {qualityMetrics.angularDistortionIndex.toFixed(2)}°</div>
                             </div>
                         </div>
@@ -418,7 +418,7 @@ export default function CoordinationSummary({
 
                     {intensiveMetadata.metadata?.bestGeometry && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {intensiveMetadata.metadata.bestCShM?.toFixed(3)})
+                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {Math.max(0, intensiveMetadata.metadata.bestCShM || 0).toFixed(3)})
                         </div>
                     )}
                 </div>
