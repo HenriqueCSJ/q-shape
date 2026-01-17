@@ -88,8 +88,9 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
             overlap += rotatedP.dot(Q_vecs[q_idx]);
         }
         // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
-        const overlapNorm = overlap / N;
-        const measure = 100 * (1 - overlapNorm * overlapNorm);
+        // Clamp overlapNorm to [-1, 1] to prevent floating-point errors from causing negative CShM
+        const overlapNorm = Math.max(-1, Math.min(1, overlap / N));
+        const measure = Math.max(0, 100 * (1 - overlapNorm * overlapNorm));
 
         if (measure < bestMeasure) {
             bestMeasure = measure;
@@ -287,8 +288,9 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             const overlap = matching.reduce((sum, [i, j]) => sum + rotatedP[i].dot(Q_vecs[j]), 0);
 
             // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
-            const overlapNorm = overlap / N;
-            const measure = 100 * (1 - overlapNorm * overlapNorm);
+            // Clamp overlapNorm to [-1, 1] to prevent floating-point errors from causing negative CShM
+            const overlapNorm = Math.max(-1, Math.min(1, overlap / N));
+            const measure = Math.max(0, 100 * (1 - overlapNorm * overlapNorm));
 
             return { measure, matching };
         };

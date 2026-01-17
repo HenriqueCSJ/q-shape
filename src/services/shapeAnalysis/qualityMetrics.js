@@ -192,11 +192,16 @@ export function calculateQualityMetrics(coordAtoms, bestGeometry, shapeMeasure) 
          * - 1 = severe distortion
          *
          * Reference: Pinsky & Avnir (1998), Inorg. Chem., 37, 5575-5582
+         *
+         * Note: We ensure shapeMeasure is non-negative to avoid NaN from sqrt.
+         * Due to floating-point arithmetic, very small negative values or -0
+         * could occur; we normalize these to 0.
          */
-        const shapeDeviation = Math.sqrt(shapeMeasure / 100);
+        const safeShapeMeasure = Math.max(0, shapeMeasure) || 0; // Also handles -0 and NaN
+        const shapeDeviation = Math.sqrt(safeShapeMeasure / 100);
 
         const qualityScore = Math.max(0, Math.min(100,
-            100 - (shapeMeasure * 2) - (angularDistortion * 0.5) - ((100 - bondLengthUniformity) * 0.3)
+            100 - (safeShapeMeasure * 2) - (angularDistortion * 0.5) - ((100 - bondLengthUniformity) * 0.3)
         ));
 
         /**
@@ -225,7 +230,7 @@ export function calculateQualityMetrics(coordAtoms, bestGeometry, shapeMeasure) 
          * - Pinsky & Avnir (1998), Inorg. Chem., 37, 5575-5582
          * - Alvarez et al. (2002), Coord. Chem. Rev., 249, 1693-1708
          */
-        const approximateRmsd = Math.sqrt(shapeMeasure / 100);
+        const approximateRmsd = Math.sqrt(safeShapeMeasure / 100);
 
         return {
             angularDistortionIndex: angularDistortion,

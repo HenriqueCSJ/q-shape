@@ -469,7 +469,7 @@ footer strong {
     </div>
     <div class="summary-item">
       <strong>CShM Value</strong>
-      <span style="color:${interpretation.color};">${shapeMeasure.toFixed(4)}</span>
+      <span style="color:${interpretation.color};">${Math.max(0, shapeMeasure).toFixed(4)}</span>
     </div>
     <div class="summary-item">
       <strong>Interpretation</strong>
@@ -500,7 +500,7 @@ footer strong {
     </div>
     <div class="metric-box">
       <div class="metric-label">RMSD</div>
-      <div class="metric-value">${qualityMetrics.rmsd.toFixed(4)} Å</div>
+      <div class="metric-value">${(Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd : 0).toFixed(4)} Å</div>
       <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Root mean square deviation</div>
     </div>
   </div>
@@ -578,7 +578,7 @@ footer strong {
     ${intensiveMetadata.metadata.bestGeometry ? `
     <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px;">
       <p style="margin: 0;"><strong>Best Geometry:</strong> ${intensiveMetadata.metadata.bestGeometry}</p>
-      <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${intensiveMetadata.metadata.bestCShM ? intensiveMetadata.metadata.bestCShM.toFixed(4) : 'N/A'}</p>
+      <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${intensiveMetadata.metadata.bestCShM != null ? Math.max(0, intensiveMetadata.metadata.bestCShM).toFixed(4) : 'N/A'}</p>
     </div>
     ` : ''}
   </div>
@@ -605,7 +605,7 @@ footer strong {
         <td>${i + 1}</td>
         <td><strong>${r.name}</strong></td>
         <td style="font-family: monospace; font-weight: 600; color: #6366f1;">${POINT_GROUPS[r.name] || '—'}</td>
-        <td style="font-family: monospace; font-weight: 600;">${r.shapeMeasure.toFixed(4)}</td>
+        <td style="font-family: monospace; font-weight: 600;">${Math.max(0, r.shapeMeasure).toFixed(4)}</td>
         <td style="color: ${interpretShapeMeasure(r.shapeMeasure).color}; font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).text}</td>
         <td style="font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).confidence}%</td>
       </tr>
@@ -702,7 +702,7 @@ export function generateCSVReport({ geometryResults, fileName }) {
             index + 1,
             `"${result.name}"`, // Quote to handle commas in names
             pointGroup,
-            result.shapeMeasure.toFixed(4),
+            Math.max(0, result.shapeMeasure).toFixed(4),
             `"${interpretation.text}"`,
             interpretation.confidence
         ];
@@ -768,7 +768,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     <td>${structure.atoms[result.metalIndex]?.element || 'N/A'}</td>
                     <td style="text-align: center;">${result.coordinationNumber || 'N/A'}</td>
                     <td>${result.bestGeometry.name}</td>
-                    <td style="font-family: monospace; color: ${interpretation.color};">${result.bestGeometry.shapeMeasure.toFixed(4)}</td>
+                    <td style="font-family: monospace; color: ${interpretation.color};">${Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4)}</td>
                     <td style="text-align: center;">${interpretation.confidence}%</td>
                 </tr>
             `);
@@ -800,7 +800,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                         <td>${i + 1}</td>
                         <td><strong>${r.name}</strong></td>
                         <td style="font-family: monospace;">${POINT_GROUPS[r.name] || '—'}</td>
-                        <td style="font-family: monospace; color: ${interp.color};">${r.shapeMeasure.toFixed(4)}</td>
+                        <td style="font-family: monospace; color: ${interp.color};">${Math.max(0, r.shapeMeasure).toFixed(4)}</td>
                         <td style="color: ${interp.color};">${interp.text}</td>
                         <td>${interp.confidence}%</td>
                     </tr>
@@ -858,7 +858,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                             <div class="summary-item">
                                 <strong>CShM Value</strong>
-                                <span style="color: ${bestInterp?.color || '#374151'};">${result.bestGeometry?.shapeMeasure?.toFixed(4) || 'N/A'}</span>
+                                <span style="color: ${bestInterp?.color || '#374151'};">${result.bestGeometry?.shapeMeasure != null ? Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4) : 'N/A'}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Interpretation</strong>
@@ -894,7 +894,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                             <div class="summary-item">
                                 <strong>RMSD</strong>
-                                <span>${qualityMetrics.rmsd.toFixed(4)} Å</span>
+                                <span>${(Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd : 0).toFixed(4)} Å</span>
                             </div>
                         </div>
                     </div>
@@ -1130,7 +1130,7 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
                 result.radius?.toFixed(3) || '',
                 `"${result.bestGeometry.name}"`,
                 POINT_GROUPS[result.bestGeometry.name] || '',
-                result.bestGeometry.shapeMeasure.toFixed(4),
+                Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4),
                 `"${interpretation.text}"`,
                 interpretation.confidence,
                 result.analysisMode || 'default'
@@ -1183,7 +1183,7 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
                     geomIndex + 1,
                     `"${geom.name}"`,
                     POINT_GROUPS[geom.name] || '',
-                    geom.shapeMeasure.toFixed(4),
+                    Math.max(0, geom.shapeMeasure).toFixed(4),
                     `"${interpretation.text}"`,
                     interpretation.confidence,
                     geomIndex === 0 ? 'Yes' : 'No'
