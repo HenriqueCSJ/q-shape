@@ -37,8 +37,9 @@ function* permutations(arr) {
  *
  * For each permutation of ligand atoms:
  * 1. Apply Kabsch alignment to find optimal rotation
- * 2. Compute RMSD
- * 3. Track minimum
+ * 2. Apply local refinement to maximize overlap (Kabsch optimizes for RMSD, not overlap)
+ * 3. Compute CShM using overlap formula
+ * 4. Track minimum
  *
  * Central atom (last in array) is always mapped to central atom - not permuted.
  *
@@ -53,6 +54,54 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
     let bestMeasure = Infinity;
     let bestMatching = null;
     let bestRotation = new THREE.Matrix4();
+
+    // Helper function to compute overlap for a given rotation and matching
+    const computeOverlap = (rotation, matching) => {
+        let overlap = 0;
+        for (const [p_idx, q_idx] of matching) {
+            const rotatedP = P_vecs[p_idx].clone().applyMatrix4(rotation);
+            overlap += rotatedP.dot(Q_vecs[q_idx]);
+        }
+        return overlap;
+    };
+
+    // Local refinement function: gradient-free optimization to maximize overlap
+    // Kabsch minimizes RMSD but we need to maximize overlap; these are related but not identical
+    // For near-perfect matches, this refinement can improve results significantly
+    const refineRotation = (initialRotation, matching) => {
+        let bestOverlap = computeOverlap(initialRotation, matching);
+        let bestRotationLocal = initialRotation.clone();
+
+        // Refinement parameters: small angle perturbations around each axis
+        const angles = [-0.01, -0.005, -0.001, 0.001, 0.005, 0.01];
+        const maxIterations = 20;
+
+        for (let iter = 0; iter < maxIterations; iter++) {
+            let improved = false;
+
+            for (const axis of [
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(0, 0, 1)
+            ]) {
+                for (const angle of angles) {
+                    const perturbation = new THREE.Matrix4().makeRotationAxis(axis, angle);
+                    const newRot = new THREE.Matrix4().multiplyMatrices(perturbation, bestRotationLocal);
+                    const newOverlap = computeOverlap(newRot, matching);
+
+                    if (newOverlap > bestOverlap) {
+                        bestOverlap = newOverlap;
+                        bestRotationLocal = newRot.clone();
+                        improved = true;
+                    }
+                }
+            }
+
+            if (!improved) break;
+        }
+
+        return bestRotationLocal;
+    };
 
     // Generate all permutations of reference vertices for each ligand
     // For each permutation, actual ligand i maps to reference vertex perm[i]
@@ -75,18 +124,19 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
             Q_ordered.push(Q_vecs[q_idx].toArray());
         }
 
-        // Get optimal rotation via Kabsch
+        // Get initial rotation via Kabsch
         // Both P and Q are centroid-normalized, so skip recentering to avoid numerical drift
-        const rotation = kabschAlignment(P_ordered, Q_ordered, true);
+        let rotation = kabschAlignment(P_ordered, Q_ordered, true);
+
+        // Apply local refinement to maximize overlap
+        // This is needed because Kabsch optimizes for minimum RMSD, not maximum overlap
+        rotation = refineRotation(rotation, matching);
 
         // Compute CShM with this rotation and matching
         // Use SHAPE/cosymlib formula: CShM = 100 * (1 - (overlap/N)²)
         // where overlap = sum_i (Rp_i · q_i)
-        let overlap = 0;
-        for (const [p_idx, q_idx] of matching) {
-            const rotatedP = P_vecs[p_idx].clone().applyMatrix4(rotation);
-            overlap += rotatedP.dot(Q_vecs[q_idx]);
-        }
+        const overlap = computeOverlap(rotation, matching);
+
         // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
         // Clamp overlapNorm to [-1, 1] to prevent floating-point errors from causing negative CShM
         const overlapNorm = Math.max(-1, Math.min(1, overlap / N));
@@ -114,11 +164,11 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
  *
  * @param {THREE.Vector3[]} vectors - Array of Vector3 coordinates
  * @param {boolean} centerOnLast - If true, center on last point (central atom) instead of centroid
- * @returns {object} { normalized: THREE.Vector3[], scale: number }
+ * @returns {object} { normalized: THREE.Vector3[], scale: number, center: THREE.Vector3 }
  */
 function scaleNormalize(vectors, centerOnLast = false) {
     if (!vectors || vectors.length === 0) {
-        return { normalized: [], scale: 1 };
+        return { normalized: [], scale: 1, center: new THREE.Vector3() };
     }
 
     const n = vectors.length;
@@ -146,11 +196,11 @@ function scaleNormalize(vectors, centerOnLast = false) {
     const rms = Math.sqrt(sumSq / n);
 
     if (rms < 1e-10) {
-        return { normalized: centered, scale: 1 };
+        return { normalized: centered, scale: 1, center };
     }
 
     const normalized = centered.map(v => v.clone().divideScalar(rms));
-    return { normalized, scale: rms };
+    return { normalized, scale: rms, center };
 }
 
 /**
