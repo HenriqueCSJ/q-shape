@@ -33,6 +33,49 @@ import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
 import { calculateAdditionalMetrics, calculateQualityMetrics } from '../services/shapeAnalysis/qualityMetrics';
 
+function exactNumberToken(value, context) {
+    if (!Number.isFinite(value)) {
+        throw new Error(`Non-finite ${context}`);
+    }
+    return Object.is(value, -0) ? '-0' : value.toPrecision(17);
+}
+
+export function makeShapeAnalysisCacheKey(atoms, mode = 'default') {
+    if (!Array.isArray(atoms) || atoms.length === 0) return null;
+    try {
+        return JSON.stringify([
+            String(mode),
+            atoms.map((entry, position) => {
+                const element = entry?.atom?.element;
+                const vector = entry?.vec;
+                if (typeof element !== 'string' || !vector) {
+                    throw new Error(`Invalid coordination entry ${position}`);
+                }
+                return [
+                    Number.isInteger(entry.idx) ? entry.idx : position,
+                    element,
+                    exactNumberToken(entry.distance, `distance at ${position}`),
+                    exactNumberToken(vector.x, `x coordinate at ${position}`),
+                    exactNumberToken(vector.y, `y coordinate at ${position}`),
+                    exactNumberToken(vector.z, `z coordinate at ${position}`)
+                ];
+            })
+        ]);
+    } catch (error) {
+        console.error('Error generating cache key:', error);
+        return null;
+    }
+}
+
+export function intensiveResultsMatchInput(analysisParams, atoms) {
+    if (!Array.isArray(analysisParams?.intensiveResults) ||
+        analysisParams.intensiveResults.length === 0) {
+        return false;
+    }
+    const currentKey = makeShapeAnalysisCacheKey(atoms, 'intensive');
+    return currentKey !== null && analysisParams.intensiveInputKey === currentKey;
+}
+
 export function useShapeAnalysis({
     coordAtoms = [],
     analysisParams = { mode: 'default', key: 0 },
@@ -56,18 +99,7 @@ export function useShapeAnalysis({
     const cacheOrder = useRef([]); // Track insertion order for LRU
 
     // Generate cache key
-    const getCacheKey = useCallback((atoms, mode) => {
-        if (!atoms || atoms.length === 0) return null;
-        try {
-            const coordKey = atoms.map(c =>
-                `${c.atom.element}${c.distance.toFixed(3)}`
-            ).join('-');
-            return `${mode}-cn${atoms.length}-${coordKey}`;
-        } catch (error) {
-            console.error("Error generating cache key:", error);
-            return null;
-        }
-    }, []);
+    const getCacheKey = useCallback(makeShapeAnalysisCacheKey, []);
 
     // Add to cache with LRU eviction
     const addToCache = useCallback((key, value) => {
@@ -102,8 +134,12 @@ export function useShapeAnalysis({
         // Cancellation flag to prevent state updates after unmount or re-run
         let isCancelled = false;
 
-        // If intensive results are provided, use them directly
-        if (analysisParams.intensiveResults && analysisParams.intensiveResults.length > 0) {
+        const hasIntensiveResults = Array.isArray(analysisParams.intensiveResults) &&
+            analysisParams.intensiveResults.length > 0;
+        const intensiveResultsAreCurrent = intensiveResultsMatchInput(analysisParams, coordAtoms);
+
+        // Use service results only when they are bound to the current sphere.
+        if (intensiveResultsAreCurrent) {
             const results = analysisParams.intensiveResults;
             setGeometryResults(results);
             const best = results[0];
@@ -121,6 +157,9 @@ export function useShapeAnalysis({
             return;
         }
 
+        // A changed center/radius/sphere must never display an old intensive result.
+        const effectiveMode = hasIntensiveResults ? 'default' : analysisParams.mode;
+
         // Early return if no coordinating atoms
         if (!coordAtoms || coordAtoms.length === 0) {
             setGeometryResults([]);
@@ -133,7 +172,7 @@ export function useShapeAnalysis({
         }
 
         const cn = coordAtoms.length;
-        const cacheKey = getCacheKey(coordAtoms, analysisParams.mode);
+        const cacheKey = getCacheKey(coordAtoms, effectiveMode);
 
         // Check cache
         if (cacheKey && resultsCache.current.has(cacheKey)) {
@@ -240,7 +279,7 @@ export function useShapeAnalysis({
                             const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
                                 actualCoords,
                                 refCoords,
-                                analysisParams.mode,
+                                effectiveMode,
                                 (progressInfo) => {
                                     if (!isCancelled) {
                                         setProgress({

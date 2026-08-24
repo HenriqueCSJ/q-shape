@@ -13,29 +13,49 @@
 
 import { detectLigandGroups } from './ringDetector';
 import { buildGeneralGeometry } from './patterns/geometryBuilder';
+import { getCoordinatingAtoms } from './sphereDetector';
+import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
  */
 function getCoordinatedAtoms(atoms, metalIndex, radius) {
-    const metal = atoms[metalIndex];
-    const coordinated = [];
+    return getCoordinatingAtoms(atoms, metalIndex, radius).map(item => item.idx);
+}
 
-    atoms.forEach((atom, idx) => {
-        if (idx === metalIndex) return;
-
-        const dist = Math.hypot(
-            atom.x - metal.x,
-            atom.y - metal.y,
-            atom.z - metal.z
+export function validateIntensiveGeometryResults(results, coordinationNumber) {
+    if (!Array.isArray(results) || results.length === 0) {
+        throw new Error('Intensive analysis returned no geometry results');
+    }
+    const expectedNames = Object.keys(REFERENCE_GEOMETRIES[coordinationNumber] || {});
+    if (expectedNames.length === 0) {
+        throw new Error(`No reference geometries available for coordination number ${coordinationNumber}`);
+    }
+    if (results.length !== expectedNames.length) {
+        throw new Error(
+            `Intensive analysis returned ${results.length} geometries; expected ${expectedNames.length}`
         );
-
-        if (dist <= radius) {
-            coordinated.push(idx);
+    }
+    const observedNames = new Set();
+    for (const [index, result] of results.entries()) {
+        if (!result || typeof result.name !== 'string' ||
+            !Number.isFinite(result.shapeMeasure) ||
+            result.shapeMeasure < 0 || result.shapeMeasure > 100) {
+            throw new Error(`Invalid intensive geometry result at index ${index}`);
         }
-    });
-
-    return coordinated;
+        if (observedNames.has(result.name)) {
+            throw new Error(`Duplicate intensive geometry result: ${result.name}`);
+        }
+        observedNames.add(result.name);
+    }
+    const missing = expectedNames.filter(name => !observedNames.has(name));
+    const extra = [...observedNames].filter(name => !expectedNames.includes(name));
+    if (missing.length > 0 || extra.length > 0) {
+        throw new Error(
+            `Intensive geometry set mismatch; missing=[${missing.join(',')}], extra=[${extra.join(',')}]`
+        );
+    }
+    return results;
 }
 
 /**
@@ -62,8 +82,6 @@ function extractCoordinatedCoords(atoms, metalIndex, coordIndices) {
 export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onProgress = null) {
     const startTime = Date.now();
 
-    console.log(`Starting intensive analysis with intensive CShM for ${atoms[metalIndex].element}...`);
-
     const reportProgress = (stage, progress, message) => {
         if (onProgress) {
             onProgress({ stage, progress, message });
@@ -71,6 +89,10 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
     };
 
     try {
+        if (!Array.isArray(atoms) || !atoms[metalIndex]) {
+            throw new Error('Invalid atoms or metal index for intensive analysis');
+        }
+        console.log(`Starting intensive analysis with intensive CShM for ${atoms[metalIndex].element}...`);
         reportProgress('detecting', 0.1, 'Detecting coordination sphere...');
 
         const coordIndices = getCoordinatedAtoms(atoms, metalIndex, radius);
@@ -102,7 +124,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         // *** AB INITIO APPROACH ***
         // Evaluate ALL reference geometries for this CN
         // No pattern detection, no geometry filtering, no special cases
-        const results = await buildGeneralGeometry(
+        const results = validateIntensiveGeometryResults(await buildGeneralGeometry(
             actualCoords,
             CN,
             'intensive',
@@ -110,7 +132,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 // Forward CShM calculation progress to UI
                 reportProgress('geometry', 0.3 + (progress * 0.6), `Evaluating geometries... ${Math.round(progress * 100)}%`);
             }
-        );
+        ), CN);
 
         reportProgress('complete', 1.0, 'Analysis complete!');
 
@@ -140,27 +162,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         console.error('Intensive analysis failed:', error);
         reportProgress('error', 0, `Error: ${error.message}`);
 
-        return {
-            geometryResults: [],
-            ligandGroups: {
-                rings: [],
-                monodentate: [],
-                totalGroups: 0,
-                ringCount: 0,
-                summary: 'Analysis failed',
-                hasSandwichStructure: false,
-                detectedHapticities: []
-            },
-            metadata: {
-                metalElement: atoms[metalIndex]?.element || 'Unknown',
-                metalIndex,
-                radius,
-                coordinationNumber: 0,
-                intensiveMode: true,
-                error: error.message,
-                timestamp: Date.now()
-            }
-        };
+        throw error;
     }
 }
 

@@ -8,7 +8,7 @@ import { APP_VERSION, BUILD_DATE, APP_FULL_NAME, getCitationString, CITATION } f
 import useFileUpload from './hooks/useFileUpload';
 import useRadiusControl from './hooks/useRadiusControl';
 import useCoordination from './hooks/useCoordination';
-import useShapeAnalysis from './hooks/useShapeAnalysis';
+import useShapeAnalysis, { makeShapeAnalysisCacheKey } from './hooks/useShapeAnalysis';
 import useBatchAnalysis from './hooks/useBatchAnalysis';
 import { useThreeScene } from './hooks/useThreeScene';
 
@@ -44,6 +44,8 @@ export default function CoordinationGeometryAnalyzer() {
     // Refs
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
+    const intensiveContextVersionRef = useRef(0);
+    const intensiveRunIdRef = useRef(0);
 
     // File Upload Hook - v1.5.0 with multi-structure support
     const {
@@ -78,8 +80,11 @@ export default function CoordinationGeometryAnalyzer() {
         setStructureOverride,
         applyOverrideToAll,
         analyzeAllStructures,
+        beginStructureAnalysis,
+        isAnalysisOwnershipCurrent,
         cancelBatchAnalysis,
         setStructureResult,
+        clearStructureResult,
         isBatchRunning,
         batchProgress
     } = useBatchAnalysis({
@@ -119,13 +124,67 @@ export default function CoordinationGeometryAnalyzer() {
         onWarning: handleWarning
     });
 
+    // Coordination Hook
+    const { coordAtoms } = useCoordination({
+        atoms,
+        selectedMetal: effectiveMetal,
+        coordRadius
+    });
+
+    const intensiveInputKey = useMemo(
+        () => makeShapeAnalysisCacheKey(coordAtoms, 'intensive'),
+        [coordAtoms]
+    );
+    const intensiveContextKey = useMemo(() => JSON.stringify([
+        currentStructure?.id || null,
+        selectedStructureIndex,
+        effectiveMetal,
+        Number.isFinite(coordRadius) ? coordRadius.toPrecision(17) : null,
+        intensiveInputKey
+    ]), [
+        currentStructure?.id,
+        selectedStructureIndex,
+        effectiveMetal,
+        coordRadius,
+        intensiveInputKey
+    ]);
+
+    // Any changed structure/center/radius/sphere invalidates prior intensive data.
+    useEffect(() => {
+        intensiveContextVersionRef.current += 1;
+        intensiveRunIdRef.current += 1;
+        setIsRunningIntensive(false);
+        setAnalysisParams(previous =>
+            previous.mode === 'intensive' || previous.intensiveResults
+                ? { mode: 'default', key: (Number(previous.key) || 0) + 1 }
+                : previous
+        );
+        setIntensiveMetadata(null);
+        setIntensiveProgress(null);
+    }, [intensiveContextKey]);
+
     // Intensive Analysis Handler
     const handleIntensiveAnalysis = useCallback(async () => {
-        if (!atoms || effectiveMetal === null || !coordRadius) {
+        if (!atoms || effectiveMetal === null || !coordRadius || !intensiveInputKey) {
             handleWarning('Cannot run intensive analysis: Missing required data');
             return;
         }
 
+        const contextVersion = intensiveContextVersionRef.current;
+        const runId = intensiveRunIdRef.current + 1;
+        intensiveRunIdRef.current = runId;
+        const batchOwnership = batchMode ? beginStructureAnalysis(selectedStructureIndex) : null;
+        const ownsRun = () =>
+            contextVersion === intensiveContextVersionRef.current &&
+            runId === intensiveRunIdRef.current &&
+            (!batchMode || isAnalysisOwnershipCurrent(batchOwnership));
+        setAnalysisParams(previous =>
+            previous.mode === 'intensive' || previous.intensiveResults
+                ? { mode: 'default', key: (Number(previous.key) || 0) + 1 }
+                : previous
+        );
+        setIntensiveMetadata(null);
+        if (batchMode) clearStructureResult(selectedStructureIndex, batchOwnership);
         setIsRunningIntensive(true);
         setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
 
@@ -135,12 +194,21 @@ export default function CoordinationGeometryAnalyzer() {
                 effectiveMetal,
                 coordRadius,
                 (progress) => {
-                    setIntensiveProgress(progress);
+                    if (ownsRun()) {
+                        setIntensiveProgress(progress);
+                    }
                 }
             );
 
-            if (!results || !results.geometryResults || !results.ligandGroups || !results.metadata) {
-                throw new Error('Invalid results structure from intensive analysis');
+            if (!ownsRun()) return;
+
+            const serviceError = results?.metadata?.error;
+            if (!results || !Array.isArray(results.geometryResults) ||
+                results.geometryResults.length === 0 ||
+                results.geometryResults.some(item =>
+                    !item || typeof item.name !== 'string' || !Number.isFinite(item.shapeMeasure)
+                ) || !results.ligandGroups || !results.metadata || serviceError) {
+                throw new Error(serviceError || 'Intensive analysis returned no valid geometry results');
             }
 
             setIntensiveMetadata({
@@ -151,7 +219,9 @@ export default function CoordinationGeometryAnalyzer() {
             setAnalysisParams({
                 mode: 'intensive',
                 key: Date.now(),
-                intensiveResults: results.geometryResults
+                intensiveResults: results.geometryResults,
+                intensiveInputKey,
+                intensiveContextKey
             });
 
             // Store result in batch results if in batch mode
@@ -165,26 +235,26 @@ export default function CoordinationGeometryAnalyzer() {
                     radius: coordRadius,
                     coordinationNumber: results.metadata?.coordinationNumber || 0,
                     analysisMode: 'intensive'
-                });
+                }, batchOwnership);
             }
 
             setIntensiveProgress(null);
 
         } catch (error) {
+            if (!ownsRun()) return;
             console.error('Intensive analysis failed:', error);
+            if (batchMode) clearStructureResult(selectedStructureIndex, batchOwnership);
             handleError(`Intensive analysis failed: ${error.message}`);
             setIntensiveProgress(null);
         } finally {
-            setIsRunningIntensive(false);
+            if (runId === intensiveRunIdRef.current) {
+                setIsRunningIntensive(false);
+            }
         }
-    }, [atoms, effectiveMetal, coordRadius, handleWarning, handleError, batchMode, selectedStructureIndex, setStructureResult]);
-
-    // Coordination Hook
-    const { coordAtoms } = useCoordination({
-        atoms,
-        selectedMetal: effectiveMetal,
-        coordRadius
-    });
+    }, [atoms, effectiveMetal, coordRadius, intensiveInputKey, intensiveContextKey,
+        handleWarning, handleError, batchMode, selectedStructureIndex,
+        setStructureResult, clearStructureResult, beginStructureAnalysis,
+        isAnalysisOwnershipCurrent]);
 
     // Shape Analysis Hook
     const {

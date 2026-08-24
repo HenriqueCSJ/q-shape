@@ -42,6 +42,8 @@ export default function CoordinationSummary({
     const canGenerateCSV = batchMode
         ? hasBatchResults
         : (geometryResults && geometryResults.length > 0 && !isLoading);
+    const intensiveDisabled = isLoading || isRunningIntensive || isBatchRunning;
+    const batchStartDisabled = !isBatchRunning && isRunningIntensive;
 
     return (
         <div style={{
@@ -166,21 +168,21 @@ export default function CoordinationSummary({
             }}>
                 <button
                     onClick={onIntensiveAnalysis}
-                    disabled={isLoading || isRunningIntensive}
+                    disabled={intensiveDisabled}
                     style={{
                         padding: '1rem 2rem',
-                        background: (isLoading || isRunningIntensive) ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                        background: intensiveDisabled ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
                         color: 'white',
                         border: 'none',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        cursor: (isLoading || isRunningIntensive) ? 'not-allowed' : 'pointer',
-                        boxShadow: (isLoading || isRunningIntensive) ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
+                        cursor: intensiveDisabled ? 'not-allowed' : 'pointer',
+                        boxShadow: intensiveDisabled ? 'none' : '0 4px 6px rgba(22, 163, 74, 0.4)',
                         transition: 'all 0.2s',
                         fontSize: '1rem',
                         minWidth: '180px'
                     }}
-                    onMouseOver={(e) => !(isLoading || isRunningIntensive) && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseOver={(e) => !intensiveDisabled && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     {isRunningIntensive ? '⚡ Running...' : '⚡ Intensive Analysis'}
@@ -238,25 +240,29 @@ export default function CoordinationSummary({
                 {batchMode && (
                     <button
                         onClick={isBatchRunning ? onCancelBatch : onAnalyzeAll}
-                        disabled={false}
+                        disabled={batchStartDisabled}
                         style={{
                             padding: '1rem 2rem',
-                            background: isBatchRunning
+                            background: batchStartDisabled
+                                ? '#d1d5db'
+                                : isBatchRunning
                                 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
                                 : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                             color: 'white',
                             border: 'none',
                             borderRadius: '10px',
                             fontWeight: 700,
-                            cursor: 'pointer',
-                            boxShadow: isBatchRunning
+                            cursor: batchStartDisabled ? 'not-allowed' : 'pointer',
+                            boxShadow: batchStartDisabled
+                                ? 'none'
+                                : isBatchRunning
                                 ? '0 4px 6px rgba(239, 68, 68, 0.4)'
                                 : '0 4px 6px rgba(139, 92, 246, 0.4)',
                             transition: 'all 0.2s',
                             fontSize: '1rem',
                             minWidth: '200px'
                         }}
-                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOver={(e) => !batchStartDisabled && (e.currentTarget.style.transform = 'translateY(-2px)')}
                         onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                         {isBatchRunning ? '⏹️ Cancel' : '🚀 Analyze All Structures'}
