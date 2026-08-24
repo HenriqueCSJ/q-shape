@@ -307,7 +307,7 @@ function createDeterministicRandom(P_vecs, Q_vecs, mode, explicitSeed = null) {
  * @param {Array<Array<number>>} referenceCoords - Reference ligand vertices
  *   followed by the reference center
  * @param {string} [mode='default'] - Optimization mode: 'default' or 'intensive'
- *   - 'default': Faster computation with good accuracy (18 grid steps, 6 restarts, 3000 steps/run)
+ *   - 'default': Faster computation with good accuracy (18 grid steps, 7 restarts, 3000 steps/run)
  *   - 'intensive': More thorough search with higher accuracy (30 grid steps, 12 restarts, 8000 steps/run)
  * @param {Function} [progressCallback=null] - Optional callback to report progress
  *   Called with: { stage, percentage, current, total, extra }
@@ -531,10 +531,27 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             )
             : [];
         const pairFrameCandidates = anchorPairs.length * numLigands * Math.max(0, numLigands - 1);
+        const pairFrameCandidateGroups = anchorPairs.length > 1 ? 2 : 1;
         const maxPairFramePolishSteps = pairFrameCandidates > 0
-            ? SHAPE_MEASURE.ANCHOR_SEARCH.TOP_CANDIDATES *
+            ? pairFrameCandidateGroups * SHAPE_MEASURE.ANCHOR_SEARCH.TOP_CANDIDATES *
                 SHAPE_MEASURE.ANCHOR_SEARCH.MAX_ASSIGNMENT_ITERATIONS
             : 0;
+
+        // Additional anchor pairs broaden deterministic basin coverage, but
+        // their result is held aside until the historical single-anchor
+        // optimization has completed. This makes the expansion monotonic: it
+        // can improve the returned CShM without replacing or perturbing any
+        // trajectory that previously established permutation invariance.
+        let supplementalBestMeasure = Infinity;
+        let supplementalBestRotation = new THREE.Matrix4();
+        let supplementalBestMatching = [];
+        const acceptSupplementalBest = () => {
+            if (supplementalBestMeasure < globalBestMeasure) {
+                globalBestMeasure = supplementalBestMeasure;
+                globalBestRotation.copy(supplementalBestRotation);
+                globalBestMatching = supplementalBestMatching;
+            }
+        };
 
         let totalSteps = 0;
         const estimatedTotalSteps = (currentParams.USE_KABSCH ? 1 : 0) +
@@ -592,8 +609,25 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         if (pairFrameCandidates > 0) {
             let pairFrameCount = 0;
             const topCandidates = [];
+            const supplementalCandidates = [];
+            const retainCandidate = (candidates, candidate) => {
+                const duplicateIndex = candidates.findIndex(
+                    current => current.matchingKey === candidate.matchingKey
+                );
+                if (duplicateIndex < 0) {
+                    candidates.push(candidate);
+                } else if (candidate.measure < candidates[duplicateIndex].measure) {
+                    candidates[duplicateIndex] = candidate;
+                }
+                candidates.sort((a, b) => a.measure - b.measure);
+                if (candidates.length > SHAPE_MEASURE.ANCHOR_SEARCH.TOP_CANDIDATES) {
+                    candidates.pop();
+                }
+            };
             reportProgress('Pair-frame Search', 0, pairFrameCandidates);
-            for (const { i, j } of anchorPairs) {
+            for (let anchorIndex = 0; anchorIndex < anchorPairs.length; anchorIndex++) {
+                const { i, j } = anchorPairs[anchorIndex];
+                const isSupplemental = anchorIndex > 0;
                 for (let q1 = 0; q1 < numLigands; q1++) {
                     for (let q2 = 0; q2 < numLigands; q2++) {
                         if (q1 === q2) continue;
@@ -605,27 +639,23 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                             const matchingKey = result.matching
                                 .map(([pIndex, qIndex]) => `${pIndex}:${qIndex}`)
                                 .join(',');
-                            const duplicateIndex = topCandidates.findIndex(
-                                candidate => candidate.matchingKey === matchingKey
-                            );
                             const pairFrameCandidate = {
                                 measure: result.measure,
                                 rotation: rotation.clone(),
                                 matchingKey
                             };
-                            if (duplicateIndex < 0) {
-                                topCandidates.push(pairFrameCandidate);
-                            } else if (result.measure < topCandidates[duplicateIndex].measure) {
-                                topCandidates[duplicateIndex] = pairFrameCandidate;
-                            }
-                            topCandidates.sort((a, b) => a.measure - b.measure);
-                            if (topCandidates.length > SHAPE_MEASURE.ANCHOR_SEARCH.TOP_CANDIDATES) {
-                                topCandidates.pop();
-                            }
-                            if (result.measure < globalBestMeasure) {
+                            retainCandidate(
+                                isSupplemental ? supplementalCandidates : topCandidates,
+                                pairFrameCandidate
+                            );
+                            if (!isSupplemental && result.measure < globalBestMeasure) {
                                 globalBestMeasure = result.measure;
                                 globalBestRotation.copy(rotation);
                                 globalBestMatching = result.matching;
+                            } else if (isSupplemental && result.measure < supplementalBestMeasure) {
+                                supplementalBestMeasure = result.measure;
+                                supplementalBestRotation.copy(rotation);
+                                supplementalBestMatching = result.matching;
                             }
                         }
                         pairFrameCount++;
@@ -656,6 +686,16 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 polishCount += polished.steps;
                 totalSteps += polished.steps;
             }
+            for (const candidate of supplementalCandidates) {
+                const polished = polishAssignmentRotation(candidate.rotation);
+                if (polished.measure < supplementalBestMeasure) {
+                    supplementalBestMeasure = polished.measure;
+                    supplementalBestRotation.copy(polished.rotation);
+                    supplementalBestMatching = polished.matching;
+                }
+                polishCount += polished.steps;
+                totalSteps += polished.steps;
+            }
             reportProgress(
                 'Assignment/rotation Polish',
                 polishCount,
@@ -664,6 +704,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             );
 
             if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_KEY_ORIENTATIONS) {
+                acceptSupplementalBest();
                 const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
                 const finalAlignedCoords = new Array(N);
                 for (const [p_idx, q_idx] of globalBestMatching) {
@@ -708,6 +749,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         // Early termination if already excellent
         if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_KEY_ORIENTATIONS) {
+            acceptSupplementalBest();
             reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
             const finalAlignedCoords = new Array(N);
@@ -769,6 +811,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         // Early termination check
         if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_GRID_SEARCH) {
+            acceptSupplementalBest();
             reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
             const finalAlignedCoords = new Array(N);
@@ -793,7 +836,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
             if (restart === 0) {
                 currentRotation = globalBestRotation.clone();
-            } else if (restart < numRestarts / 2) {
+            } else if (restart <= currentParams.PERTURBED_RESTARTS) {
                 const randomAxis = new THREE.Vector3(random() - 0.5, random() - 0.5, random() - 0.5).normalize();
                 const randomAngle = (random() - 0.5) * Math.PI;
                 const perturbation = new THREE.Matrix4().makeRotationAxis(randomAxis, randomAngle);
@@ -903,6 +946,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             }
         }
 
+        acceptSupplementalBest();
         reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
 
         const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));

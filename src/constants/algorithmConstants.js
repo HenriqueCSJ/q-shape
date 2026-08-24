@@ -243,10 +243,20 @@ export const SHAPE_MEASURE = {
         /**
          * Number of simulated annealing restarts
          *
-         * Multiple runs with different starting points prevent
-         * local minima. 6 restarts balance thoroughness vs. speed.
+         * Multiple runs with different starting points prevent local minima.
+         * Seven restarts cover the high-CN basins retained by the direct
+         * SHAPE 2.1 parity census while preserving interactive runtime.
          */
-        NUM_RESTARTS: 6,
+        NUM_RESTARTS: 7,
+
+        /**
+         * Prefix-stable perturbed restarts
+         *
+         * Restarts 1-2 perturb the current best; later restarts begin from
+         * independent rotations. Keeping this count separate from the total
+         * ensures that adding restarts cannot replace an existing trajectory.
+         */
+        PERTURBED_RESTARTS: 2,
 
         /**
          * Annealing steps per restart
@@ -301,6 +311,9 @@ export const SHAPE_MEASURE = {
          */
         NUM_RESTARTS: 12,
 
+        /** Preserve the historical five best-perturbation trajectories. */
+        PERTURBED_RESTARTS: 5,
+
         /**
          * Longer annealing runs
          *
@@ -327,7 +340,7 @@ export const SHAPE_MEASURE = {
      * by alternating Hungarian assignment and exact Kabsch rotation.
      */
     ANCHOR_SEARCH: {
-        MAX_ACTUAL_PAIRS: 1,
+        MAX_ACTUAL_PAIRS: 3,
         TOP_CANDIDATES: 16,
         MAX_ASSIGNMENT_ITERATIONS: 10,
         IMPROVEMENT_TOLERANCE: 1e-12
