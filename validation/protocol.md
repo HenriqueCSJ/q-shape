@@ -136,8 +136,8 @@ remain finite and all ligand points must remain distinct.
 
 The supplement adds 261 structures and 2,595 matched evaluations, for a frozen
 positive total of 2,871 structures and 28,545 matched evaluations per program.
-Malformed-input controls are a separate rejection package and are not counted
-as positive cases.
+Boundary controls are a separate product-behavior probe package and are not
+counted as positive cases.
 
 Generation uses SHA-256 of
 `campaign_id NUL CN NUL reference_code NUL seed_key`, taking the first unsigned
@@ -254,11 +254,73 @@ Additional relational gates are:
   ligand points; a rejection or operational failure is retained as a failed
   case, never removed from the denominator.
 
-Malformed-input controls require a typed expected rejection, no partial
-numerical rows, and a durable failure/rejection ledger. At minimum they cover a
-missing or misplaced center, incorrect point count, non-finite token, duplicate
-or effectively zero-length ligand, and unsupported coordination number. They
-are reported separately and cannot be converted to positive numerical passes.
+Boundary controls preregister the expected product outcome and numeric-row
+count for the exact interface exercised. They cover a missing or misplaced
+center, incorrect point count, non-finite token, duplicate or effectively
+zero-length ligand, and unsupported coordination number. They are reported
+separately and cannot be converted to positive numerical passes. A complete
+outcome mismatch is retained as a scientific gate failure; missing, partial, or
+unbound observations make the package structurally invalid.
+
+#### 4.2.1 Frozen execution interpretation before numerical exposure
+
+The positive metamorphic document contains 2,871 preregistered **case IDs**.
+It is not described as 2,871 distinct coordinate arrays: for `L-2`, the
+`permutation` and `reflected-x` recipes serialize to the same coordinates.
+Both case IDs remain in every denominator because the frozen document and its
+recipe census are unchanged.
+
+The two SHAPE streams are `shape_r1` and `shape_r2`. First require identical
+five-decimal tokens for every repeated key. Only after this gate passes may the
+common token be named `shape_consensus_token` and used for Q-Shape comparisons.
+There are exactly five Q-Shape streams:
+
+```text
+q_primary_input_derived_r1
+q_primary_input_derived_r2
+q_explicit_seed_0
+q_explicit_seed_1364412496
+q_explicit_seed_4294967295
+```
+
+The two input-derived streams must be bit-identical for every key. Primary
+accuracy summaries use `q_primary_input_derived_r1` only after that equality is
+established; repetition 2 is repeatability evidence, not a duplicated sample.
+Each explicit-seed stream is one preregistered execution and therefore has no
+within-seed repetition gate. It still independently receives every other
+applicable direct, ideal-self, domain, error, ranking, and resolved-pair gate.
+The three explicit-seed streams are never pooled, averaged, or selected.
+
+Relational equality is evaluated only for the six representation children
+against `canonical` and for `distorted-twin` against `mixed-plus-0.05`. SHAPE
+is checked separately in each repetition. Q-Shape is checked separately under
+each of the three explicit seeds. Input-derived Q-Shape values never receive a
+parent-child equality gate. Reflection remains parity-only even for an achiral
+parent; chirality is a descriptive stratum, not an invariance gate.
+
+For analysis, `geometry_family` means the frozen `parent_reference_code`.
+Signed paired-recipe diagnostics use
+`delta_shape = shape_plus - shape_minus`,
+`delta_q = q_plus - q_minus`, and
+`delta_error = delta_q - delta_shape`; they are descriptive only. Median uses
+the midpoint of the two central ordered values for an even count. P95 and P99
+use the nearest-rank estimator at one-based position `ceil(p*n)`. No ranking is
+recomputed on a subset: a missing or invalid target makes that case/stream
+ranking `not_evaluable` and creates a gate failure.
+
+Boundary controls are frozen in a separate, hash-bound document before the
+first positive execution. Every control names exactly one product/interface,
+an `expected_outcome`, and a per-control `expected_numeric_rows`. The two center
+probes invoke the raw SHAPE 2.1 `.dat` interface. The actual executable accepts
+both the missing-center and center-last inputs and emits one numeric row, so
+acceptance is the preregistered behavior rather than a fictitious typed
+rejection. Q-Shape probes invoke the production core calculator or reference
+registry: point-count, non-finite, and effectively-zero inputs currently yield
+a non-finite result; a duplicate ligand currently yields one finite result; and
+CN 13 has no reference set. The old typed validator is retained only as a
+synthetic harness diagnostic and is not scientific product evidence. No result
+from these interfaces is generalized to the browser, which remains a separate
+validation stratum.
 
 ## 5. Analysis plan
 
@@ -301,8 +363,9 @@ The metamorphic package is separate from the sealed direct package and adds:
   controls, `.dat`, `.out`, `.tab`, stdout, stderr, exit codes, and hashes;
 - two primary input-derived Q-Shape repetitions plus three explicit-seed
   sensitivity streams, with seed mode/value and binary64 bits on every row;
-- a separate malformed-input control package with expected rejection codes,
-  observed outcomes, and proof that no partial result rows were accepted;
+- a separate boundary-control package with per-interface expected and observed
+  outcomes, numeric-row counts, retained raw evidence, and an explicit
+  product-boundary invocation marker;
 - reports stratified by recipe, parent, sign, magnitude, precision, adversarial
   class, CN, target, and seed, including relational and per-seed gate columns;
 - a data dictionary and failure ledger that account for every expected case,
@@ -335,8 +398,10 @@ Verifier exit codes are normative:
 70  verifier internal error
 ```
 
-Even exit 0 leaves `overall_validation_status=incomplete` until the metamorphic,
-external-holdout, browser, and independent-user strata are complete.
+For a metamorphic package, even exit 0 leaves
+`overall_validation_status=incomplete` until the external-holdout, browser, and
+independent-user strata are complete. A direct-package exit 0 additionally
+leaves the metamorphic stratum pending.
 
 ## 7. Manuscript claim boundary
 

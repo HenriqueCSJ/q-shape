@@ -32,8 +32,8 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Test direct-parity harness and independent verifier
-      run: npm run validate:direct:test
+    - name: Test validation harnesses and independent verifiers
+      run: npm run validate:test
 
     - name: Run tests with full-source coverage
       run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary
