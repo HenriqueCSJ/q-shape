@@ -18,6 +18,16 @@ const EXPECTED_REFERENCE_COUNTS = Object.freeze({
     12: 13
 });
 
+const SHAPE_CODE_ALIASES = Object.freeze({
+    '3:fac-vOC-3': 'fvOC-3',
+    '3:mer-vOC-3': 'mvOC-3',
+    '8:JBTP-8': 'JBTPR-8'
+});
+
+const DECIMAL_TOKEN_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/;
+
+let babelHookRoot = null;
+
 function sha256Buffer(buffer) {
     return crypto.createHash('sha256').update(buffer).digest('hex');
 }
@@ -36,9 +46,14 @@ function codeFromReferenceName(name) {
 
 function installSourceBabelHook(repoRoot) {
     const sourceRoot = `${path.resolve(repoRoot, 'src')}${path.sep}`;
+    if (babelHookRoot === sourceRoot) return;
+    if (babelHookRoot !== null) {
+        throw new Error(`Babel source hook already installed for ${babelHookRoot}`);
+    }
     const previousLoader = require.extensions['.js'];
     const babel = require('@babel/core');
-    process.env.BABEL_ENV = process.env.BABEL_ENV || 'test';
+    process.env.BABEL_ENV = 'test';
+    process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 
     require.extensions['.js'] = function loadSourceModule(module, filename) {
         if (!path.resolve(filename).startsWith(sourceRoot)) {
@@ -54,6 +69,7 @@ function installSourceBabelHook(repoRoot) {
         });
         module._compile(transformed.code, filename);
     };
+    babelHookRoot = sourceRoot;
 }
 
 function loadQShape(repoRoot) {
@@ -127,6 +143,76 @@ function buildReferenceInventory(referenceGeometries) {
     return inventory;
 }
 
+function expectedShapeCode(cn, qshapeCode) {
+    return SHAPE_CODE_ALIASES[`${cn}:${qshapeCode}`] || qshapeCode;
+}
+
+function bindShapeReferenceListing(inventoryItem, parsedListing) {
+    if (parsedListing.cn !== inventoryItem.cn) {
+        throw new Error(
+            `Cannot bind CN=${parsedListing.cn} SHAPE listing to CN=${inventoryItem.cn}`
+        );
+    }
+    if (parsedListing.references.length !== inventoryItem.count) {
+        throw new Error(
+            `SHAPE listed ${parsedListing.references.length} references for CN=${inventoryItem.cn}; ` +
+            `expected ${inventoryItem.count}`
+        );
+    }
+
+    const indexSet = new Set();
+    const codeSet = new Set();
+    for (const reference of parsedListing.references) {
+        if (!Number.isInteger(reference.index) || reference.index < 1) {
+            throw new Error(`Invalid SHAPE reference index for CN=${inventoryItem.cn}`);
+        }
+        if (indexSet.has(reference.index)) {
+            throw new Error(
+                `Duplicate SHAPE reference index ${reference.index} for CN=${inventoryItem.cn}`
+            );
+        }
+        if (codeSet.has(reference.shapeCode)) {
+            throw new Error(
+                `Duplicate SHAPE reference code ${reference.shapeCode} for CN=${inventoryItem.cn}`
+            );
+        }
+        indexSet.add(reference.index);
+        codeSet.add(reference.shapeCode);
+    }
+    for (let index = 1; index <= inventoryItem.count; index++) {
+        if (!indexSet.has(index)) {
+            throw new Error(`SHAPE omitted CN=${inventoryItem.cn} reference index ${index}`);
+        }
+    }
+
+    for (const target of inventoryItem.targets) {
+        const requiredShapeCode = expectedShapeCode(inventoryItem.cn, target.code);
+        const official = parsedListing.references.find(
+            reference => reference.shapeCode === requiredShapeCode
+        );
+        if (!official) {
+            throw new Error(
+                `SHAPE omitted required mapping CN=${inventoryItem.cn} ` +
+                `${target.code}->${requiredShapeCode}`
+            );
+        }
+        if (official.index !== target.index) {
+            throw new Error(
+                `Reference-order mismatch for CN=${inventoryItem.cn} ${target.code}: ` +
+                `Q-Shape index ${target.index}, SHAPE index ${official.index}`
+            );
+        }
+        target.shapeCode = official.shapeCode;
+        target.shapeIndex = official.index;
+        target.shapePointGroup = official.pointGroup;
+        target.shapeDescription = official.description;
+        target.mappingRule = requiredShapeCode === target.code
+            ? 'exact_code'
+            : 'explicit_alias_v1';
+    }
+    return inventoryItem;
+}
+
 function formatCoordinate(value) {
     if (!Number.isFinite(value)) {
         throw new Error(`Cannot format non-finite coordinate: ${value}`);
@@ -142,17 +228,41 @@ function centerRelativeLigands(coordinates) {
     ));
 }
 
+function coordinateTokensToNumbers(tokens, context) {
+    if (!Array.isArray(tokens) || tokens.length !== 3) {
+        throw new Error(`Invalid coordinate token triplet in ${context}`);
+    }
+    return tokens.map(token => {
+        if (typeof token !== 'string' || !DECIMAL_TOKEN_PATTERN.test(token)) {
+            throw new Error(`Invalid coordinate token ${token} in ${context}`);
+        }
+        const value = Number(token);
+        if (!Number.isFinite(value)) {
+            throw new Error(`Non-finite coordinate token ${token} in ${context}`);
+        }
+        return value;
+    });
+}
+
 function buildIdealCases(inventory) {
     const cases = [];
     for (const item of inventory) {
         item.targets.forEach((target, offset) => {
             const center = target.coordinates[target.coordinates.length - 1];
-            const ligands = centerRelativeLigands(target.coordinates);
+            const ligandTokens = centerRelativeLigands(target.coordinates).map(
+                point => point.map(formatCoordinate)
+            );
+            const ligands = ligandTokens.map((tokens, ligandIndex) =>
+                coordinateTokensToNumbers(
+                    tokens,
+                    `ideal CN=${item.cn} ${target.code} ligand ${ligandIndex + 1}`
+                )
+            );
             const atoms = [
                 { element: 'Fe', tokens: ['0.000000000000000', '0.000000000000000', '0.000000000000000'] },
-                ...ligands.map(point => ({
+                ...ligandTokens.map(tokens => ({
                     element: 'C',
-                    tokens: point.map(formatCoordinate)
+                    tokens
                 }))
             ];
             cases.push({
@@ -165,7 +275,8 @@ function buildIdealCases(inventory) {
                 sourceFile: 'src/constants/referenceGeometries/index.js',
                 centerOriginal: center,
                 actualLigands: ligands,
-                shapeAtoms: atoms
+                shapeAtoms: atoms,
+                inputCoordinatePolicy: 'same_decimal_tokens_for_qshape_and_shape'
             });
         });
     }
@@ -223,9 +334,25 @@ function buildFixtureCases(repoRoot, inventory) {
             );
         }
         const center = parsed.atoms[0].coordinates;
-        const actualLigands = parsed.atoms.slice(1).map(atom => atom.coordinates.map(
-            (value, axis) => value - center[axis]
-        ));
+        const canonicalLigandTokens = parsed.atoms.slice(1).map(atom =>
+            atom.coordinates.map((value, axis) => formatCoordinate(value - center[axis]))
+        );
+        const actualLigands = canonicalLigandTokens.map((tokens, ligandIndex) =>
+            coordinateTokensToNumbers(
+                tokens,
+                `${fileName} canonical ligand ${ligandIndex + 1}`
+            )
+        );
+        const shapeAtoms = [
+            {
+                element: parsed.atoms[0].element,
+                tokens: ['0.000000000000000', '0.000000000000000', '0.000000000000000']
+            },
+            ...parsed.atoms.slice(1).map((atom, ligandIndex) => ({
+                element: atom.element,
+                tokens: canonicalLigandTokens[ligandIndex]
+            }))
+        ];
         cases.push({
             caseId: `fixture-cn${String(item.cn).padStart(2, '0')}`,
             structureId: `F${String(item.cn).padStart(2, '0')}`,
@@ -236,26 +363,68 @@ function buildFixtureCases(repoRoot, inventory) {
             sourceFile: path.relative(repoRoot, filePath).replace(/\\/g, '/'),
             sourceSha256: sha256File(filePath),
             sourceComment: parsed.comment,
-            centerOriginal: center,
-            actualLigands,
-            shapeAtoms: parsed.atoms.map(atom => ({
+            sourceAtoms: parsed.atoms.map(atom => ({
                 element: atom.element,
                 tokens: atom.tokens
-            }))
+            })),
+            centerOriginal: center,
+            actualLigands,
+            shapeAtoms,
+            inputCoordinatePolicy: 'source_xyz_translated_to_center_zero_then_fixed_to_15_decimals; identical canonical tokens feed both programs'
         });
     }
     return cases;
 }
 
 function buildShapeDat(cn, cases, targets) {
+    if (!Number.isInteger(cn) || cn < 2) {
+        throw new Error(`Invalid coordination number: ${cn}`);
+    }
+    if (!Array.isArray(cases) || cases.length === 0) {
+        throw new Error(`No cases supplied for CN=${cn} SHAPE input`);
+    }
+    if (!Array.isArray(targets) || targets.length === 0 || targets.length > 12) {
+        throw new Error(`Invalid target batch size for CN=${cn}`);
+    }
     if (cases.some(item => item.cn !== cn)) {
         throw new Error(`Mixed coordination numbers in CN=${cn} SHAPE input`);
+    }
+    const structureIds = new Set();
+    for (const item of cases) {
+        if (!/^[A-Za-z0-9_.-]+$/.test(item.structureId || '')) {
+            throw new Error(`Unsafe or empty SHAPE structure ID: ${item.structureId}`);
+        }
+        if (structureIds.has(item.structureId)) {
+            throw new Error(`Duplicate SHAPE structure ID: ${item.structureId}`);
+        }
+        structureIds.add(item.structureId);
+        if (!Array.isArray(item.shapeAtoms) || item.shapeAtoms.length !== cn + 1) {
+            throw new Error(
+                `${item.structureId} has ${item.shapeAtoms?.length ?? 'no'} atoms; expected ${cn + 1}`
+            );
+        }
+        item.shapeAtoms.forEach((atom, atomIndex) => {
+            if (!/^[A-Za-z][A-Za-z0-9]*$/.test(atom.element || '')) {
+                throw new Error(`Invalid atom label in ${item.structureId} atom ${atomIndex + 1}`);
+            }
+            coordinateTokensToNumbers(
+                atom.tokens,
+                `${item.structureId} atom ${atomIndex + 1}`
+            );
+        });
+    }
+    const targetIndices = targets.map(target => target.shapeIndex ?? target.index);
+    if (
+        targetIndices.some(index => !Number.isInteger(index) || index < 1) ||
+        new Set(targetIndices).size !== targetIndices.length
+    ) {
+        throw new Error(`Invalid or duplicate SHAPE target indices for CN=${cn}`);
     }
     const lines = [
         `$ Q-Shape direct parity validation, CN=${cn}`,
         '%fullout',
         `${cn} 1`,
-        targets.map(target => target.index).join(' ')
+        targetIndices.join(' ')
     ];
     for (const item of cases) {
         lines.push(item.structureId);
@@ -272,25 +441,85 @@ function buildShapeDat(cn, cases, targets) {
 function parseShapeOut(text) {
     const structures = [];
     let current = null;
-    for (const line of text.split(/\r?\n/)) {
-        const structureMatch = line.match(/^Structure\s+\d+\s+\[([^\]]+)\]/);
+    const lines = text.split(/\r?\n/);
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
+        const structureMatch = line.match(/^\s*Structure\s+\d+\s+\[([^\]]+)\]/);
         if (structureMatch) {
-            current = { structureId: structureMatch[1].trim(), values: [] };
+            const structureId = structureMatch[1].trim();
+            if (structures.some(item => item.structureId === structureId)) {
+                throw new Error(`Duplicate SHAPE .out structure block: ${structureId}`);
+            }
+            current = { structureId, values: [] };
             structures.push(current);
             continue;
         }
         if (!current) continue;
         const valueMatch = line.match(
-            /^\s*([^\s]+-\d+)\s+Ideal structure\s+CShM\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?)\s*$/
+            /^\s*([^\s]+-\d+)\s+Ideal structure\s+CShM\s*=\s*(.*?)\s*$/
         );
         if (valueMatch) {
+            if (current.values.some(item => item.targetCode === valueMatch[1])) {
+                throw new Error(
+                    `Duplicate SHAPE .out target ${valueMatch[1]} for ${current.structureId}`
+                );
+            }
             current.values.push({
                 targetCode: valueMatch[1],
-                valueToken: valueMatch[2]
+                valueToken: valueMatch[2],
+                lexicallyValid: /^\d+\.\d{5}$/.test(valueMatch[2]),
+                rawLineNumber: lineIndex + 1
             });
         }
     }
     return structures;
+}
+
+function parseShapeTab(text) {
+    const headerLine = text.split(/\r?\n/).find(line => /^\s*Structure\s+\[[^\]]+\]/.test(line));
+    if (!headerLine) {
+        throw new Error('SHAPE .tab did not contain a structure header');
+    }
+    const closeBracket = headerLine.indexOf(']');
+    const targetCodes = [...headerLine.slice(closeBracket + 1).matchAll(/([^\s,]+-\d+)/g)]
+        .map(match => match[1]);
+    if (targetCodes.length === 0 || new Set(targetCodes).size !== targetCodes.length) {
+        throw new Error('SHAPE .tab target header is empty or contains duplicates');
+    }
+
+    const structures = [];
+    const lines = text.split(/\r?\n/);
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
+        const match = line.match(/^ (.{15}),(.*)$/);
+        if (!match) continue;
+        const structureField = match[1];
+        const structureId = structureField.trim();
+        if (!structureId) {
+            throw new Error(`Empty SHAPE .tab structure field at line ${lineIndex + 1}`);
+        }
+        if (structures.some(item => item.structureId === structureId)) {
+            throw new Error(`Duplicate SHAPE .tab structure row: ${structureId}`);
+        }
+        const valueTokens = match[2].split(',').map(token => token.trim());
+        if (valueTokens.length !== targetCodes.length) {
+            throw new Error(
+                `SHAPE .tab ${structureId} has ${valueTokens.length} values; ` +
+                `expected ${targetCodes.length}`
+            );
+        }
+        const values = valueTokens.map((valueToken, index) => ({
+            targetCode: targetCodes[index],
+            valueToken,
+            lexicallyValid: /^\d+\.\d{3}$/.test(valueToken),
+            rawLineNumber: lineIndex + 1
+        }));
+        structures.push({ structureId, structureField, values });
+    }
+    if (structures.length === 0) {
+        throw new Error('SHAPE .tab did not contain any structure rows');
+    }
+    return { targetCodes, structures };
 }
 
 function parseShapeReferenceListing(text, expectedCn = null) {
@@ -314,7 +543,19 @@ function parseShapeReferenceListing(text, expectedCn = null) {
         });
     }
     references.sort((a, b) => a.index - b.index);
+    if (references.length === 0) {
+        throw new Error(`SHAPE reference listing for CN=${cn} contained no references`);
+    }
     return { cn, references };
+}
+
+function float64Hex(value) {
+    if (typeof value !== 'number') {
+        throw new Error(`Cannot encode non-number as float64: ${value}`);
+    }
+    const buffer = Buffer.allocUnsafe(8);
+    buffer.writeDoubleBE(value, 0);
+    return buffer.toString('hex');
 }
 
 function shellQuote(value) {
@@ -336,7 +577,10 @@ function rowsToCsv(columns, rows) {
 }
 
 module.exports = {
+    DECIMAL_TOKEN_PATTERN,
     EXPECTED_REFERENCE_COUNTS,
+    SHAPE_CODE_ALIASES,
+    bindShapeReferenceListing,
     buildFixtureCases,
     buildIdealCases,
     buildReferenceInventory,
@@ -344,10 +588,13 @@ module.exports = {
     centerRelativeLigands,
     codeFromReferenceName,
     csvEscape,
+    expectedShapeCode,
+    float64Hex,
     formatCoordinate,
     loadQShape,
     parseShapeOut,
     parseShapeReferenceListing,
+    parseShapeTab,
     parseXyzFile,
     rowsToCsv,
     shellQuote,

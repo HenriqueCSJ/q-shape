@@ -1,145 +1,211 @@
 # Q-Shape numerical validation protocol
 
-Status: working protocol for preregistration before manuscript analyses. Passing
-the existing unit tests is necessary, but is not by itself scientific
-validation.
+Status: preregistered working protocol. Passing software tests or the direct
+campaign below is necessary but is not, by itself, validation on independent
+chemical structures.
 
-## 1. Validation question
+## 1. Validation question and claim boundary
 
-Does Q-Shape reproduce the continuous shape measures and geometry rankings of
-SHAPE 2.1, while remaining invariant to coordinate representation and producing
-repeatable results in its supported browser environments?
+The validation asks whether the production Q-Shape calculation path reproduces
+SHAPE 2.1 continuous shape measures and geometry rankings, remains invariant to
+coordinate representation, and behaves reproducibly in supported browsers.
 
-The comparison target is the installed, unmodified SHAPE 2.1 executable. The
-Q-Shape implementation, its test fixtures, and ideal geometries are not an
-independent oracle.
+The comparison executable is the installed SHAPE 2.1 binary identified by
+SHA-256. It is third-party software, is not redistributed, and no license file
+was found in the audited local installation. The Q-Shape fixtures and its 87
+reference geometries are internal evidence, not an independent chemical oracle.
+
+Three statuses must remain distinct:
+
+- `package_status`: whether the evidence package is complete and internally
+  verifiable;
+- `campaign_gate_status`: whether the campaign-specific numerical gates pass;
+- `overall_validation_status`: whether every preregistered evidence stratum has
+  been completed. Direct parity alone must retain `incomplete` here.
 
 ## 2. Frozen comparison boundary
 
-Each validation release must record:
+Every run records and rechecks at both start and finish:
 
-- the exact Q-Shape commit and dependency lockfile;
-- the SHAPE version, executable checksum, operating system, control file, input
-  file, raw standard output, and output files;
-- the atom chosen as the coordination center and the ordered coordinating-atom
-  selection;
-- all parser and runner versions used to assemble the comparison data;
-- a manifest linking every reported value to its raw Q-Shape and SHAPE result.
+- the exact Q-Shape commit, clean-worktree state, relevant source snapshots,
+  dependency lockfile, and hashes;
+- the SHAPE version banner, executable hash, registered WSL distribution,
+  guest operating system, locale, and executable metadata;
+- every SHAPE control/input, raw standard stream, exit code, `.out`, and `.tab`;
+- the center and ordered ligands, with the exact decimal tokens supplied;
+- the exact binary64 reference coordinates and Q-Shape result bits;
+- all parser, runner, analyzer, and independent-verifier sources.
 
-The proprietary SHAPE executable must not be redistributed. Its checksum and
-the redistributable inputs, controls, and outputs are sufficient to identify
-the oracle run.
+The expected SHAPE executable hash is mandatory and is checked before the first
+execution. Any timeout, nonzero exit, parse failure, count/set mismatch, source
+change, executable change, or interrupted run produces an aborted package with a
+durable failure record and partial manifest. It cannot silently become a PASS.
 
 ## 3. Evidence strata
 
-### 3.1 Direct SHAPE parity
+### 3.1 Direct canonical census
 
-Run the same structures through Q-Shape and SHAPE 2.1 for every available
-reference geometry at the relevant coordination number. Begin with the eleven
-retained fixtures spanning CN 2 through CN 12, then extend the oracle set with
-chemically varied structures.
+The frozen direct campaign contains:
 
-The primary numerical endpoint is absolute CShM error. Also retain the complete
-within-CN ranking, the best geometry, the best-versus-second-best margin, and
-runtime. No comparison may rely only on rounded values copied into source code.
+- all 87 shared reference geometries from CN 2 through CN 12 as ideal inputs;
+- one retained fixture for each CN, giving 11 additional inputs;
+- 98 cases in total;
+- every case evaluated against every target of the same CN, giving 952 matched
+  target evaluations per program (865 ideal and 87 fixture evaluations);
+- 15 SHAPE batches per repetition because a control accepts at most 12 targets;
+- two clean SHAPE repetitions, giving 30 invocations and 1,904 raw values;
+- two independent Node.js worker processes following the production Q-Shape
+  optimizer path, giving 1,904 raw Q-Shape values.
 
-### 3.2 Metamorphic and adversarial validation
+The reference binding is preregistered by both code and ordinal. Eighty-four
+codes are identical. The only allowed aliases are:
 
-For all 87 SHAPE reference geometries from CN 2 through CN 12, generate a
-manifested test family containing:
+```text
+CN3 fac-vOC-3 -> fvOC-3
+CN3 mer-vOC-3 -> mvOC-3
+CN8 JBTP-8    -> JBTPR-8
+```
 
-- rigid rotations;
-- isotropic rescaling;
-- ligand-order permutations;
-- combined rotation, scaling, and permutation;
-- controlled radial, angular, and mixed distortions at preregistered levels;
-- near-degenerate assignments and nearly collinear coordinate sets;
-- center/ligand swap traps;
-- mirrored inputs for references where chirality makes reflection relevant;
-- truncated-coordinate variants that quantify input-precision sensitivity.
+Each structure is translated to place the selected center at zero and is then
+serialized once to 15 decimal places. Those same ligand tokens feed both
+programs. Q-Shape reference targets retain their exact binary64 round-trip
+tokens and hexadecimal bits separately.
 
-The initial target is 90 manifested variants per reference (7,830 structures).
-Randomized distortions must use stored seeds. All references of the same CN are
-evaluated for each structure so that both values and rankings are tested.
+The production calculation path does not receive an explicit optimizer seed.
+It deterministically derives its pseudo-random sequence from the normalized
+input/reference pair-distance signatures and mode. The direct primary endpoint
+therefore records `seed_policy=input-derived`; it does not substitute the
+different explicit-seed API path. Explicit seeds, including `0x51534850`, belong
+to the optimizer-sensitivity stratum and must be reported separately.
+
+### 3.2 Metamorphic and adversarial family
+
+For each of the 87 reference geometries, generate exactly 30 manifested cases:
+
+- 1 canonical case;
+- 6 representation-preserving cases spanning rotation, isotropic scale,
+  ligand permutation, and combined transforms;
+- 3 input-precision cases;
+- 18 radial, angular, and mixed distortions at preregistered magnitudes and
+  stored generation seeds;
+- 1 representation-preserving twin of a distorted case;
+- 1 reflected case, interpreted with the reference's chirality.
+
+This produces 2,610 structures and 25,950 matched target evaluations because
+every generated structure is compared with all same-CN targets. Include
+near-degenerate assignments, nearly collinear inputs, center/ligand swap traps,
+scales down to at least `5e-5` of the retained molecular-coordinate scale, and
+an explicit optimizer-seed sensitivity analysis. Generation seeds, recipes,
+parent IDs, and coordinates are immutable evidence.
 
 ### 3.3 External chemical holdout
 
-Curate a development-frozen holdout of approximately 200-250 coordination
-environments from open, citable crystallographic sources. Include at least ten
-examples for every CN from 2 through 12 when availability permits, and allocate
-the remainder to the more common CN 4-8 classes. Preserve structure identifiers,
-source citations, disorder/occupancy decisions, coordinating-atom selections,
-and exclusion reasons.
+Freeze approximately 200-250 coordination environments from open, citable
+crystallographic sources before evaluating them. When availability permits,
+include at least ten environments for every CN from 2 through 12 and allocate
+the remainder to common CN 4-8 classes. Preserve identifiers, citations,
+disorder/occupancy decisions, center/ligand selections, and exclusions.
 
-Two independent users must reproduce the center and ligand selection for a
-stratified subset. Disagreements are resolved before either program is run and
-are reported separately as input-definition uncertainty.
+Two independent users reproduce center and ligand selection for a stratified
+subset. Resolve and report selection disagreements before either program is
+run. Algorithm changes after opening the holdout create a new candidate and
+require all validation strata to be rerun.
 
-### 3.4 Browser workflow validation
+### 3.4 Browser and user workflow
 
-Exercise file import, center selection, ligand selection, calculation, ranking,
-export, and error handling in the supported browsers. Compare exported numbers
-with the calculation-service results from the same frozen inputs. Record browser
-and operating-system versions and include accessibility and failure-recovery
-checks.
+Exercise import, center selection, ligand selection, calculation, ranking,
+export, invalid-input handling, and recovery in every supported browser. Match
+exported values to the calculation service using the same frozen inputs. Record
+browser and operating-system versions, accessibility results, and independent
+user task outcomes.
 
-## 4. Preregistered acceptance gates
+## 4. Preregistered direct-campaign gates
 
-The release candidate passes only if all of the following hold:
+The direct campaign passes only if all conditions hold:
 
-- every direct oracle comparison has absolute error below 0.01 CShM;
-- the best-geometry label agrees with SHAPE for every direct-parity case;
-- full rankings have no unexplained inversions larger than the joint numerical
-  tolerance; near-ties are reported with their margins rather than forced into
-  a categorical success/failure claim;
-- ideal self-comparisons have CShM below 1e-8;
-- rigid rotation, isotropic scale, and ligand permutation change CShM by less
-  than 1e-8 for ideal cases and less than 0.01 for distorted oracle cases,
-  including uniformly rescaled coordinates down to at least 5e-5 of the
-  retained molecular-coordinate scale;
-- repeated calculations are bitwise identical for the same release, input,
-  mode, and explicit seed;
-- the central atom is always mapped to the reference center;
-- Kabsch rotations are proper rotations (determinant +1 within numerical
-  tolerance), including rank-deficient inputs;
-- the complete automated test suite and production build pass from a clean
-  dependency installation;
-- every failed, excluded, or manually adjudicated case remains visible in the
-  released manifest and report.
+- every matched target has absolute Q-Shape-minus-SHAPE error `<0.01` CShM;
+- every CShM is finite and lies in the mathematical domain `[0, 100]`;
+- an ideal Q-Shape self-measure is `<1e-8`, while the corresponding five-decimal
+  SHAPE value is `<0.01`;
+- define the SHAPE best-geometry tie set as all targets within
+  `gamma = 0.02001` CShM of its minimum; the Q-Shape minimum belongs to that set;
+- every SHAPE-resolved target pair with `|delta_SHAPE| > gamma` retains the same
+  strict sign in Q-Shape; inversion and collapse to an exact tie both fail;
+- Q-Shape repetitions have identical IEEE-754 binary64 hexadecimal bits;
+- SHAPE repetitions have identical five-decimal CShM tokens;
+- every `.tab` token is a non-negative fixed three-decimal value, and its
+  printed-value interval overlaps the corresponding `.out` interval, implemented
+  as `|out - tab| <= 0.000505` CShM;
+- the central atom remains position 1 in every SHAPE control and input;
+- all expected structures and targets occur exactly once in every repetition;
+- every operational or parsing failure remains in the durable package rather
+  than being converted into a missing row or a numerical PASS.
 
-These are release gates, not a license to claim exact algorithmic identity.
-Residual differences below the gates must still be summarized by maximum,
-median, 95th percentile, and signed error.
+Generated `.dat` files must be byte-identical across repetitions. Byte identity
+of `.out` and `.tab` is retained as a warning-level diagnostic: numerical token
+repeatability is the scientific gate because symmetry-equivalent fitted
+coordinates may differ without changing CShM. Standard output is not a byte gate.
+
+`campaign_gate_status` is intentionally limited to this numerical direct
+campaign. Its results may be used only when `package_status=complete` and the
+independent verifier accepts the sealed package. The full automated suite,
+critical-kernel coverage, production build, online CI, and browser checks belong
+to broader release-readiness and overall-validation gates; they cannot be
+inferred from a direct-campaign PASS.
 
 ## 5. Analysis plan
 
-Report direct-oracle absolute and signed errors, geometry-label agreement,
-Kendall rank correlation within each CN, and best-versus-second-best margin
-agreement. Stratify all results by CN, geometry family, distortion type and
-magnitude, input precision, and execution mode. Report median and 95th
-percentile runtime separately from numerical accuracy.
+Report signed bias, mean absolute error, root-mean-square error, median absolute
+error, P95, P99, and maximum absolute error. Report exact best-label agreement
+separately from membership in the SHAPE tie set. For every case, report
+gamma-aware Kendall tau-b, concordant/discordant pairs, SHAPE-only ties,
+Q-Shape-only ties, joint ties, and the stricter resolved-pair gate.
 
-Do not tune the optimizer on the external holdout. Any algorithm change after
-the holdout is opened creates a new release candidate and requires the complete
-validation to be rerun.
+Stratify by CN, evidence stratum, geometry family, distortion type/magnitude,
+input precision, browser, and execution mode. Runtime is diagnostic and is
+reported separately from numerical accuracy. Threshold comparisons use exact
+decimal arithmetic on retained lexical tokens.
 
-## 6. Required release package
+## 6. Required evidence package and independent verification
 
-The validation release should contain:
+The direct package contains:
 
-- `manifest.json` with stable case identifiers and provenance;
-- `oracle/` with SHAPE controls, inputs, raw outputs, executable metadata, and
-  checksums, but not the executable itself;
-- `qshape/` with raw machine-readable Q-Shape results;
-- `generated/` with distortion recipes, seeds, and generated coordinates;
-- `holdout/` with source metadata and documented atom selections;
-- `reports/` with machine-generated summaries and an explicit failure ledger;
-- a single command that regenerates all derived results from the frozen raw
-  evidence.
+- `manifest.json` and its checksum with exact listed/present file equality;
+- `references.json` with the frozen 87-entry code/index map and exact target
+  binary64 coordinates;
+- `cases.json` with stable IDs, provenance, center selection, and input tokens;
+- `oracle/` with controls, inputs, outputs, metadata, both repetitions, and no
+  SHAPE executable;
+- `qshape/` with raw process-level results, binary64 bits, production seed
+  policy, and repeatability evidence;
+- `inputs/candidate-snapshot/` with the relevant committed source and lockfile;
+- `reports/` with tidy matched-target data, case rankings, summary statistics,
+  and a never-omitted failure ledger;
+- `run-state.json`, including durable abort evidence when applicable.
 
-## 7. Claim boundary for the manuscript
+The independent verifier uses only Node.js core modules and must not import the
+runner, its core parser, its analyzer, Q-Shape source, or `decimal.js`. It
+independently checks hashes, safe paths, exact sets and multiplicities, controls,
+coordinates, raw outputs, result bits, gates, summaries, CSVs, and manifest
+counts. Its deterministic JSON receipt contains no timestamp.
 
-Until every gate above has been executed on a frozen commit, the defensible
-claim is that Q-Shape is a working candidate with encouraging direct parity and
-metamorphic evidence. “Validated replacement for SHAPE” and “numerically
-identical to SHAPE” are not yet supported claims.
+Verifier exit codes are normative:
+
+```text
+0   package internally valid and direct campaign passes
+2   package internally valid but a scientific direct gate fails
+3   package invalid or unverifiable
+64  command-line usage error
+70  verifier internal error
+```
+
+Even exit 0 leaves `overall_validation_status=incomplete` until the metamorphic,
+external-holdout, browser, and independent-user strata are complete.
+
+## 7. Manuscript claim boundary
+
+Before all strata pass on one frozen candidate, the supported claim is limited
+to the specific evidence completed—for example, direct implementation agreement
+with SHAPE 2.1 on the shared canonical census and retained fixtures. “Validated
+replacement for SHAPE,” “numerically identical,” and broad chemical-validity
+claims remain unsupported until the full protocol is complete.
