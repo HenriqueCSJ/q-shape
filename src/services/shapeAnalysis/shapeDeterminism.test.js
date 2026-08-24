@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import calculateShapeMeasure from './shapeCalculator';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
-import { loadCenteredLigands } from './__tests__/helpers/loadShapeFixture';
+import { loadCenteredLigands } from './testUtils/loadShapeFixture';
 
 const MFF_NAME = 'MFF-9 (Muffin)';
 const CSAPR_NAME = 'CSAPR-9 (Capped Square Antiprism)';

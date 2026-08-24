@@ -9,17 +9,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [18.x, 20.x]
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -27,25 +29,28 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Run tests with coverage
+    - name: Run tests with full-source coverage
       run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary
       env:
         CI: true
 
+    - name: Enforce critical numerical-kernel coverage
+      run: npm run coverage:critical
+
     - name: Upload coverage to Codecov
       if: matrix.node-version == '20.x'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage/lcov.info
-        flags: unittests
-        name: q-shape-coverage
+        flags: full-source
+        name: q-shape-full-source-coverage
         fail_ci_if_error: false
 
     - name: Coverage Summary
       if: matrix.node-version == '20.x'
       run: |
-        echo "## 📊 Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "## 📊 Full-Source Coverage Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [ -f coverage/coverage-summary.json ]; then
           # Extract coverage percentages
