@@ -84,6 +84,7 @@ function loadQShape(repoRoot) {
     ));
     return {
         referenceGeometries: referenceModule.REFERENCE_GEOMETRIES,
+        pointGroups: referenceModule.POINT_GROUPS,
         calculateShapeMeasure: calculatorModule.default
     };
 }

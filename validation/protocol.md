@@ -80,23 +80,89 @@ to the optimizer-sensitivity stratum and must be reported separately.
 
 ### 3.2 Metamorphic and adversarial family
 
-For each of the 87 reference geometries, generate exactly 30 manifested cases:
+For each of the 87 reference geometries, generate exactly 30 main positive
+cases. Except for the two explicitly parented families below, transforms start
+from the canonical center-relative coordinates. Each final coordinate set is
+serialized once to fixed 15-decimal tokens. The `precision-*` cases start from
+the serialized fixed-15 tokens of `rotation-a`, and `distorted-twin` starts from
+the serialized fixed-15 tokens of `mixed-plus-0.05`.
+The main recipes, in manifested order, are:
 
-- 1 canonical case;
-- 6 representation-preserving cases spanning rotation, isotropic scale,
-  ligand permutation, and combined transforms;
-- 3 input-precision cases;
-- 18 radial, angular, and mixed distortions at preregistered magnitudes and
-  stored generation seeds;
-- 1 representation-preserving twin of a distorted case;
-- 1 reflected case, interpreted with the reference's chirality.
+1. one canonical case;
+2. six representation-preserving cases:
+   rotation about `[1,2,3]` by `0.417` rad; isotropic scale `5e-5`;
+   deterministic ligand permutation; rotation about `[-3,1,4]` by `1.913`
+   rad plus scale `2.5`; rotation about `[5,-2,1]` by `4.207` rad plus
+   permutation; and rotation about `[7,-4,9]` by `2.731` rad plus scale
+   `5e-5` and permutation;
+3. three input-precision cases obtained by rounding the common `rotation-a`
+   parent to 9, 6, and 3 decimal places before the fixed-15 serialization;
+4. six one-ligand radial perturbations, paired at fractions
+   `[-0.001,+0.001]`, `[-0.02,+0.02]`, and `[-0.10,+0.10]`;
+5. six one-ligand tangential rotations, paired at radians
+   `[-0.001,+0.001]`, `[-0.02,+0.02]`, and `[-0.10,+0.10]`;
+6. six mixed radial/tangential perturbations, paired at
+   `[-0.005,+0.005]`, `[-0.05,+0.05]`, and `[-0.25,+0.25]`; each case acts
+   on up to three deterministically selected ligands and alternates the local
+   sign across those ligands;
+7. one representation-preserving twin of the `mixed-plus-0.05` case, using
+   rotation about `[7,-3,2]` by `2.731` rad, scale `0.37`, and permutation;
+8. one reflection by `diag(-1,1,1)`, interpreted with the manifested point
+   group and chirality rather than assumed invariant to its parent. Chirality
+   is classified from the frozen `POINT_GROUPS` map: only `Cn`, `Dn`, `T`,
+   `O`, and `I` groups without improper symmetry are chiral.
 
-This produces 2,610 structures and 25,950 matched target evaluations because
-every generated structure is compared with all same-CN targets. Include
-near-degenerate assignments, nearly collinear inputs, center/ligand swap traps,
-scales down to at least `5e-5` of the retained molecular-coordinate scale, and
-an explicit optimizer-seed sensitivity analysis. Generation seeds, recipes,
-parent IDs, and coordinates are immutable evidence.
+The positive main family contains 2,610 structures and 25,950 matched target
+evaluations per program because every structure is compared with every same-CN
+target. The systematic radial and angular perturbations act on individual
+ligands and therefore are not aliases for isotropic scaling or rigid rotation.
+For an angular case, up to three deterministic tangent-axis candidates are
+tested in order; the first is accepted only if it changes the sorted,
+center-inclusive pair-distance multiset normalized by the parent RMS radius by
+more than `1e-12`. Failure to find such an axis aborts generation. The same
+non-congruence gate is tested after fixed-15 serialization for all 18 radial,
+angular, and mixed cases.
+
+A separate positive adversarial supplement contains exactly three additional
+cases per reference: (i) two selected ligands separated by `1e-6` times the
+parent RMS ligand radius, (ii) two selected ligand directions separated by
+`0.00017453292519943296` rad (0.01 degree) while retaining the moved ligand's
+radius, and (iii) a center/ligand swap in which one original ligand becomes the
+new origin and the old center becomes a ligand. The swap changes the physical
+environment and is therefore a parity-only trap, never a parent-invariance
+test. The CN2 near-collinear case is labelled
+`structurally_degenerate_cn2_stress`. All positive adversarial coordinates must
+remain finite and all ligand points must remain distinct.
+
+The supplement adds 261 structures and 2,595 matched evaluations, for a frozen
+positive total of 2,871 structures and 28,545 matched evaluations per program.
+Malformed-input controls are a separate rejection package and are not counted
+as positive cases.
+
+Generation uses SHA-256 of
+`campaign_id NUL CN NUL reference_code NUL seed_key`, taking the first unsigned
+big-endian 32 bits. Sign-paired recipes share a `seed_key`, so they select the
+same ligand(s) and tangential axis or axes. Permutations use Fisher-Yates driven
+by the frozen 32-bit recurrence `state = 1664525*state + 1013904223 (mod 2^32)`;
+if Fisher-Yates returns the identity, a one-position left rotation makes the
+permutation non-identity.
+Each case stores its seed key, seed, selected indices, axes, operations, parent
+ID, exact tokens, and recipe parameters. The independent verifier recomputes
+every transform from the parent and recipe; stored final coordinates alone are
+not sufficient evidence.
+
+Run two primary repetitions of both programs over all 28,545 pairs. Q-Shape's
+primary path remains `input-derived`. In addition, run one Q-Shape sensitivity
+execution for every pair at each explicit uint32 seed `0`, `0x51534850`, and
+`0xffffffff`; SHAPE has no corresponding seed. Thus the campaign contains
+57,090 primary Q-Shape rows, 85,635 sensitivity rows, 142,725 Q-Shape rows in
+total, and 57,090 SHAPE values. With at most 12 same-CN target references per
+SHAPE control, the frozen partition has 15 target batches per recipe,
+`33 * 15 = 495` invocations per repetition and 990 SHAPE invocations in total.
+The pretty-printed generated input document for campaign
+`qshape-metamorphic-adversarial-v1` is frozen at SHA-256
+`102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd`;
+any change requires a new campaign identifier and preregistration.
 
 ### 3.3 External chemical holdout
 
@@ -119,7 +185,9 @@ exported values to the calculation service using the same frozen inputs. Record
 browser and operating-system versions, accessibility results, and independent
 user task outcomes.
 
-## 4. Preregistered direct-campaign gates
+## 4. Preregistered numerical gates
+
+### 4.1 Direct campaign
 
 The direct campaign passes only if all conditions hold:
 
@@ -153,6 +221,45 @@ critical-kernel coverage, production build, online CI, and browser checks belong
 to broader release-readiness and overall-validation gates; they cannot be
 inferred from a direct-campaign PASS.
 
+### 4.2 Metamorphic, adversarial, and seed-sensitivity campaign
+
+Every positive metamorphic or adversarial comparison must independently pass
+the applicable direct gates for finite domain, Q-Shape-minus-SHAPE error,
+ranking/ties, strict resolved-pair ordering, exact expected sets and
+multiplicities, repeatability, `.tab` consistency, and durable failures. The
+ideal self-measure gate applies only to canonical and representation-preserving
+children of an ideal parent.
+
+Additional relational gates are:
+
+- for each of the six representation-preserving canonical children and every
+  same-CN target, SHAPE must retain the identical five-decimal CShM token and
+  Q-Shape must differ from the parent by at most `1e-8` under each *same*
+  explicit sensitivity seed;
+- the distorted twin obeys those same parent-child gates relative to
+  `mixed-plus-0.05`;
+- input-derived parent and child Q-Shape results are not used for a relational
+  invariance gate because the production seed is derived from the input;
+- precision, radial, angular, mixed, reflection, near-degenerate,
+  near-collinear, and center/ligand-swap cases receive independent parity and
+  ranking gates but no parent-equality requirement;
+- reflection preserves the center and records the determinant-minus-one matrix
+  and reference chirality; it is never silently treated as invariant;
+- every explicit Q-Shape seed (`0`, `0x51534850`, `0xffffffff`) must pass the
+  error, domain, ranking/tie, and resolved-pair gates separately; seeds are
+  neither averaged nor selected post hoc;
+- seed zero must be recorded and tested as an explicit uint32 seed, never
+  interpreted as the input-derived mode;
+- positive adversarial cases must contain only finite tokens and distinct
+  ligand points; a rejection or operational failure is retained as a failed
+  case, never removed from the denominator.
+
+Malformed-input controls require a typed expected rejection, no partial
+numerical rows, and a durable failure/rejection ledger. At minimum they cover a
+missing or misplaced center, incorrect point count, non-finite token, duplicate
+or effectively zero-length ligand, and unsupported coordination number. They
+are reported separately and cannot be converted to positive numerical passes.
+
 ## 5. Analysis plan
 
 Report signed bias, mean absolute error, root-mean-square error, median absolute
@@ -161,10 +268,12 @@ separately from membership in the SHAPE tie set. For every case, report
 gamma-aware Kendall tau-b, concordant/discordant pairs, SHAPE-only ties,
 Q-Shape-only ties, joint ties, and the stricter resolved-pair gate.
 
-Stratify by CN, evidence stratum, geometry family, distortion type/magnitude,
-input precision, browser, and execution mode. Runtime is diagnostic and is
-reported separately from numerical accuracy. Threshold comparisons use exact
-decimal arithmetic on retained lexical tokens.
+Stratify by CN, evidence stratum, main versus adversarial-positive family,
+geometry family, distortion type/sign/magnitude, input precision, optimizer
+seed mode/value, browser, and execution mode. Report paired-sign deltas without
+claiming a physical response model from the synthetic perturbations. Runtime is
+diagnostic and is reported separately from numerical accuracy. Threshold
+comparisons use exact decimal arithmetic on retained lexical tokens.
 
 ## 6. Required evidence package and independent verification
 
@@ -183,12 +292,31 @@ The direct package contains:
   and a never-omitted failure ledger;
 - `run-state.json`, including durable abort evidence when applicable.
 
+The metamorphic package is separate from the sealed direct package and adds:
+
+- `recipes.json` and generated `cases.json`, including the 30-case main family,
+  three-case adversarial-positive supplement, parent relationships, exact
+  transformation fields, recipe-registry hashes, and frozen count contracts;
+- two raw SHAPE repetitions partitioned into exactly 990 invocations, retaining
+  controls, `.dat`, `.out`, `.tab`, stdout, stderr, exit codes, and hashes;
+- two primary input-derived Q-Shape repetitions plus three explicit-seed
+  sensitivity streams, with seed mode/value and binary64 bits on every row;
+- a separate malformed-input control package with expected rejection codes,
+  observed outcomes, and proof that no partial result rows were accepted;
+- reports stratified by recipe, parent, sign, magnitude, precision, adversarial
+  class, CN, target, and seed, including relational and per-seed gate columns;
+- a data dictionary and failure ledger that account for every expected case,
+  target, repetition, seed stream, and SHAPE invocation.
+
 The independent verifier uses only Node.js core modules and must not import the
 runner, its core parser, its analyzer, Q-Shape source, or `decimal.js`. It
 independently checks hashes, safe paths, exact sets and multiplicities, controls,
-coordinates, raw outputs, result bits, gates, summaries, CSVs, and manifest
-counts. After sealing the manifest, the runner automatically invokes this
-verifier and writes its deterministic, timestamp-free receipt to the sibling
+coordinates, transformation reconstruction, raw outputs, result bits, gates,
+summaries, CSVs, and manifest counts. The metamorphic verifier also reconstructs
+the 2,871 positive cases from the 87 parents and recipe registries, checks the
+28,545-pair census and all parent-child/seed relations, and never imports the
+input generator. After sealing the manifest, each runner automatically invokes
+its verifier and writes a deterministic, timestamp-free receipt to the sibling
 file `<package-directory>.verification.json`. Keeping the receipt outside the
 sealed directory avoids a manifest/receipt hash cycle. A run is accepted only
 when the verifier exit code, manifest hash, campaign and overall statuses,
@@ -200,8 +328,8 @@ are detected.
 Verifier exit codes are normative:
 
 ```text
-0   package internally valid and direct campaign passes
-2   package internally valid but a scientific direct gate fails
+0   package internally valid and its numerical campaign passes
+2   package internally valid but a scientific numerical gate fails
 3   package invalid or unverifiable
 64  command-line usage error
 70  verifier internal error
