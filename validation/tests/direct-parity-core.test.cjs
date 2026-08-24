@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 
 const core = require('../scripts/direct-parity-core.cjs');
+const verifier = require('../scripts/verify-direct-parity.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -16,6 +17,37 @@ test('canonical inventory contains 87 references with the preregistered CN censu
         Object.fromEntries(inventory.map(item => [item.cn, item.count])),
         core.EXPECTED_REFERENCE_COUNTS
     );
+});
+
+test('canonical Q-Shape reference fingerprint binds all 87 names, coordinates, and bits', () => {
+    const { referenceGeometries } = core.loadQShape(REPO_ROOT);
+    const inventory = core.buildReferenceInventory(referenceGeometries);
+    const roundtrip = value => Object.is(value, -0) ? '-0' : value.toPrecision(17);
+    const document = {
+        by_cn: inventory.map(group => ({
+            cn: group.cn,
+            references: group.targets.map(target => ({
+                qshape_index: target.index,
+                qshape_code: target.code,
+                qshape_name: target.name,
+                qshape_center_index_zero_based: group.cn,
+                qshape_reference_coordinate_fixed15_tokens: target.coordinates.map(point =>
+                    point.map(core.formatCoordinate)
+                ),
+                qshape_reference_coordinate_roundtrip_tokens: target.coordinates.map(point =>
+                    point.map(roundtrip)
+                ),
+                qshape_reference_coordinate_float64_hex: target.coordinates.map(point =>
+                    point.map(core.float64Hex)
+                )
+            }))
+        }))
+    };
+    const expected = '33e90f101fdc784a5de9c278dcc6d802390986575d7d7b1cb52c475110be1a71';
+    assert.equal(verifier.qshapeReferenceInventoryFingerprint(document), expected);
+    document.by_cn[0].references[0].qshape_reference_coordinate_float64_hex[0][0] =
+        '0000000000000000';
+    assert.notEqual(verifier.qshapeReferenceInventoryFingerprint(document), expected);
 });
 
 test('all ideal and fixture cases feed identical canonical coordinate tokens to both programs', () => {

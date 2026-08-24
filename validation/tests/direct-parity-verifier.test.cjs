@@ -7,6 +7,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const verifier = require('../scripts/verify-direct-parity.cjs');
+const worker = require('../scripts/qshape-direct-worker.cjs');
 
 test('verifier is implementation-independent and uses no project parser or decimal dependency', () => {
     const source = fs.readFileSync(
@@ -91,6 +92,41 @@ test('independent fixed-decimal rendering uses exact decimal half-up rounding', 
     assert.equal(verifier.decimalToFixedHalfUp(verifier.parseDecimal('1.234565'), 5), '1.23457');
     assert.equal(verifier.decimalToFixedHalfUp(verifier.parseDecimal('1.234564999'), 5), '1.23456');
     assert.equal(verifier.decimalToFixedHalfUp(verifier.parseDecimal('100'), 5), '100.00000');
+});
+
+test('Q-Shape input fingerprint freezes ligand order, target bits, mode, and seed', () => {
+    const item = {
+        caseId: 'fixture-cn02',
+        cn: 2,
+        ligandTokens: [
+            ['1.000000000000000', '0.000000000000000', '0.000000000000000'],
+            ['-1.000000000000000', '0.000000000000000', '0.000000000000000']
+        ]
+    };
+    const target = {
+        code: 'L-2',
+        coordinateRoundtripTokens: [
+            ['1.0000000000000000', '0.0000000000000000', '-0'],
+            ['-1.0000000000000000', '0.0000000000000000', '0.0000000000000000'],
+            ['0.0000000000000000', '0.0000000000000000', '0.0000000000000000']
+        ],
+        coordinateFloat64Hex: [
+            ['3ff0000000000000', '0000000000000000', '8000000000000000'],
+            ['bff0000000000000', '0000000000000000', '0000000000000000'],
+            ['0000000000000000', '0000000000000000', '0000000000000000']
+        ]
+    };
+    const fingerprint = worker.inputFingerprint(item, target, 'input-derived', null);
+    assert.equal(fingerprint,
+        '40a31897704b42f8cb327043a23aa82fe2dbbc2b9c863f1d8586d3d582167e07');
+    const reordered = { ...item, ligandTokens: [...item.ligandTokens].reverse() };
+    assert.notEqual(worker.inputFingerprint(reordered, target, 'input-derived', null), fingerprint);
+    const changedSignBit = {
+        ...target,
+        coordinateFloat64Hex: target.coordinateFloat64Hex.map(point => [...point])
+    };
+    changedSignBit.coordinateFloat64Hex[0][2] = '0000000000000000';
+    assert.notEqual(worker.inputFingerprint(item, changedSignBit, 'input-derived', null), fingerprint);
 });
 
 test('verifier CLI classifies a missing package as invalid rather than an internal error', () => {

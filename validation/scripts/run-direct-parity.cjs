@@ -2,7 +2,9 @@
 'use strict';
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const Decimal = require('decimal.js');
 
@@ -31,8 +33,28 @@ const MAX_SHAPE_REFERENCES_PER_CONTROL = 12;
 const QSHAPE_REPETITIONS = 2;
 const SHAPE_REPETITIONS = 2;
 const QSHAPE_SEED_POLICY = 'input-derived';
+const EXPECTED_SHAPE_SHA256 = '1592122408e7f5486fd9665e96e129dda9390b1b0ac76da4d348e3070c1bb4cb';
+const EXPECTED_WSL_DISTRO = 'Ubuntu-22.04';
+const EXPECTED_REFERENCE_SOURCE_SHA256 =
+    '4b6a037196629347969ff51d6f3110c1e78b38be3539d79811f84b849a17e26d';
+const EXPECTED_QSHAPE_REFERENCE_INVENTORY_SHA256 =
+    '33e90f101fdc784a5de9c278dcc6d802390986575d7d7b1cb52c475110be1a71';
+const EXPECTED_FIXTURES = Object.freeze({
+    2: ['CN2-CuCl2.xyz', 'bd01c81a2d0acd03aaa64b95f5b6fa95a0cb52ebc6b1e8bc79fb3f74fbcd33fe'],
+    3: ['CN3-NH3.xyz', '57224e60f8fb4c574eb9b7887e39a1eb4b9fdbbc72a68f3519dfd8435f64cdb9'],
+    4: ['CN4-CuCl4.xyz', '498005616704e128bd56dfbde72df61ee3bc09c8b1abb42e96f793c4db6a9f08'],
+    5: ['CN5-AgL5.xyz', '8d713513d126cc114f4b84e5dc87fc5ada641ec783aa2f239318a29c392b4b34'],
+    6: ['CN6-NiN4O2.xyz', '1d6671c44065be51de2dee136bfd9976d303bccb621a207c5a5143e612e2b73f'],
+    7: ['CN7-FeL7.xyz', 'b8d78999e51c1a5d1bec02b6e38e1aed8e49bc28171aeaea8269f5a40a3fef13'],
+    8: ['CN8-FeL8.xyz', '25e54c0b64118bee95bc912e1d642cf56c471ea49c4f3560cb4cfb0e6d4e358d'],
+    9: ['CN9-CrL9.xyz', 'b3e54773a63549045f067e393892a99445019a8cb88534cb60a7ae461ea54c69'],
+    10: ['CN10-FeL10.xyz', 'd7d69dbb0f0f935c7bf51ab0a98051e0c01e93835893a2c03f13b59e1526bb9e'],
+    11: ['CN11-NbL11.xyz', 'd766bbe13a8b604299d7f691caae43b91d568f64f6a7fe4cdb4f6de60872ea51'],
+    12: ['CN12-NbL12.xyz', '24ea5d356045dcb55a2425384515359508ce3beae4d461d08603512aba1cc401']
+});
 const OUT_TAB_OVERLAP_LIMIT = new Decimal('0.000505');
 const CANDIDATE_SOURCE_PATHS = Object.freeze([
+    '.gitattributes',
     'package.json',
     'package-lock.json',
     'src/constants/algorithmConstants.js',
@@ -140,6 +162,50 @@ function binary64RoundTripToken(value) {
     return value.toPrecision(17);
 }
 
+function qshapeInputFingerprint(item, target) {
+    const contract = {
+        schema_version: 1,
+        case_id: item.caseId,
+        cn: item.cn,
+        qshape_ligand_fixed15_tokens: item.shapeAtoms.slice(1).map(atom => atom.tokens),
+        target_code: target.code,
+        target_reference_binary64_roundtrip_tokens: target.coordinates.map(point =>
+            point.map(binary64RoundTripToken)
+        ),
+        target_reference_float64_hex: target.coordinates.map(point => point.map(float64Hex)),
+        mode: 'default',
+        seed_policy: QSHAPE_SEED_POLICY,
+        explicit_seed_uint32: null
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex');
+}
+
+function qshapeReferenceInventoryFingerprint(inventory) {
+    const contract = {
+        schema_version: 1,
+        by_cn: [...inventory].sort((left, right) => left.cn - right.cn).map(group => ({
+            cn: group.cn,
+            references: [...group.targets].sort((left, right) => left.index - right.index)
+                .map(target => ({
+                    qshape_index: target.index,
+                    qshape_code: target.code,
+                    qshape_name: target.name,
+                    qshape_center_index_zero_based: group.cn,
+                    qshape_reference_coordinate_fixed15_tokens: target.coordinates.map(
+                        point => point.map(formatCoordinate)
+                    ),
+                    qshape_reference_coordinate_roundtrip_tokens: target.coordinates.map(
+                        point => point.map(binary64RoundTripToken)
+                    ),
+                    qshape_reference_coordinate_float64_hex: target.coordinates.map(
+                        point => point.map(float64Hex)
+                    )
+                }))
+        }))
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex');
+}
+
 function setStage(stage, details = {}) {
     RUN_CONTEXT.stage = stage;
     if (RUN_CONTEXT.outputRoot && fs.existsSync(RUN_CONTEXT.outputRoot)) {
@@ -161,6 +227,7 @@ function run(command, args, options = {}) {
         cwd: options.cwd || REPO_ROOT,
         purpose: options.purpose || null
     };
+    const started = process.hrtime.bigint();
     const result = spawnSync(command, args, {
         cwd: options.cwd || REPO_ROOT,
         encoding: 'utf8',
@@ -169,6 +236,7 @@ function run(command, args, options = {}) {
         timeout: options.timeout || 60 * 60 * 1000,
         killSignal: 'SIGTERM'
     });
+    result.durationMsToken = (Number(process.hrtime.bigint() - started) / 1e6).toFixed(3);
     if (result.error) throw result.error;
     if (!options.allowFailure && result.status !== 0) {
         throw new Error(
@@ -396,11 +464,22 @@ function parseOsRelease(text) {
     return result;
 }
 
-function validateQPayload(payload, repetition, expectedKeys, rawPath) {
+function validateQPayload(
+    payload,
+    repetition,
+    expectedKeys,
+    expectedInputFingerprints,
+    expectedCasesSha256,
+    expectedReferencesSha256,
+    rawPath
+) {
     if (
         payload?.program !== 'Q-Shape' || payload.mode !== 'default' ||
         payload.seed_policy !== QSHAPE_SEED_POLICY ||
         payload.explicit_seed_uint32 !== null || payload.repetition !== repetition ||
+        payload.input_contract !== 'manifested-cases-and-references-v1' ||
+        payload.cases_sha256 !== expectedCasesSha256 ||
+        payload.references_sha256 !== expectedReferencesSha256 ||
         payload.count !== expectedKeys.length || !Array.isArray(payload.results)
     ) {
         throw new Error(`Invalid Q-Shape worker envelope for repetition ${repetition}`);
@@ -414,6 +493,11 @@ function validateQPayload(payload, repetition, expectedKeys, rawPath) {
         }
         if (!/^[0-9a-f]{16}$/.test(row.valueHex || '')) {
             throw new Error(`Invalid Q-Shape float64 hex for ${row.caseId}/${row.targetCode}`);
+        }
+        const key = pairKey(row.caseId, row.targetCode);
+        if (!/^[0-9a-f]{64}$/.test(row.inputFingerprintSha256 || '') ||
+            row.inputFingerprintSha256 !== expectedInputFingerprints.get(key)) {
+            throw new Error(`Q-Shape input fingerprint mismatch for ${row.caseId}/${row.targetCode}`);
         }
         const parsed = Number(row.valueToken);
         const canonicalToken = Number.isFinite(parsed)
@@ -436,6 +520,7 @@ function validateQPayload(payload, repetition, expectedKeys, rawPath) {
 
 function buildWorkingReport(summary, metadata) {
     const statistics = summary.totals.error_statistics;
+    const runtime = summary.totals.runtime_statistics_ms;
     return [
         '# Direct SHAPE parity census — working report',
         '',
@@ -453,6 +538,7 @@ function buildWorkingReport(summary, metadata) {
         `- MAE / RMSE: ${statistics.mean_absolute_error ?? 'not_available'} / ${statistics.root_mean_square_error ?? 'not_available'} CShM.`,
         `- Median / P95 / P99 / maximum absolute error: ${statistics.median_absolute_error ?? 'not_available'} / ${statistics.p95_absolute_error ?? 'not_available'} / ${statistics.p99_absolute_error ?? 'not_available'} / ${statistics.max_absolute_error ?? 'not_available'} CShM.`,
         `- Signed bias: ${statistics.signed_bias ?? 'not_available'} CShM.`,
+        `- Q-Shape diagnostic runtime mean / median / P95 / P99 / maximum: ${runtime.mean ?? 'not_available'} / ${runtime.median ?? 'not_available'} / ${runtime.p95 ?? 'not_available'} / ${runtime.p99 ?? 'not_available'} / ${runtime.max ?? 'not_available'} ms.`,
         '',
         'This census covers shared ideal references and retained fixtures. It does not replace the preregistered perturbation family, external chemical holdout, browser workflow validation, or independent-user study.',
         ''
@@ -553,15 +639,60 @@ function main() {
     if (!/^[0-9a-fA-F]{64}$/.test(options.expectedShapeSha256 || '')) {
         throw new Error('--expected-shape-sha256 is required and must contain 64 hexadecimal characters');
     }
+    if (process.platform !== 'win32') {
+        throw new Error('This campaign runner requires Windows Node.js with wsl.exe available');
+    }
+    if (options.wslDistro !== EXPECTED_WSL_DISTRO) {
+        throw new Error(`--wsl-distro must be ${EXPECTED_WSL_DISTRO} for this frozen campaign`);
+    }
+    if (options.expectedShapeSha256.toLowerCase() !== EXPECTED_SHAPE_SHA256) {
+        throw new Error('The supplied SHAPE digest is not the preregistered SHAPE 2.1 digest');
+    }
 
     const gitStatus = run('git', ['status', '--porcelain'], { purpose: 'freeze check' }).stdout.trim();
     if (gitStatus) throw new Error('Git worktree is dirty. Commit candidate and harness before validation.');
     const qshapeCommit = run('git', ['rev-parse', 'HEAD'], { purpose: 'candidate commit' }).stdout.trim();
     const qshapeBranch = run('git', ['branch', '--show-current'], { purpose: 'candidate branch' }).stdout.trim();
+    if (!qshapeBranch) throw new Error('Detached HEAD is not allowed for a sealed campaign');
     const candidateFingerprintsAtStart = candidateSourceFingerprints();
     RUN_CONTEXT.qshapeCommit = qshapeCommit;
 
+    const referenceSourcePath = path.join(REPO_ROOT, 'src/constants/referenceGeometries/index.js');
+    const referenceSourceSha256 = sha256File(referenceSourcePath);
+    if (referenceSourceSha256 !== EXPECTED_REFERENCE_SOURCE_SHA256) {
+        throw new Error(
+            `Reference source hash ${referenceSourceSha256} does not match the frozen LF-normalized source`
+        );
+    }
+    const expectedFixtureNames = Object.values(EXPECTED_FIXTURES).map(([name]) => name).sort();
+    const fixtureRoot = path.join(REPO_ROOT, 'tests', 'fixtures', 'shape-parity');
+    const actualFixtureNames = fs.readdirSync(fixtureRoot)
+        .filter(name => name.toLowerCase().endsWith('.xyz'))
+        .sort();
+    exactSet(actualFixtureNames, expectedFixtureNames, 'frozen retained fixture filenames');
+    for (const [cn, [name, expectedDigest]] of Object.entries(EXPECTED_FIXTURES)) {
+        const actualDigest = sha256File(path.join(fixtureRoot, name));
+        if (actualDigest !== expectedDigest) {
+            throw new Error(`CN=${cn} fixture ${name} hash ${actualDigest} does not match the frozen LF bytes`);
+        }
+    }
+    const { referenceGeometries } = loadQShape(REPO_ROOT);
+    const inventory = buildReferenceInventory(referenceGeometries);
+    const referenceInventorySha256 = qshapeReferenceInventoryFingerprint(inventory);
+    if (referenceInventorySha256 !== EXPECTED_QSHAPE_REFERENCE_INVENTORY_SHA256) {
+        throw new Error(
+            `Canonical Q-Shape reference inventory hash ${referenceInventorySha256} is not preregistered`
+        );
+    }
+
     const outputRoot = path.resolve(options.output);
+    const outputRelativeToRepo = path.relative(REPO_ROOT, outputRoot);
+    if (outputRelativeToRepo === '' || (
+        !outputRelativeToRepo.startsWith(`..${path.sep}`) &&
+        outputRelativeToRepo !== '..' && !path.isAbsolute(outputRelativeToRepo)
+    )) {
+        throw new Error('Output directory must be outside the Q-Shape repository');
+    }
     if (fs.existsSync(outputRoot)) throw new Error(`Output directory already exists: ${outputRoot}`);
     fs.mkdirSync(outputRoot, { recursive: false });
     RUN_CONTEXT.outputRoot = outputRoot;
@@ -617,8 +748,6 @@ function main() {
     }
 
     setStage('reference_binding');
-    const { referenceGeometries } = loadQShape(REPO_ROOT);
-    const inventory = buildReferenceInventory(referenceGeometries);
     const referenceListings = [];
     for (const item of inventory) {
         const stem = `references-cn${String(item.cn).padStart(2, '0')}`;
@@ -655,10 +784,12 @@ function main() {
         );
     }
 
-    writeJson(path.join(outputRoot, 'references.json'), {
+    const referencesPath = path.join(outputRoot, 'references.json');
+    writeJson(referencesPath, {
         schema_version: 2,
         source_file: 'src/constants/referenceGeometries/index.js',
-        source_sha256: sha256File(path.join(REPO_ROOT, 'src/constants/referenceGeometries/index.js')),
+        source_sha256: referenceSourceSha256,
+        canonical_qshape_inventory_sha256: referenceInventorySha256,
         mapping_policy: 'explicit code plus index; alias table v1 contains exactly three entries',
         count: 87,
         by_cn: inventory.map(item => ({
@@ -687,7 +818,8 @@ function main() {
             }))
         }))
     });
-    writeJson(path.join(outputRoot, 'cases.json'), {
+    const casesPath = path.join(outputRoot, 'cases.json');
+    writeJson(casesPath, {
         schema_version: 2,
         count: cases.length,
         strata: { retained_fixture: fixtureCases.length, ideal_reference: idealCases.length },
@@ -701,6 +833,8 @@ function main() {
             source_sha256: item.sourceSha256 ?? null,
             source_atoms: item.sourceAtoms ?? null,
             source_center: item.centerOriginal,
+            source_center_roundtrip_tokens: item.centerOriginal.map(binary64RoundTripToken),
+            source_center_float64_hex: item.centerOriginal.map(float64Hex),
             expected_own_target_code: item.expectedOwnTargetCode,
             center_index_one_based_in_shape_input: 1,
             input_coordinate_policy: item.inputCoordinatePolicy,
@@ -773,6 +907,8 @@ function main() {
                     stderr: relativeTo(outputRoot, stderrPath),
                     exit_code_file: relativeTo(outputRoot, exitCodePath),
                     exit_code: result.status,
+                    duration_ms: result.durationMsToken,
+                    timeout_seconds: 1800,
                     dat_sha256: sha256File(datPath),
                     out_sha256: sha256File(outPath),
                     tab_sha256: sha256File(tabPath)
@@ -821,6 +957,16 @@ function main() {
         }
     }
     const expectedKeys = expectedPairKeys(cases, inventory);
+    const expectedQInputFingerprints = new Map();
+    for (const item of cases) {
+        const targets = inventory.find(entry => entry.cn === item.cn).targets;
+        for (const target of targets) {
+            expectedQInputFingerprints.set(
+                pairKey(item.caseId, target.code),
+                qshapeInputFingerprint(item, target)
+            );
+        }
+    }
     validateUniqueRows(shapePrimaryRows, expectedKeys, 'SHAPE primary census');
     if (shapeAllRows.length !== expectedKeys.length * SHAPE_REPETITIONS) {
         throw new Error(`SHAPE repeated row count ${shapeAllRows.length}; expected ${expectedKeys.length * SHAPE_REPETITIONS}`);
@@ -848,6 +994,8 @@ function main() {
     });
 
     setStage('qshape_runs');
+    const casesSha256 = sha256File(casesPath);
+    const referencesSha256 = sha256File(referencesPath);
     const qshapeAllRows = [];
     const qshapeReplicateRows = [];
     for (let repetition = 1; repetition <= QSHAPE_REPETITIONS; repetition++) {
@@ -858,6 +1006,8 @@ function main() {
         const result = run(process.execPath, [
             path.join(REPO_ROOT, 'validation', 'scripts', 'qshape-direct-worker.cjs'),
             '--output', rawPath,
+            '--cases', casesPath,
+            '--references', referencesPath,
             '--seed-policy', QSHAPE_SEED_POLICY,
             '--repetition', String(repetition)
         ], { allowFailure: true, purpose: `Q-Shape repetition ${repetition}` });
@@ -872,6 +1022,9 @@ function main() {
             payload,
             repetition,
             expectedKeys,
+            expectedQInputFingerprints,
+            casesSha256,
+            referencesSha256,
             relativeTo(outputRoot, rawPath)
         );
         qshapeReplicateRows.push(rows);
@@ -964,6 +1117,25 @@ function main() {
     if (!finalShaMatch || finalShaMatch[1].toLowerCase() !== shapeExecutableSha256) {
         throw new Error('SHAPE executable fingerprint changed during validation');
     }
+    const finalMetadataResults = {
+        help: runRecordedWsl(options.wslDistro, oracleMetadataRoot, 'shape-help-final',
+            `${shellQuote(options.shapeExecutable)} -h`),
+        file: runRecordedWsl(options.wslDistro, oracleMetadataRoot, 'shape-file-final',
+            `file ${shellQuote(options.shapeExecutable)}`),
+        uname: runRecordedWsl(options.wslDistro, oracleMetadataRoot, 'uname-final', 'uname -a'),
+        osRelease: runRecordedWsl(options.wslDistro, oracleMetadataRoot, 'os-release-final',
+            'cat /etc/os-release')
+    };
+    const finalHelpText = `${finalMetadataResults.help.stdout}${finalMetadataResults.help.stderr}`;
+    if (!/S H A P E\s+v2\.1/.test(finalHelpText)) {
+        throw new Error('SHAPE version banner changed or became unavailable during validation');
+    }
+    for (const field of ['file', 'uname', 'osRelease']) {
+        if (finalMetadataResults[field].stdout !== metadataResults[field].stdout ||
+            finalMetadataResults[field].stderr !== metadataResults[field].stderr) {
+            throw new Error(`SHAPE/WSL ${field} metadata changed during validation`);
+        }
+    }
 
     const osRelease = parseOsRelease(metadataResults.osRelease.stdout);
     const generatedAtUtc = new Date().toISOString();
@@ -976,6 +1148,11 @@ function main() {
         node_version: process.version,
         node_platform: process.platform,
         node_arch: process.arch,
+        host_os_release: os.release(),
+        host_os_version: os.version(),
+        host_cpu_model: os.cpus()[0]?.model || 'not_reported',
+        host_logical_cpu_count: os.cpus().length,
+        host_total_memory_bytes: os.totalmem(),
         package_lock_sha256: sha256File(path.join(REPO_ROOT, 'package-lock.json')),
         reference_source_sha256: sha256File(path.join(REPO_ROOT, 'src/constants/referenceGeometries/index.js')),
         shape_banner: `SHAPE v${bannerMatch[1]}`,
@@ -986,14 +1163,17 @@ function main() {
         shape_license_status: 'third-party executable; no license file identified in the audited local installation',
         wsl_registered_distro_name: options.wslDistro,
         wsl_guest_os_pretty_name: osRelease.PRETTY_NAME || 'not_parsed',
-        locale: 'C',
-        timezone: 'UTC',
+        shape_process_locale: 'C',
+        shape_process_timezone: 'UTC',
+        node_process_locale: Intl.DateTimeFormat().resolvedOptions().locale,
+        node_process_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'not_reported',
         qshape_mode: 'default',
         qshape_seed_policy: QSHAPE_SEED_POLICY,
         qshape_explicit_seed_uint32: null,
         qshape_repetitions: QSHAPE_REPETITIONS,
         qshape_repetition_processes: 'independent Node.js worker processes',
         shape_repetitions: SHAPE_REPETITIONS,
+        shape_timeout_seconds_per_invocation: 1800,
         max_shape_references_per_control: MAX_SHAPE_REFERENCES_PER_CONTROL,
         reference_listings: referenceListings,
         candidate_source_sha256: candidateFingerprintsAtStart

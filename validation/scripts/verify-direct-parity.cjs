@@ -32,9 +32,27 @@ const CODE_ALIASES = Object.freeze({
     '8:JBTP-8': 'JBTPR-8'
 });
 
+const EXPECTED_FIXTURES = Object.freeze({
+    2: ['CN2-CuCl2.xyz', 'bd01c81a2d0acd03aaa64b95f5b6fa95a0cb52ebc6b1e8bc79fb3f74fbcd33fe'],
+    3: ['CN3-NH3.xyz', '57224e60f8fb4c574eb9b7887e39a1eb4b9fdbbc72a68f3519dfd8435f64cdb9'],
+    4: ['CN4-CuCl4.xyz', '498005616704e128bd56dfbde72df61ee3bc09c8b1abb42e96f793c4db6a9f08'],
+    5: ['CN5-AgL5.xyz', '8d713513d126cc114f4b84e5dc87fc5ada641ec783aa2f239318a29c392b4b34'],
+    6: ['CN6-NiN4O2.xyz', '1d6671c44065be51de2dee136bfd9976d303bccb621a207c5a5143e612e2b73f'],
+    7: ['CN7-FeL7.xyz', 'b8d78999e51c1a5d1bec02b6e38e1aed8e49bc28171aeaea8269f5a40a3fef13'],
+    8: ['CN8-FeL8.xyz', '25e54c0b64118bee95bc912e1d642cf56c471ea49c4f3560cb4cfb0e6d4e358d'],
+    9: ['CN9-CrL9.xyz', 'b3e54773a63549045f067e393892a99445019a8cb88534cb60a7ae461ea54c69'],
+    10: ['CN10-FeL10.xyz', 'd7d69dbb0f0f935c7bf51ab0a98051e0c01e93835893a2c03f13b59e1526bb9e'],
+    11: ['CN11-NbL11.xyz', 'd766bbe13a8b604299d7f691caae43b91d568f64f6a7fe4cdb4f6de60872ea51'],
+    12: ['CN12-NbL12.xyz', '24ea5d356045dcb55a2425384515359508ce3beae4d461d08603512aba1cc401']
+});
+
 const EXPECTED_SHAPE_HASH = '1592122408e7f5486fd9665e96e129dda9390b1b0ac76da4d348e3070c1bb4cb';
+const EXPECTED_REFERENCE_SOURCE_HASH = '4b6a037196629347969ff51d6f3110c1e78b38be3539d79811f84b849a17e26d';
+const EXPECTED_QSHAPE_REFERENCE_INVENTORY_HASH =
+    '33e90f101fdc784a5de9c278dcc6d802390986575d7d7b1cb52c475110be1a71';
 const QSHAPE_SEED_POLICY = 'input-derived';
 const EXPECTED_CANDIDATE_SNAPSHOT_PATHS = Object.freeze([
+    '.gitattributes',
     'package.json',
     'package-lock.json',
     'src/constants/algorithmConstants.js',
@@ -501,6 +519,47 @@ function stableLedgerId(row, duplicateIndex = 0) {
     return duplicateIndex === 0 ? `failure-${digest}` : `failure-${digest}-${duplicateIndex + 1}`;
 }
 
+function qshapeInputFingerprint(caseItem, reference) {
+    const contract = {
+        schema_version: 1,
+        case_id: caseItem.case_id,
+        cn: caseItem.cn,
+        qshape_ligand_fixed15_tokens: caseItem.qshape_actual_ligand_tokens,
+        target_code: reference.qshape_code,
+        target_reference_binary64_roundtrip_tokens:
+            reference.qshape_reference_coordinate_roundtrip_tokens,
+        target_reference_float64_hex: reference.qshape_reference_coordinate_float64_hex,
+        mode: 'default',
+        seed_policy: QSHAPE_SEED_POLICY,
+        explicit_seed_uint32: null
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex');
+}
+
+function qshapeReferenceInventoryFingerprint(document) {
+    const contract = {
+        schema_version: 1,
+        by_cn: [...document.by_cn].sort((left, right) => left.cn - right.cn).map(group => ({
+            cn: group.cn,
+            references: [...group.references]
+                .sort((left, right) => left.qshape_index - right.qshape_index)
+                .map(reference => ({
+                    qshape_index: reference.qshape_index,
+                    qshape_code: reference.qshape_code,
+                    qshape_name: reference.qshape_name,
+                    qshape_center_index_zero_based: reference.qshape_center_index_zero_based,
+                    qshape_reference_coordinate_fixed15_tokens:
+                        reference.qshape_reference_coordinate_fixed15_tokens,
+                    qshape_reference_coordinate_roundtrip_tokens:
+                        reference.qshape_reference_coordinate_roundtrip_tokens,
+                    qshape_reference_coordinate_float64_hex:
+                        reference.qshape_reference_coordinate_float64_hex
+                }))
+        }))
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex');
+}
+
 function verifyNumericStatistics(observed, expected, label) {
     assert(observed && typeof observed === 'object', `${label} is missing`);
     assert(observed.count === expected.count, `${label} count mismatch`);
@@ -617,7 +676,9 @@ function verifyReferences(root, listedPaths) {
     ));
     assert(document.schema_version === 2 && document.count === 87, 'Invalid reference inventory envelope');
     assert(document.source_file === 'src/constants/referenceGeometries/index.js' &&
-        /^[0-9a-f]{64}$/.test(document.source_sha256 || ''),
+        document.source_sha256 === EXPECTED_REFERENCE_SOURCE_HASH &&
+        document.canonical_qshape_inventory_sha256 ===
+            EXPECTED_QSHAPE_REFERENCE_INVENTORY_HASH,
         'Reference inventory source identity is invalid');
     assert(document.mapping_policy ===
         'explicit code plus index; alias table v1 contains exactly three entries',
@@ -677,6 +738,9 @@ function verifyReferences(root, listedPaths) {
     }
     exactSet([...referencesByCn.keys()], Object.keys(EXPECTED_REFERENCE_CODES).map(Number),
         'Reference CN set');
+    assert(qshapeReferenceInventoryFingerprint(document) ===
+        EXPECTED_QSHAPE_REFERENCE_INVENTORY_HASH,
+    'Reference inventory does not match the preregistered Q-Shape source fingerprint');
     return referencesByCn;
 }
 
@@ -757,8 +821,19 @@ function verifyCases(root, listedPaths, referencesByCn) {
             const center = coordinates[coordinates.length - 1];
             assert(Array.isArray(item.source_center) && item.source_center.length === 3 &&
                 item.source_center.every((value, axis) => Number.isFinite(value) &&
-                    float64Hex(value) === float64Hex(center[axis])),
+                    value === center[axis]),
                 `Ideal source center mismatch for ${item.case_id}`);
+            assert(Array.isArray(item.source_center_roundtrip_tokens) &&
+                Array.isArray(item.source_center_float64_hex) &&
+                item.source_center_roundtrip_tokens.length === 3 &&
+                item.source_center_float64_hex.length === 3 &&
+                item.source_center_roundtrip_tokens.every((token, axis) => {
+                    const value = canonicalBinary64Token(token,
+                        `${item.case_id} source-center axis ${axis + 1}`);
+                    return float64Hex(value) === item.source_center_float64_hex[axis] &&
+                        item.source_center_float64_hex[axis] ===
+                            reference.qshape_reference_coordinate_float64_hex.at(-1)[axis];
+                }), `Ideal exact source center mismatch for ${item.case_id}`);
             const expectedAtoms = [
                 { element: 'Fe', tokens: ['0.000000000000000', '0.000000000000000', '0.000000000000000'] },
                 ...coordinates.slice(0, -1).map(point => ({
@@ -769,6 +844,7 @@ function verifyCases(root, listedPaths, referencesByCn) {
             assert(JSON.stringify(item.canonical_shape_atoms) === JSON.stringify(expectedAtoms),
                 `Ideal canonical coordinates do not derive from the reference snapshot for ${item.case_id}`);
         } else {
+            const [expectedFixtureName, expectedFixtureSha256] = EXPECTED_FIXTURES[item.cn] || [];
             assert(item.stratum === 'retained_fixture' &&
                 item.case_id === `fixture-cn${String(item.cn).padStart(2, '0')}` &&
                 item.structure_id === `F${String(item.cn).padStart(2, '0')}` &&
@@ -776,12 +852,12 @@ function verifyCases(root, listedPaths, referencesByCn) {
                 item.input_coordinate_policy ===
                     'source_xyz_translated_to_center_zero_then_fixed_to_15_decimals; identical canonical tokens feed both programs',
                 `Fixture metadata mismatch for ${item.case_id}`);
-            assert(item.source_sha256 && /^[0-9a-f]{64}$/.test(item.source_sha256),
-                `Fixture hash missing for ${item.case_id}`);
-            assert(/^tests\/fixtures\/shape-parity\/CN\d+-[^/]+\.xyz$/.test(item.source_file),
-                `Unsafe or unexpected fixture source path for ${item.case_id}`);
-            assert(item.source_name === path.basename(item.source_file),
-                `Fixture source name mismatch for ${item.case_id}`);
+            assert(expectedFixtureName && item.source_sha256 === expectedFixtureSha256,
+                `Fixture preregistered hash mismatch for ${item.case_id}`);
+            assert(item.source_file ===
+                `tests/fixtures/shape-parity/${expectedFixtureName}` &&
+                item.source_name === expectedFixtureName,
+                `Fixture source identity mismatch for ${item.case_id}`);
             const copiedToken = `inputs/fixtures/${path.basename(item.source_file)}`;
             const copied = resolveListedFile(root, listedPaths, copiedToken,
                 `Fixture copy for ${item.case_id}`);
@@ -799,8 +875,18 @@ function verifyCases(root, listedPaths, referencesByCn) {
             const center = parsed.atoms[0].coordinates;
             assert(Array.isArray(item.source_center) && item.source_center.length === 3 &&
                 item.source_center.every((value, axis) => Number.isFinite(value) &&
-                    float64Hex(value) === float64Hex(center[axis])),
+                    value === center[axis]),
                 `Fixture source center mismatch for ${item.case_id}`);
+            assert(Array.isArray(item.source_center_roundtrip_tokens) &&
+                Array.isArray(item.source_center_float64_hex) &&
+                item.source_center_roundtrip_tokens.length === 3 &&
+                item.source_center_float64_hex.length === 3 &&
+                item.source_center_roundtrip_tokens.every((token, axis) => {
+                    const value = canonicalBinary64Token(token,
+                        `${item.case_id} source-center axis ${axis + 1}`);
+                    return float64Hex(value) === item.source_center_float64_hex[axis] &&
+                        item.source_center_float64_hex[axis] === float64Hex(center[axis]);
+                }), `Fixture exact source center mismatch for ${item.case_id}`);
             const expectedAtoms = [
                 {
                     element: parsed.atoms[0].element,
@@ -860,6 +946,9 @@ function verifyShapeEvidence(
         for (const fileSet of batch.files) {
             assert(fileSet.replicate === 1 || fileSet.replicate === 2, 'Invalid SHAPE repetition');
             assert(fileSet.exit_code === 0, `SHAPE run has nonzero exit code: ${fileSet.out}`);
+            assert(/^\d+\.\d{3}$/.test(fileSet.duration_ms) &&
+                Number(fileSet.duration_ms) >= 0 && fileSet.timeout_seconds === 1800,
+                `SHAPE duration/timeout metadata mismatch: ${fileSet.out}`);
             for (const field of ['dat', 'out', 'tab', 'stdout', 'stderr', 'exit_code_file']) {
                 resolveListedFile(root, listedPaths, fileSet[field], `SHAPE ${field}`);
             }
@@ -1000,20 +1089,42 @@ function compareJsonRows(observedRows, expectedRows, repeated, label) {
     }
 }
 
-function verifyQShapeEvidence(root, listedPaths, expectedPairKeys, casesState, events) {
+function verifyQShapeEvidence(
+    root,
+    listedPaths,
+    expectedPairKeys,
+    casesState,
+    referencesByCn,
+    events,
+    warnings
+) {
     const repetitions = [];
+    const casesSha256 = sha256File(resolveListedFile(
+        root, listedPaths, 'cases.json', 'Q-Shape frozen cases'
+    ));
+    const referencesSha256 = sha256File(resolveListedFile(
+        root, listedPaths, 'references.json', 'Q-Shape frozen references'
+    ));
     for (let repetition = 1; repetition <= 2; repetition++) {
         const relativePath = `qshape/raw/repetition-${String(repetition).padStart(2, '0')}.json`;
         const stem = `qshape/raw/repetition-${String(repetition).padStart(2, '0')}`;
         assert(fs.readFileSync(resolveListedFile(
             root, listedPaths, `${stem}.exit-code.txt`, `Q-Shape repetition ${repetition} exit code`
         ), 'utf8') === '0\n', `Q-Shape repetition ${repetition} exit-code file is not zero`);
-        assert(fs.readFileSync(resolveListedFile(
+        const stderrText = fs.readFileSync(resolveListedFile(
             root, listedPaths, `${stem}.stderr.txt`, `Q-Shape repetition ${repetition} stderr`
-        ), 'utf8') === '', `Q-Shape repetition ${repetition} wrote to stderr`);
-        assert(fs.readFileSync(resolveListedFile(
+        ), 'utf8').replace(/\r\n/g, '\n');
+        const allowedBaselineWarning =
+            '[baseline-browser-mapping] The data in this module is over two months old.  ' +
+            'To ensure accurate Baseline data, please update: ' +
+            '`npm i baseline-browser-mapping@latest -D`\n';
+        assert(stderrText === '' || stderrText === allowedBaselineWarning,
+            `Q-Shape repetition ${repetition} wrote unexpected diagnostics to stderr`);
+        if (stderrText !== '') warnings.push(`qshape_stderr_repetition_${repetition}`);
+        const stdoutText = fs.readFileSync(resolveListedFile(
             root, listedPaths, `${stem}.stdout.txt`, `Q-Shape repetition ${repetition} stdout`
-        ), 'utf8') === `Q-Shape repetition ${repetition}: 952 values\n`,
+        ), 'utf8').replace(/\r\n/g, '\n');
+        assert(stdoutText === `Q-Shape repetition ${repetition}: 952 values\n`,
         `Q-Shape repetition ${repetition} stdout is inconsistent`);
         const payload = readJson(resolveListedFile(
             root, listedPaths, relativePath, `Q-Shape repetition ${repetition}`
@@ -1021,12 +1132,16 @@ function verifyQShapeEvidence(root, listedPaths, expectedPairKeys, casesState, e
         assert(payload.program === 'Q-Shape' && payload.mode === 'default' &&
             payload.seed_policy === QSHAPE_SEED_POLICY &&
             payload.explicit_seed_uint32 === null && payload.repetition === repetition &&
+            payload.input_contract === 'manifested-cases-and-references-v1' &&
+            payload.cases_sha256 === casesSha256 &&
+            payload.references_sha256 === referencesSha256 &&
             payload.count === 952 && payload.results.length === 952,
             `Invalid Q-Shape repetition ${repetition} envelope`);
         const rows = payload.results.map(row => {
             exactSet(Object.keys(row), [
                 'caseId', 'stratum', 'cn', 'targetCode', 'valueToken', 'valueHex',
-                'runtimeMsToken', 'mode', 'seedPolicy', 'explicitSeed', 'repetition'
+                'runtimeMsToken', 'inputFingerprintSha256', 'mode', 'seedPolicy',
+                'explicitSeed', 'repetition'
             ], `Q-Shape repetition ${repetition} row fields`);
             assert(row.repetition === repetition && row.seedPolicy === QSHAPE_SEED_POLICY &&
                 row.explicitSeed === null && row.mode === 'default',
@@ -1035,6 +1150,12 @@ function verifyQShapeEvidence(root, listedPaths, expectedPairKeys, casesState, e
             assert(caseItem && row.cn === caseItem.cn && row.stratum === caseItem.stratum &&
                 EXPECTED_REFERENCE_CODES[row.cn]?.includes(row.targetCode),
                 `Q-Shape case/target identity mismatch in repetition ${repetition}`);
+            const reference = referencesByCn.get(row.cn).find(item =>
+                item.qshape_code === row.targetCode
+            );
+            assert(reference && row.inputFingerprintSha256 ===
+                qshapeInputFingerprint(caseItem, reference),
+            `Q-Shape input fingerprint mismatch for ${row.caseId}/${row.targetCode}`);
             assert(/^[0-9a-f]{16}$/.test(row.valueHex), 'Invalid Q-Shape float64 hex');
             const value = canonicalBinary64Token(
                 row.valueToken, `Q-Shape ${row.caseId}/${row.targetCode}`
@@ -1121,18 +1242,19 @@ function recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, ev
             const shape = shapeMap.get(key);
             const qshape = qshapeMap.get(key);
             assert(shape && qshape, `Missing primary pair ${key}`);
-            const shapeDecimal = shape.lexicallyValid && DECIMAL_PATTERN.test(shape.valueToken)
+            const shapeNumericDecimal = DECIMAL_PATTERN.test(shape.valueToken)
                 ? parseDecimal(shape.valueToken) : null;
+            const shapeDecimal = shape.lexicallyValid ? shapeNumericDecimal : null;
             const qshapeDecimal = qshape.lexicallyValid ? parseDecimal(qshape.valueToken) : null;
             if (!shape.lexicallyValid) addEvent(events, caseItem.case_id, 'shape_lexical_token', reference.qshape_code);
             if (!qshape.lexicallyValid) addEvent(events, caseItem.case_id, 'qshape_lexical_token', reference.qshape_code);
-            if (shapeDecimal && shapeDecimal.coefficient < 0n) {
+            if (shapeNumericDecimal && shapeNumericDecimal.coefficient < 0n) {
                 addEvent(events, caseItem.case_id, 'shape_negative_cshm', reference.qshape_code);
             }
             if (qshapeDecimal && qshapeDecimal.coefficient < 0n) {
                 addEvent(events, caseItem.case_id, 'qshape_negative_cshm', reference.qshape_code);
             }
-            if (shapeDecimal && compareDecimals(shapeDecimal, parseDecimal('100')) > 0) {
+            if (shapeNumericDecimal && compareDecimals(shapeNumericDecimal, parseDecimal('100')) > 0) {
                 addEvent(events, caseItem.case_id, 'shape_cshm_above_100', reference.qshape_code);
             }
             if (qshapeDecimal && compareDecimals(qshapeDecimal, parseDecimal('100')) > 0) {
@@ -1267,6 +1389,7 @@ function verifyDerivedReports(
         pairKey(row.case_id, row.target_code), row
     ]));
     const signedErrors = [];
+    const runtimeValues = [];
     for (const item of analysisState.comparisons) {
         const label = `${item.caseItem.case_id}/${item.reference.qshape_code}`;
         const row = comparisonMap.get(pairKey(item.caseItem.case_id, item.reference.qshape_code));
@@ -1291,6 +1414,7 @@ function verifyDerivedReports(
             : '';
         assert(row.qshape_display_5dp === expectedDisplay,
             `Comparison five-decimal display mismatch for ${label}`);
+        runtimeValues.push(Number(item.qshape.runtimeMsToken));
         assert(row.result_domain_valid === String(item.domainValid),
             `Comparison domain flag mismatch for ${label}`);
         assert(row.pass_abs_0_01 === String(Boolean(
@@ -1502,6 +1626,9 @@ function verifyDerivedReports(
             `${label} census mismatch`);
         verifyNumericStatistics(observed.error_statistics, numericStats(subsetErrors),
             `${label} error statistics`);
+        verifyDistribution(observed.runtime_statistics_ms, numericDistribution(
+            comparisons.map(item => Number(item.qshape.runtimeMsToken))
+        ), `${label} runtime statistics`);
         const exactBestAgree = caseSummaries.filter(item =>
             item.shapeBest !== '' && item.shapeBest === item.qshapeBest).length;
         const tieAgree = caseSummaries.filter(item =>
@@ -1522,6 +1649,8 @@ function verifyDerivedReports(
         summary.totals.failures === events.length, 'Summary totals mismatch');
     verifyNumericStatistics(summary.totals.error_statistics, numericStats(signedErrors),
         'Summary total error statistics');
+    verifyDistribution(summary.totals.runtime_statistics_ms,
+        numericDistribution(runtimeValues), 'Summary total runtime statistics');
     verifyRankStatistics(summary.totals.rank_statistics, analysisState.caseSummaries,
         'Summary total ranking');
     exactSet(Object.keys(summary.by_stratum), ['retained_fixture', 'ideal_reference'],
@@ -1584,7 +1713,7 @@ function verifyPackage(packagePath) {
     compareJsonRows(parsedAll.results, shapeState.allRows, true, 'SHAPE repeated JSON');
 
     const qshapeState = verifyQShapeEvidence(
-        root, listedPaths, expectedKeys, casesState, events
+        root, listedPaths, expectedKeys, casesState, referencesByCn, events, warnings
     );
     const analysisState = recomputeAnalysis(
         casesState, referencesByCn, shapeState.primaryRows, qshapeState.primaryRows, events
@@ -1596,13 +1725,49 @@ function verifyPackage(packagePath) {
     const environment = readJson(resolveListedFile(
         root, listedPaths, 'metadata/run-environment.json', 'Run environment'
     ));
-    assert(environment.schema_version === 2 && environment.qshape_commit === manifest.qshape_commit,
+    assert(environment.schema_version === 2 && environment.qshape_commit === manifest.qshape_commit &&
+        /^[0-9a-f]{40}$/.test(environment.qshape_commit || ''),
         'Run environment/manifest commit mismatch');
+    assert(environment.generated_at_utc === manifest.generated_at_utc &&
+        !Number.isNaN(Date.parse(environment.generated_at_utc)),
+        'Run environment/manifest timestamp mismatch');
+    assert(typeof environment.qshape_branch === 'string' && environment.qshape_branch.length > 0 &&
+        environment.qshape_worktree_clean_before_run === true &&
+        /^v\d+\./.test(environment.node_version || '') &&
+        environment.node_platform === 'win32' && environment.node_arch &&
+        typeof environment.host_os_release === 'string' && environment.host_os_release.length > 0 &&
+        typeof environment.host_os_version === 'string' && environment.host_os_version.length > 0 &&
+        typeof environment.host_cpu_model === 'string' && environment.host_cpu_model.length > 0 &&
+        Number.isInteger(environment.host_logical_cpu_count) &&
+        environment.host_logical_cpu_count > 0 &&
+        Number.isInteger(environment.host_total_memory_bytes) &&
+        environment.host_total_memory_bytes > 0 &&
+        environment.shape_process_locale === 'C' &&
+        environment.shape_process_timezone === 'UTC' &&
+        typeof environment.node_process_locale === 'string' &&
+        environment.node_process_locale.length > 0 &&
+        typeof environment.node_process_timezone === 'string' &&
+        environment.node_process_timezone.length > 0,
+        'Run environment candidate/runtime freeze is incomplete');
     assert(environment.shape_executable_sha256 === EXPECTED_SHAPE_HASH &&
         environment.shape_expected_sha256 === EXPECTED_SHAPE_HASH,
         'Run environment SHAPE digest mismatch');
+    assert(environment.shape_banner === 'SHAPE v2.1' &&
+        environment.shape_executable_basename === 'shape_2.1_linux64' &&
+        environment.shape_executable_redistributed === false &&
+        environment.shape_license_status ===
+            'third-party executable; no license file identified in the audited local installation' &&
+        environment.wsl_registered_distro_name === 'Ubuntu-22.04' &&
+        typeof environment.wsl_guest_os_pretty_name === 'string' &&
+        environment.wsl_guest_os_pretty_name.length > 0,
+        'Run environment SHAPE identity metadata mismatch');
     assert(environment.qshape_seed_policy === QSHAPE_SEED_POLICY &&
-        environment.qshape_explicit_seed_uint32 === null,
+        environment.qshape_explicit_seed_uint32 === null &&
+        environment.qshape_mode === 'default' && environment.qshape_repetitions === 2 &&
+        environment.qshape_repetition_processes === 'independent Node.js worker processes' &&
+        environment.shape_repetitions === 2 &&
+        environment.shape_timeout_seconds_per_invocation === 1800 &&
+        environment.max_shape_references_per_control === 12,
         'Run environment seed policy mismatch');
     assert(Array.isArray(environment.reference_listings) &&
         environment.reference_listings.length === 11,
@@ -1610,11 +1775,28 @@ function verifyPackage(packagePath) {
     exactSet(environment.reference_listings.map(item => item.cn),
         Object.keys(EXPECTED_REFERENCE_CODES).map(Number), 'Run environment listing CNs');
     for (const listing of environment.reference_listings) {
-        resolveListedFile(root, listedPaths, listing.raw_path,
+        const rawPath = resolveListedFile(root, listedPaths, listing.raw_path,
             `Reference listing CN=${listing.cn}`);
         assert(Array.isArray(listing.references) &&
             listing.references.length === EXPECTED_REFERENCE_CODES[listing.cn].length,
             `Reference listing row count mismatch CN=${listing.cn}`);
+        const parsedListing = parseShapeReferenceListing(
+            fs.readFileSync(rawPath, 'utf8'), listing.cn
+        );
+        assert(JSON.stringify(listing.references) === JSON.stringify(parsedListing),
+            `Stored/raw reference listing mismatch CN=${listing.cn}`);
+        const qReferences = referencesByCn.get(listing.cn);
+        parsedListing.forEach((reference, index) => {
+            assert(reference.index === index + 1 &&
+                reference.shapeCode === qReferences[index].shape_code &&
+                reference.pointGroup === qReferences[index].shape_point_group &&
+                reference.description === qReferences[index].shape_description,
+                `Reference listing binding mismatch CN=${listing.cn} index=${index + 1}`);
+        });
+        const exitCodeToken = listing.raw_path.replace(/\.stdout\.txt$/, '.exit-code.txt');
+        assert(exitCodeToken !== listing.raw_path && fs.readFileSync(resolveListedFile(
+            root, listedPaths, exitCodeToken, `Reference listing exit code CN=${listing.cn}`
+        ), 'utf8') === '0\n', `Reference listing command failed for CN=${listing.cn}`);
     }
     assert(environment.candidate_source_sha256 &&
         typeof environment.candidate_source_sha256 === 'object',
@@ -1644,6 +1826,94 @@ function verifyPackage(packagePath) {
     assert(environment.reference_source_sha256 ===
         environment.candidate_source_sha256['src/constants/referenceGeometries/index.js'],
         'Reference-source fingerprint mismatch');
+    const referenceDocument = readJson(resolveListedFile(
+        root, listedPaths, 'references.json', 'Reference inventory'
+    ));
+    assert(referenceDocument.source_sha256 === environment.reference_source_sha256,
+        'Reference inventory/source fingerprint mismatch');
+    const initialShapeHashText = fs.readFileSync(resolveListedFile(
+        root,
+        listedPaths,
+        'oracle/metadata/shape-sha256.stdout.txt',
+        'Initial SHAPE digest stdout'
+    ), 'utf8');
+    assert(initialShapeHashText.startsWith(`${EXPECTED_SHAPE_HASH} `),
+        'Initial SHAPE fingerprint check is missing or inconsistent');
+    assert(fs.readFileSync(resolveListedFile(
+        root,
+        listedPaths,
+        'oracle/metadata/shape-sha256.exit-code.txt',
+        'Initial SHAPE digest exit code'
+    ), 'utf8') === '0\n', 'Initial SHAPE fingerprint command failed');
+    const shapeHelpText = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help.stdout.txt', 'SHAPE help stdout'
+    ), 'utf8') + fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help.stderr.txt', 'SHAPE help stderr'
+    ), 'utf8');
+    assert(/S H A P E\s+v2\.1/.test(shapeHelpText), 'SHAPE v2.1 banner is absent from raw help output');
+    assert(fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help.exit-code.txt', 'SHAPE help exit code'
+    ), 'utf8') === '0\n', 'SHAPE help command failed');
+    const finalShapeHelpText = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help-final.stdout.txt',
+        'Final SHAPE help stdout'
+    ), 'utf8') + fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help-final.stderr.txt',
+        'Final SHAPE help stderr'
+    ), 'utf8');
+    assert(/S H A P E\s+v2\.1/.test(finalShapeHelpText),
+        'SHAPE v2.1 banner is absent from final raw help output');
+    assert(fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-help-final.exit-code.txt',
+        'Final SHAPE help exit code'
+    ), 'utf8') === '0\n', 'Final SHAPE help command failed');
+    for (const stem of ['shape-file', 'uname', 'os-release']) {
+        for (const stream of ['stdout', 'stderr']) {
+            const initialText = fs.readFileSync(resolveListedFile(
+                root, listedPaths, `oracle/metadata/${stem}.${stream}.txt`,
+                `Initial ${stem} ${stream}`
+            ), 'utf8');
+            const finalText = fs.readFileSync(resolveListedFile(
+                root, listedPaths, `oracle/metadata/${stem}-final.${stream}.txt`,
+                `Final ${stem} ${stream}`
+            ), 'utf8');
+            assert(initialText === finalText, `${stem} ${stream} changed during validation`);
+        }
+        for (const suffix of ['', '-final']) {
+            assert(fs.readFileSync(resolveListedFile(
+                root, listedPaths, `oracle/metadata/${stem}${suffix}.exit-code.txt`,
+                `${stem}${suffix} exit code`
+            ), 'utf8') === '0\n', `${stem}${suffix} command failed`);
+        }
+    }
+    const rawOsRelease = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/os-release.stdout.txt', 'Raw WSL os-release'
+    ), 'utf8');
+    const prettyNameMatch = rawOsRelease.match(/^PRETTY_NAME=(?:"([^"]+)"|(.+))$/m);
+    assert(prettyNameMatch && (prettyNameMatch[1] || prettyNameMatch[2]) ===
+        environment.wsl_guest_os_pretty_name,
+    'Recorded WSL guest name does not match raw os-release');
+    const rawUname = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/uname.stdout.txt', 'Raw WSL uname'
+    ), 'utf8');
+    assert(/\bx86_64\b/.test(rawUname), 'WSL uname does not report x86_64');
+    const rawFileMetadata = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-file.stdout.txt', 'Raw SHAPE file metadata'
+    ), 'utf8');
+    assert(/ELF 64-bit LSB.*x86-64/.test(rawFileMetadata),
+        'SHAPE executable metadata is not ELF64 x86-64');
+    const rawLdd = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-ldd.stdout.txt', 'Raw SHAPE ldd metadata'
+    ), 'utf8') + fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-ldd.stderr.txt', 'Raw SHAPE ldd diagnostics'
+    ), 'utf8');
+    assert(!/not found/i.test(rawLdd) && fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-ldd.exit-code.txt', 'SHAPE ldd exit code'
+    ), 'utf8') === '0\n', 'SHAPE dynamic-library metadata is unresolved');
+    assert(fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'oracle/metadata/shape-list-all.exit-code.txt',
+        'SHAPE all-reference listing exit code'
+    ), 'utf8') === '0\n', 'SHAPE all-reference listing command failed');
     const finalShapeHashText = fs.readFileSync(resolveListedFile(
         root,
         listedPaths,
@@ -1659,9 +1929,19 @@ function verifyPackage(packagePath) {
         'Final SHAPE digest exit code'
     ), 'utf8') === '0\n', 'Final SHAPE fingerprint command failed');
     const runState = readJson(resolveListedFile(root, listedPaths, 'run-state.json', 'Run state'));
-    assert(runState.status === 'complete' && runState.stage === 'complete', 'Run state is not complete');
+    assert(runState.schema_version === 1 && runState.status === 'complete' &&
+        runState.stage === 'complete' && runState.qshape_commit === manifest.qshape_commit &&
+        runState.campaign_gate_status === reportState.campaignGateStatus &&
+        runState.overall_validation_status === 'incomplete' &&
+        !Number.isNaN(Date.parse(runState.updated_at_utc)), 'Run state is not complete');
     assert(manifest.campaign_gate_status === reportState.campaignGateStatus,
         'Manifest campaign status mismatch');
+    assert(manifest.release_kind === 'direct_canonical_plus_retained_fixtures' &&
+        manifest.claim_boundary === reportState.summary.claim_boundary &&
+        manifest.qshape_commit === environment.qshape_commit &&
+        manifest.qshape_seed_policy === QSHAPE_SEED_POLICY &&
+        manifest.qshape_explicit_seed_uint32 === null,
+        'Manifest release identity mismatch');
 
     const expectedCounts = manifest.expected_counts;
     const observedCounts = manifest.observed_counts;
@@ -1676,11 +1956,46 @@ function verifyPackage(packagePath) {
         shape_batches: 15,
         shape_runs_with_repetitions: 30
     };
+    exactSet(Object.keys(expectedCounts || {}), Object.keys(canonicalCounts),
+        'Manifest expected-count fields');
+    exactSet(Object.keys(observedCounts || {}), [...Object.keys(canonicalCounts), 'failures'],
+        'Manifest observed-count fields');
     for (const [field, value] of Object.entries(canonicalCounts)) {
         assert(expectedCounts[field] === value && observedCounts[field] === value,
             `Manifest count mismatch for ${field}`);
     }
     assert(observedCounts.failures === events.length, 'Manifest failure count mismatch');
+
+    const dictionary = readJson(resolveListedFile(
+        root, listedPaths, 'metadata/data-dictionary.json', 'Data dictionary'
+    ));
+    assert(dictionary.schema_version === 2 && dictionary.table_mode === 'working_tidy_data' &&
+        dictionary.publication_status === 'not_reviewed_not_publication_ready' &&
+        dictionary.gates?.matched_target_absolute_error === '<0.01 CShM' &&
+        dictionary.gates?.cshm_domain === 'finite and within [0, 100]' &&
+        dictionary.gates?.shape_tie_set_gamma === '0.02001 CShM' &&
+        dictionary.gates?.qshape_repeatability ===
+            'identical float64 hex across independent worker processes' &&
+        dictionary.gates?.shape_repeatability ===
+            'identical five-decimal CShM tokens across clean runs',
+        'Data dictionary gate semantics mismatch');
+    const workingReport = fs.readFileSync(resolveListedFile(
+        root, listedPaths, 'reports/working-report.md', 'Working report'
+    ), 'utf8');
+    for (const requiredText of [
+        'Status: working validation artifact; not a publication-ready table',
+        `Direct-campaign gate: **${reportState.campaignGateStatus.toUpperCase()}**.`,
+        'Overall validation: **INCOMPLETE**.',
+        `Q-Shape commit: \`${environment.qshape_commit}\`.`,
+        `SHAPE executable SHA-256: \`${EXPECTED_SHAPE_HASH}\`.`,
+        `Cases: 98; matched target evaluations per program: 952.`,
+        `Failures retained in the ledger: ${events.length}.`
+    ]) assert(workingReport.includes(requiredText),
+        `Working report is missing derived text: ${requiredText}`);
+    assert(workingReport.includes('- Q-Shape diagnostic runtime mean / median / P95 / P99 / maximum:'),
+        'Working report is missing diagnostic runtime statistics');
+    assert(![...listedPaths].some(token => path.posix.basename(token) === 'shape_2.1_linux64'),
+        'The SHAPE executable must not be redistributed in the evidence package');
 
     warnings.sort();
     return {
@@ -1751,6 +2066,7 @@ module.exports = {
     parseShapeDat,
     parseShapeOut,
     parseShapeTab,
+    qshapeReferenceInventoryFingerprint,
     subtractDecimals,
     verifyPackage
 };

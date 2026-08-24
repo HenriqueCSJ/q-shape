@@ -531,6 +531,7 @@ function analyzeDirectParity({ cases, inventory, shapeRows, qshapeRows, addition
     }
 
     const allSignedErrors = comparisonRows.map(row => finiteDecimal(row.signed_error)).filter(Boolean);
+    const allRuntimeValues = comparisonRows.map(row => finiteDecimal(row.runtime_ms)).filter(Boolean);
     const summarizeRankStatistics = subsetCaseSummaries => {
         const tauValues = subsetCaseSummaries
             .map(row => finiteDecimal(row.kendall_tau_b_gamma))
@@ -577,6 +578,8 @@ function analyzeDirectParity({ cases, inventory, shapeRows, qshapeRows, addition
         const subsetRows = comparisonRows.filter(row => subsetIds.has(row.case_id));
         const subsetSignedErrors = subsetRows
             .map(row => finiteDecimal(row.signed_error)).filter(Boolean);
+        const subsetRuntimeValues = subsetRows
+            .map(row => finiteDecimal(row.runtime_ms)).filter(Boolean);
         const subsetCaseSummaries = caseSummaryRows.filter(row => subsetIds.has(row.case_id));
         return {
             cases: subset.length,
@@ -587,6 +590,7 @@ function analyzeDirectParity({ cases, inventory, shapeRows, qshapeRows, addition
             comparisons_observed: subsetRows.length,
             comparisons_domain_valid: subsetSignedErrors.length,
             error_statistics: errorStatistics(subsetSignedErrors),
+            runtime_statistics_ms: stats(subsetRuntimeValues),
             exact_best_label_agreement: {
                 agree: subsetCaseSummaries.filter(row => row.exact_best_label_agrees).length,
                 total: subsetCaseSummaries.length
@@ -631,6 +635,7 @@ function analyzeDirectParity({ cases, inventory, shapeRows, qshapeRows, addition
             comparisons_domain_valid: allSignedErrors.length,
             failures: failures.length,
             error_statistics: errorStatistics(allSignedErrors),
+            runtime_statistics_ms: stats(allRuntimeValues),
             rank_statistics: summarizeRankStatistics(caseSummaryRows)
         },
         by_stratum: byStratum,
