@@ -213,7 +213,14 @@ describe('Shape Calculator', () => {
 
         test('should handle mismatched sizes', () => {
             const coords1 = [[1, 0, 0], [0, 1, 0]];
-            const coords2 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            // One extra reference point is the supported implicit-center
+            // contract, so use a genuinely incompatible point count here.
+            const coords2 = [
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [-1, 0, 0]
+            ];
 
             const result = calculateShapeMeasure(coords1, coords2, 'default');
 

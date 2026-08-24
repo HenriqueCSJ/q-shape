@@ -47,10 +47,11 @@ export const KABSCH = {
     MIN_MAGNITUDE: 1e-6,
 
     /**
-     * Minimum squared length for normalized vectors
+     * Minimum relative squared length for center-to-ligand vectors
      *
-     * Detects coordinating atoms at same position as metal center.
-     * Value chosen to handle typical coordinate precision.
+     * Detects a coordinating atom at the metal center relative to the longest
+     * center-to-ligand vector. A relative threshold preserves uniform-scale
+     * invariance while rejecting numerically degenerate inputs.
      */
     MIN_VECTOR_LENGTH_SQ: 1e-8
 };
@@ -316,6 +317,20 @@ export const SHAPE_MEASURE = {
          * Use Kabsch pre-alignment
          */
         USE_KABSCH: true
+    },
+
+    /**
+     * Deterministic high-CN anchor search (CN 8-12)
+     *
+     * A small set of well-conditioned actual ligand pairs is mapped onto every
+     * ordered reference pair. The best distinct assignments are then polished
+     * by alternating Hungarian assignment and exact Kabsch rotation.
+     */
+    ANCHOR_SEARCH: {
+        MAX_ACTUAL_PAIRS: 1,
+        TOP_CANDIDATES: 16,
+        MAX_ASSIGNMENT_ITERATIONS: 10,
+        IMPROVEMENT_TOLERANCE: 1e-12
     },
 
     /**

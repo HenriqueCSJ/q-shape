@@ -1,17 +1,9 @@
 /**
  * SHAPE Parity Benchmark Tests
  *
- * These tests ensure Q-Shape produces results that are either:
- * (A) essentially indistinguishable from SHAPE within tight tolerances, OR
- * (B) demonstrably better by a well-defined, defensible criterion
- *
- * Problem A (systematic): Johnson degeneracy
- * Q-Shape often reports identical (or near-identical) CShM for a Johnson geometry
- * and the corresponding regular geometry, even when SHAPE separates them.
- *
- * Problem B (general): SHAPE still "better" overall
- * Even when rankings agree, Q-Shape best-match CShM is often systematically higher
- * than SHAPE's.
+ * These tests lock direct SHAPE 2.1 values, rankings, and previously repaired
+ * failure modes. Historical discrepancies remain useful regression targets but
+ * are not descriptions of the current implementation.
  */
 
 import calculateShapeMeasure from './shapeCalculator';
@@ -28,7 +20,7 @@ const SHAPE_REFERENCE = {
 
 // Tolerance thresholds
 const TOLERANCES = {
-    DEGENERACY_THRESHOLD: 1e-6,      // Below this, values are considered identical (PROBLEM!)
+    DEGENERACY_THRESHOLD: 1e-6,      // Below this, values are considered identical
     SEPARATION_REQUIRED: 0.5,         // TBPY-5 and JTBPY-5 should differ by at least this much
     RELATIVE_ERROR_MEDIAN: 0.03,      // 3% median relative error
     RELATIVE_ERROR_90TH: 0.16,        // 16% 90th percentile - allows for optimizer improvements
@@ -84,9 +76,7 @@ describe('SHAPE Parity Benchmark - ML5 Ag Complex', () => {
 
             const diff = Math.abs(tbpy5 - jtbpy5);
 
-            // THIS TEST SHOULD CURRENTLY FAIL!
-            // Q-Shape produces identical values for TBPY-5 and JTBPY-5
-            // SHAPE produces: TBPY-5 = 5.07, JTBPY-5 = 7.24 (difference of 2.17)
+            // SHAPE produces TBPY-5 = 5.07 and JTBPY-5 = 7.24.
             expect(diff).toBeGreaterThan(TOLERANCES.DEGENERACY_THRESHOLD);
         });
 
@@ -96,8 +86,7 @@ describe('SHAPE Parity Benchmark - ML5 Ag Complex', () => {
 
             const diff = Math.abs(tbpy5 - jtbpy5);
 
-            // THIS TEST SHOULD CURRENTLY FAIL!
-            // Q-Shape produces ~5.78 for both; should differ by ~2.17 per SHAPE
+            // Preserve a material separation between the regular and Johnson forms.
             expect(diff).toBeGreaterThan(TOLERANCES.SEPARATION_REQUIRED);
         });
 
@@ -1016,39 +1005,38 @@ describe('SHAPE Parity Benchmark - CN=11 NbL11 Complex', () => {
     test('JAPPR-11 CShM should be close to SHAPE', () => {
         const jappr11 = cn11Results['JAPPR-11 (Augmented Pentagonal Prism, J52)'];
         const shapeValue = SHAPE_REF_CN11['JAPPR-11 (Augmented Pentagonal Prism, J52)'];
-        // Allow 5% relative error
-        const relError = Math.abs(jappr11 - shapeValue) / shapeValue;
-        expect(relError).toBeLessThan(0.05);
+        expect(Math.abs(jappr11 - shapeValue)).toBeLessThan(0.01);
     });
 
-    test('All CN=11 geometries should match SHAPE within 1%', () => {
+    test('All CN=11 geometries should match SHAPE within 0.01 CShM', () => {
+        expect(Object.keys(cn11Results).sort()).toEqual(
+            Object.keys(SHAPE_REF_CN11).sort()
+        );
         for (const [name, shapeValue] of Object.entries(SHAPE_REF_CN11)) {
             const qshapeValue = cn11Results[name];
-            if (qshapeValue !== undefined) {
-                const relError = Math.abs(qshapeValue - shapeValue) / shapeValue;
-                expect(relError).toBeLessThan(0.01);
-            }
+            expect(qshapeValue).toBeDefined();
+            expect(Math.abs(qshapeValue - shapeValue)).toBeLessThan(0.01);
         }
     });
 });
 
 describe('SHAPE Parity Benchmark - CN=12 NbL12 Complex', () => {
-    // NbL12 coordinates from SHAPE v2.1
-    // Nb at (-2.1708, 0.0000, -6.0691), ligands relative to Nb
-    const metalCoords = [-2.1708, 0.0000, -6.0691];
+    // Full-precision NbL12 coordinates used to generate the SHAPE v2.1
+    // golden values below. Do not round independently of the goldens.
+    const metalCoords = [-2.170805016000, 0.000000000000, -6.069108201000];
     const ligandCoords = [
-        [-2.1708 - metalCoords[0], 1.5122 - metalCoords[1], -7.9777 - metalCoords[2]],   // C1
-        [-1.0169 - metalCoords[0], 0.6831 - metalCoords[1], -8.1021 - metalCoords[2]],   // C2
-        [-1.4576 - metalCoords[0], -0.6585 - metalCoords[1], -8.3031 - metalCoords[2]],  // C3
-        [-2.8840 - metalCoords[0], -0.6585 - metalCoords[1], -8.3031 - metalCoords[2]],  // C4
-        [-3.3247 - metalCoords[0], 0.6831 - metalCoords[1], -8.1021 - metalCoords[2]],   // C5
-        [-2.1708 - metalCoords[0], 1.3961 - metalCoords[1], -4.2035 - metalCoords[2]],   // C6
-        [-3.4566 - metalCoords[0], 0.7823 - metalCoords[1], -4.2878 - metalCoords[2]],   // C7
-        [-3.7738 - metalCoords[0], -0.5953 - metalCoords[1], -4.4802 - metalCoords[2]],  // C8
-        [-2.8845 - metalCoords[0], -1.7001 - metalCoords[1], -4.6367 - metalCoords[2]],  // C9
-        [-1.4571 - metalCoords[0], -1.7001 - metalCoords[1], -4.6367 - metalCoords[2]],  // C10
-        [-0.5678 - metalCoords[0], -0.5953 - metalCoords[1], -4.4802 - metalCoords[2]],  // C11
-        [-0.8851 - metalCoords[0], 0.7823 - metalCoords[1], -4.2878 - metalCoords[2]]    // C12
+        [-2.170804960000 - metalCoords[0], 1.512249945000 - metalCoords[1], -7.977658189000 - metalCoords[2]],   // C1
+        [-1.016869997000 - metalCoords[0], 0.683121936000 - metalCoords[1], -8.102053349000 - metalCoords[2]],   // C2
+        [-1.457619055000 - metalCoords[0], -0.658516326000 - metalCoords[1], -8.303128624000 - metalCoords[2]],  // C3
+        [-2.883991055000 - metalCoords[0], -0.658516265000 - metalCoords[1], -8.303128617000 - metalCoords[2]],  // C4
+        [-3.324739996000 - metalCoords[0], 0.683122034000 - metalCoords[1], -8.102053338000 - metalCoords[2]],   // C5
+        [-2.170804948000 - metalCoords[0], 1.396070818000 - metalCoords[1], -4.203484002000 - metalCoords[2]],   // C6
+        [-3.456557974000 - metalCoords[0], 0.782298043000 - metalCoords[1], -4.287777282000 - metalCoords[2]],   // C7
+        [-3.773838034000 - metalCoords[0], -0.595337888000 - metalCoords[1], -4.480242151000 - metalCoords[2]],  // C8
+        [-2.884511082000 - metalCoords[0], -1.700065265000 - metalCoords[1], -4.636732343000 - metalCoords[2]],  // C9
+        [-1.457099082000 - metalCoords[0], -1.700065326000 - metalCoords[1], -4.636732350000 - metalCoords[2]],  // C10
+        [-0.567772034000 - metalCoords[0], -0.595338025000 - metalCoords[1], -4.480242166000 - metalCoords[2]],  // C11
+        [-0.885051975000 - metalCoords[0], 0.782297933000 - metalCoords[1], -4.287777295000 - metalCoords[2]]    // C12
     ];
 
     // SHAPE v2.1 reference values
@@ -1114,13 +1102,14 @@ describe('SHAPE Parity Benchmark - CN=12 NbL12 Complex', () => {
         expect(relError).toBeLessThan(0.05);
     });
 
-    test('All CN=12 geometries should match SHAPE within 1%', () => {
+    test('All CN=12 geometries should match SHAPE within 0.01 CShM', () => {
+        expect(Object.keys(cn12Results).sort()).toEqual(
+            Object.keys(SHAPE_REF_CN12).sort()
+        );
         for (const [name, shapeValue] of Object.entries(SHAPE_REF_CN12)) {
             const qshapeValue = cn12Results[name];
-            if (qshapeValue !== undefined) {
-                const relError = Math.abs(qshapeValue - shapeValue) / shapeValue;
-                expect(relError).toBeLessThan(0.01);
-            }
+            expect(qshapeValue).toBeDefined();
+            expect(Math.abs(qshapeValue - shapeValue)).toBeLessThan(0.01);
         }
     });
 });
@@ -1128,91 +1117,90 @@ describe('SHAPE Parity Benchmark - CN=12 NbL12 Complex', () => {
 describe('SHAPE Parity - High Coordination Numbers (CN=7-12)', () => {
     // Test that perfect reference geometries give CShM ≈ 0
     // This validates the algorithm works for higher CNs even without external SHAPE values
+    const centeredLigands = refCoords => {
+        const center = refCoords[refCoords.length - 1];
+        return refCoords.slice(0, -1).map(point =>
+            point.map((value, axis) => value - center[axis])
+        );
+    };
 
     describe('CN=7 Perfect Geometry Test', () => {
         test('Perfect PBPY-7 (Pentagonal Bipyramid) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[7]['PBPY-7 (Pentagonal Bipyramidal)'];
-            // Use reference coords (minus central atom) as "actual" - should be perfect match
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`PBPY-7 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
 
         test('Perfect COC-7 (Capped Octahedron) should give CShM ≈ 0', () => {
-            // Note: COC-7 has central atom slightly off origin (z=0.058)
-            // This causes a small mismatch with exhaustive search (central fixed)
             const refCoords = REFERENCE_GEOMETRIES[7]['COC-7 (Capped Octahedral)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`COC-7 perfect match: CShM = ${measure.toFixed(6)}`);
-            // Slightly higher tolerance for non-origin central geometries
-            expect(measure).toBeLessThan(0.05);
+            expect(measure).toBeLessThan(1e-8);
         });
     });
 
     describe('CN=8 Perfect Geometry Test', () => {
         test('Perfect SAPR-8 (Square Antiprism) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[8]['SAPR-8 (Square Antiprism)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`SAPR-8 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
 
         test('Perfect CU-8 (Cube) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[8]['CU-8 (Cube)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`CU-8 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
     });
 
     describe('CN=9 Perfect Geometry Test', () => {
         test('Perfect CSAPR-9 (Capped Square Antiprism) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[9]['CSAPR-9 (Capped Square Antiprism)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`CSAPR-9 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
     });
 
     describe('CN=10-12 Perfect Geometry Tests', () => {
         test('Perfect JBCSAPR-10 (Bicapped Square Antiprism) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[10]['JBCSAPR-10 (Bicapped Square Antiprism, J17)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`JBCSAPR-10 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
 
         test('Perfect JCPAPR-11 (Capped Pentagonal Antiprism) should give CShM ≈ 0', () => {
-            // Note: JCPAPR-11 has central atom not at origin (z=0.087)
-            // This causes a small mismatch like COC-7
             const refCoords = REFERENCE_GEOMETRIES[11]['JCPAPR-11 (Capped Pentagonal Antiprism, J11)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`JCPAPR-11 perfect match: CShM = ${measure.toFixed(6)}`);
-            // Higher tolerance for non-origin central geometries
-            expect(measure).toBeLessThan(0.1);
+            expect(measure).toBeLessThan(1e-8);
         });
 
         test('Perfect IC-12 (Icosahedral) should give CShM ≈ 0', () => {
             const refCoords = REFERENCE_GEOMETRIES[12]['IC-12 (Icosahedral)'];
-            const ligandCoords = refCoords.slice(0, -1);
+            const ligandCoords = centeredLigands(refCoords);
 
             const { measure } = calculateShapeMeasure(ligandCoords, refCoords, 'default');
             console.log(`IC-12 perfect match: CShM = ${measure.toFixed(6)}`);
-            expect(measure).toBeLessThan(0.01);
+            expect(measure).toBeLessThan(1e-8);
         });
     });
 

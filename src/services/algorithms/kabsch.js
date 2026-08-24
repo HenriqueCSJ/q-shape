@@ -36,9 +36,9 @@ export default function kabschAlignment(P, Q, skipCentering = false) {
         let P_centered, Q_centered;
 
         if (skipCentering) {
-            // Use points as-is (they're already centered on central atom)
-            P_centered = P;
-            Q_centered = Q;
+            // Use points as-is (the caller guarantees they are centered).
+            P_centered = P.map(point => [...point]);
+            Q_centered = Q.map(point => [...point]);
         } else {
             // Step 1: Center both point sets
             const centroidP = [0, 0, 0];
@@ -72,6 +72,36 @@ export default function kabschAlignment(P, Q, skipCentering = false) {
                 q[1] - centroidQ[1],
                 q[2] - centroidQ[2]
             ]);
+        }
+
+        // Uniform scale has no effect on the optimal rotation. Normalize both
+        // sets independently so SVD and identity tolerances remain meaningful
+        // for coordinates ranging from sub-angstrom test scales to very large
+        // Cartesian values.
+        const rmsMagnitude = points => Math.sqrt(points.reduce(
+            (sum, point) => sum + point[0] ** 2 + point[1] ** 2 + point[2] ** 2,
+            0
+        ) / N);
+        const scaleP = rmsMagnitude(P_centered);
+        const scaleQ = rmsMagnitude(Q_centered);
+        if (scaleP > 0 && Number.isFinite(scaleP)) {
+            P_centered = P_centered.map(point => point.map(value => value / scaleP));
+        }
+        if (scaleQ > 0 && Number.isFinite(scaleQ)) {
+            Q_centered = Q_centered.map(point => point.map(value => value / scaleQ));
+        }
+
+        // Avoid an unnecessary SVD for identical point sets. Symmetric or
+        // rank-deficient identical sets do not define a unique orientation,
+        // but the identity matrix is always a valid optimal rotation.
+        const IDENTITY_THRESHOLD = 1e-12;
+        const isIdentical = P_centered.every((p, i) =>
+            Math.abs(p[0] - Q_centered[i][0]) <= IDENTITY_THRESHOLD &&
+            Math.abs(p[1] - Q_centered[i][1]) <= IDENTITY_THRESHOLD &&
+            Math.abs(p[2] - Q_centered[i][2]) <= IDENTITY_THRESHOLD
+        );
+        if (isIdentical) {
+            return new THREE.Matrix4();
         }
 
         // Step 3: Compute covariance matrix H = P^T * Q
@@ -181,7 +211,10 @@ export function jacobiSVD(A) {
             s = 0;
         } else {
             const theta = (Dqq - Dpp) / (2 * Dpq);
-            const t = Math.sign(theta) / (Math.abs(theta) + Math.sqrt(1 + theta * theta));
+            // Math.sign(0) is zero, but equal diagonal terms with a nonzero
+            // off-diagonal term require a 45-degree Jacobi rotation.
+            const thetaSign = theta >= 0 ? 1 : -1;
+            const t = thetaSign / (Math.abs(theta) + Math.sqrt(1 + theta * theta));
             c = 1 / Math.sqrt(1 + t * t);
             s = c * t;
         }
@@ -212,12 +245,16 @@ export function jacobiSVD(A) {
         }
     }
 
-    // Step 3: Compute singular values (square roots of eigenvalues)
-    const singularValues = [
-        Math.sqrt(Math.max(0, D[0][0])),
-        Math.sqrt(Math.max(0, D[1][1])),
-        Math.sqrt(Math.max(0, D[2][2]))
-    ];
+    // Step 3: Sort singular directions from largest to smallest. This is
+    // essential for rank-deficient inputs: modified Gram-Schmidt must retain
+    // the data-defined directions before completing the null-space basis.
+    const singularOrder = [0, 1, 2].sort((a, b) =>
+        D[b][b] - D[a][a] || a - b
+    );
+    V = V.map(row => singularOrder.map(column => row[column]));
+    const singularValues = singularOrder.map(column =>
+        Math.sqrt(Math.max(0, D[column][column]))
+    );
 
     // Step 4: Compute U = A * V * S^{-1}
     const AV = multiplyMatrices3x3(A, V);
@@ -249,29 +286,58 @@ export function jacobiSVD(A) {
 }
 
 /**
- * Orthogonalize a 3x3 matrix using Gram-Schmidt
+ * Orthogonalize a 3x3 matrix using modified Gram-Schmidt.
+ *
+ * Rank-deficient covariance matrices leave one or more SVD columns at zero.
+ * Complete those columns with a deterministic orthonormal basis so Kabsch
+ * always returns a proper rotation rather than a singular matrix.
  */
 function orthogonalize(M) {
-    // Column 0
-    let norm0 = Math.sqrt(M[0][0]*M[0][0] + M[1][0]*M[1][0] + M[2][0]*M[2][0]);
-    if (norm0 > 1e-10) {
-        M[0][0] /= norm0; M[1][0] /= norm0; M[2][0] /= norm0;
-    }
+    const EPSILON = 1e-10;
+    const basis = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
-    // Column 1: subtract projection onto column 0
-    let dot01 = M[0][0]*M[0][1] + M[1][0]*M[1][1] + M[2][0]*M[2][1];
-    M[0][1] -= dot01 * M[0][0];
-    M[1][1] -= dot01 * M[1][0];
-    M[2][1] -= dot01 * M[2][0];
-    let norm1 = Math.sqrt(M[0][1]*M[0][1] + M[1][1]*M[1][1] + M[2][1]*M[2][1]);
-    if (norm1 > 1e-10) {
-        M[0][1] /= norm1; M[1][1] /= norm1; M[2][1] /= norm1;
-    }
+    const getColumn = col => [M[0][col], M[1][col], M[2][col]];
+    const setColumn = (col, value) => {
+        M[0][col] = value[0];
+        M[1][col] = value[1];
+        M[2][col] = value[2];
+    };
+    const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    const norm = value => Math.sqrt(dot(value, value));
+    const normalize = value => {
+        const length = norm(value);
+        return length > EPSILON ? value.map(component => component / length) : null;
+    };
+    const subtractProjection = (value, axis) => {
+        const projection = dot(value, axis);
+        return value.map((component, i) => component - projection * axis[i]);
+    };
+    const cross = (a, b) => [
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0]
+    ];
 
-    // Column 2: cross product of columns 0 and 1
-    M[0][2] = M[1][0]*M[2][1] - M[2][0]*M[1][1];
-    M[1][2] = M[2][0]*M[0][1] - M[0][0]*M[2][1];
-    M[2][2] = M[0][0]*M[1][1] - M[1][0]*M[0][1];
+    let column0 = normalize(getColumn(0));
+    if (!column0) {
+        column0 = basis[0];
+    }
+    setColumn(0, column0);
+
+    let column1 = normalize(subtractProjection(getColumn(1), column0));
+    if (!column1) {
+        // Choose the Cartesian axis least parallel to column 0, then remove
+        // its projection. This is deterministic for collinear inputs.
+        const fallback = basis.reduce((best, candidate) =>
+            Math.abs(dot(candidate, column0)) < Math.abs(dot(best, column0))
+                ? candidate
+                : best
+        );
+        column1 = normalize(subtractProjection(fallback, column0));
+    }
+    setColumn(1, column1);
+
+    setColumn(2, normalize(cross(column0, column1)));
 }
 
 /**

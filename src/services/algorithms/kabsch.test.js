@@ -13,6 +13,22 @@ import kabschAlignment, {
 } from './kabsch';
 import * as THREE from 'three';
 
+function centeredVectors(points) {
+    const centroid = points.reduce(
+        (sum, point) => sum.add(new THREE.Vector3(...point)),
+        new THREE.Vector3()
+    ).divideScalar(points.length);
+    return points.map(point => new THREE.Vector3(...point).sub(centroid));
+}
+
+function alignmentRmsd(P, Q, rotation) {
+    const centeredP = centeredVectors(P);
+    const centeredQ = centeredVectors(Q);
+    return Math.sqrt(centeredP.reduce((sum, point, index) =>
+        sum + point.clone().applyMatrix4(rotation).distanceToSquared(centeredQ[index]),
+    0) / P.length);
+}
+
 describe('Kabsch Algorithm', () => {
     describe('kabschAlignment - Basic Alignment', () => {
         test('should return identity for identical point sets', () => {
@@ -45,7 +61,7 @@ describe('Kabsch Algorithm', () => {
             // Just verify we get a valid rotation matrix
             expect(R).toBeInstanceOf(THREE.Matrix4);
             const det = R.determinant();
-            expect(Math.abs(det)).toBeCloseTo(1, 4);
+            expect(det).toBeCloseTo(1, 4);
         });
 
         test('should handle 180° rotation', () => {
@@ -57,7 +73,7 @@ describe('Kabsch Algorithm', () => {
             // Verify valid rotation matrix
             expect(R).toBeInstanceOf(THREE.Matrix4);
             const det = R.determinant();
-            expect(Math.abs(det)).toBeCloseTo(1, 4);
+            expect(det).toBeCloseTo(1, 4);
         });
 
         test('should align translated point sets', () => {
@@ -71,7 +87,7 @@ describe('Kabsch Algorithm', () => {
 
             // Determinant should be 1 (proper rotation)
             const det = R.determinant();
-            expect(Math.abs(det)).toBeCloseTo(1, 4);
+            expect(det).toBeCloseTo(1, 4);
         });
 
         test('should handle arbitrary rotation', () => {
@@ -92,7 +108,27 @@ describe('Kabsch Algorithm', () => {
             // Verify valid rotation matrix
             expect(R).toBeInstanceOf(THREE.Matrix4);
             const det = R.determinant();
-            expect(Math.abs(det)).toBeCloseTo(1, 4);
+            expect(det).toBeCloseTo(1, 4);
+        });
+
+        test('should recover a proper rotation with negligible alignment residual', () => {
+            const P = [
+                [1, 2, 0],
+                [-1, 0, 1],
+                [0, -2, -1],
+                [0, 0, 0]
+            ];
+            const knownRotation = new THREE.Matrix4().makeRotationFromEuler(
+                new THREE.Euler(0.4, -0.7, 1.1)
+            );
+            const Q = P.map(point =>
+                new THREE.Vector3(...point).applyMatrix4(knownRotation).toArray()
+            );
+
+            const recovered = kabschAlignment(P, Q);
+
+            expect(recovered.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, recovered)).toBeLessThan(1e-10);
         });
     });
 
@@ -137,8 +173,22 @@ describe('Kabsch Algorithm', () => {
 
             const R = kabschAlignment(P, Q);
 
-            // Should return valid rotation
             expect(R).toBeInstanceOf(THREE.Matrix4);
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R)).toBeLessThan(1e-10);
+        });
+
+        test('should align a collinear set rotated 45 degrees', () => {
+            const P = [[-2, 0, 0], [-1, 0, 0], [0, 0, 0], [1, 0, 0], [2, 0, 0]];
+            const knownRotation = new THREE.Matrix4().makeRotationZ(Math.PI / 4);
+            const Q = P.map(point =>
+                new THREE.Vector3(...point).applyMatrix4(knownRotation).toArray()
+            );
+
+            const R = kabschAlignment(P, Q);
+
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R)).toBeLessThan(1e-10);
         });
 
         test('should handle coplanar points', () => {
@@ -148,6 +198,60 @@ describe('Kabsch Algorithm', () => {
             const R = kabschAlignment(P, Q);
 
             expect(R).toBeInstanceOf(THREE.Matrix4);
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R)).toBeLessThan(1e-10);
+        });
+
+        test('should align deterministic rotations for rank-1, rank-2, and rank-3 sets', () => {
+            const pointSets = [
+                [[-2, 0, 0], [-1, 0, 0], [0, 0, 0], [1, 0, 0], [2, 0, 0]],
+                [[0, 0, 0], [1, 0, 0], [-0.3, 1.2, 0], [0.8, 0.4, 0]],
+                [[0, 0, 0], [1, 0.2, -0.1], [-0.3, 1.2, 0.4], [0.8, 0.4, 1.3]]
+            ];
+
+            for (let sample = 0; sample < 24; sample++) {
+                const axis = new THREE.Vector3(
+                    Math.sin(sample + 1),
+                    Math.cos(2 * sample + 0.3),
+                    Math.sin(3 * sample + 0.7)
+                ).normalize();
+                const knownRotation = new THREE.Matrix4().makeRotationAxis(
+                    axis,
+                    ((sample + 1) * 0.271) % (2 * Math.PI)
+                );
+                const translation = new THREE.Vector3(
+                    0.1 * sample,
+                    -0.03 * sample,
+                    0.07 * sample
+                );
+
+                for (const P of pointSets) {
+                    const Q = P.map(point =>
+                        new THREE.Vector3(...point)
+                            .applyMatrix4(knownRotation)
+                            .add(translation)
+                            .toArray()
+                    );
+                    const recovered = kabschAlignment(P, Q);
+
+                    expect(recovered.determinant()).toBeCloseTo(1, 9);
+                    expect(alignmentRmsd(P, Q, recovered)).toBeLessThan(1e-8);
+                }
+            }
+        });
+
+        test('should reject a reflection by sacrificing the lowest-variance axis', () => {
+            const P = [
+                [-1, 0, 0], [1, 0, 0],
+                [0, -2, 0], [0, 2, 0],
+                [0, 0, -10], [0, 0, 10]
+            ];
+            const Q = P.map(([x, y, z]) => [-x, y, z]);
+
+            const R = kabschAlignment(P, Q);
+
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R)).toBeCloseTo(2 / Math.sqrt(3), 10);
         });
 
         test('should handle very small coordinates', () => {
@@ -157,6 +261,29 @@ describe('Kabsch Algorithm', () => {
             const R = kabschAlignment(P, Q);
 
             expect(R).toBeInstanceOf(THREE.Matrix4);
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R) / 1e-8).toBeLessThan(1e-10);
+        });
+
+        test('should remain scale-independent below the former absolute tolerance', () => {
+            const scale = 1e-11;
+            const P = [
+                [scale, 2 * scale, 0],
+                [-scale, 0, scale],
+                [0, -2 * scale, -scale],
+                [0, 0, 0]
+            ];
+            const knownRotation = new THREE.Matrix4().makeRotationFromEuler(
+                new THREE.Euler(0.4, -0.7, 1.1)
+            );
+            const Q = P.map(point =>
+                new THREE.Vector3(...point).applyMatrix4(knownRotation).toArray()
+            );
+
+            const R = kabschAlignment(P, Q);
+
+            expect(R.determinant()).toBeCloseTo(1, 10);
+            expect(alignmentRmsd(P, Q, R) / scale).toBeLessThan(1e-9);
         });
 
         test('should handle large coordinates', () => {
@@ -190,7 +317,7 @@ describe('Kabsch Algorithm', () => {
             // Verify valid rotation matrix
             expect(R).toBeInstanceOf(THREE.Matrix4);
             const det = R.determinant();
-            expect(Math.abs(det)).toBeCloseTo(1, 4);
+            expect(det).toBeCloseTo(1, 4);
 
             // Verify transformed points are on unit sphere
             const transformed = P.map(p => {
