@@ -22,7 +22,8 @@ const {
     parseShapeTab,
     rowsToCsv,
     sha256File,
-    shellQuote
+    shellQuote,
+    wslPathCommand
 } = require('./direct-parity-core.cjs');
 const { analyzeDirectParity } = require('./direct-parity-analysis.cjs');
 
@@ -275,9 +276,11 @@ function runRecordedWsl(distro, root, stem, commandText, required = true) {
 }
 
 function toWslPath(distro, windowsPath) {
-    const result = run('wsl.exe', [
-        '-d', distro, '--', 'wslpath', '-a', path.resolve(windowsPath)
-    ], { purpose: 'convert output path to WSL path' });
+    const result = runWslShell(
+        distro,
+        wslPathCommand(path.resolve(windowsPath)),
+        { purpose: 'convert output path to WSL path' }
+    );
     const converted = result.stdout.trim();
     if (!converted.startsWith('/')) throw new Error(`wslpath returned invalid path: ${converted}`);
     return converted;

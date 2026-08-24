@@ -562,6 +562,10 @@ function shellQuote(value) {
     return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }
 
+function wslPathCommand(windowsPath) {
+    return `wslpath -a ${shellQuote(windowsPath)}`;
+}
+
 function csvEscape(value) {
     if (value === null || value === undefined) return '';
     const token = String(value);
@@ -599,5 +603,6 @@ module.exports = {
     rowsToCsv,
     shellQuote,
     sha256Buffer,
-    sha256File
+    sha256File,
+    wslPathCommand
 };

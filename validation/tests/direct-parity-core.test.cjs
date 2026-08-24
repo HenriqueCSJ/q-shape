@@ -173,3 +173,11 @@ test('float64 encoding distinguishes positive and negative zero', () => {
     assert.equal(core.float64Hex(0), '0000000000000000');
     assert.equal(core.float64Hex(-0), '8000000000000000');
 });
+
+test('WSL path command shell-quotes Windows paths without losing separators or Unicode', () => {
+    const windowsPath = 'C:\\Users\\henri\\OneDrive\\Q²M³ project\\oracle\\raw';
+    assert.equal(
+        core.wslPathCommand(windowsPath),
+        "wslpath -a 'C:\\Users\\henri\\OneDrive\\Q²M³ project\\oracle\\raw'"
+    );
+});
