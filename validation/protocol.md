@@ -187,7 +187,15 @@ The independent verifier uses only Node.js core modules and must not import the
 runner, its core parser, its analyzer, Q-Shape source, or `decimal.js`. It
 independently checks hashes, safe paths, exact sets and multiplicities, controls,
 coordinates, raw outputs, result bits, gates, summaries, CSVs, and manifest
-counts. Its deterministic JSON receipt contains no timestamp.
+counts. After sealing the manifest, the runner automatically invokes this
+verifier and writes its deterministic, timestamp-free receipt to the sibling
+file `<package-directory>.verification.json`. Keeping the receipt outside the
+sealed directory avoids a manifest/receipt hash cycle. A run is accepted only
+when the verifier exit code, manifest hash, campaign and overall statuses,
+verified counts, and sorted warnings all satisfy the frozen contract.
+Every later CLI verification also revalidates an existing sibling sidecar byte
+for byte against the freshly reconstructed receipt, so post-run sidecar changes
+are detected.
 
 Verifier exit codes are normative:
 

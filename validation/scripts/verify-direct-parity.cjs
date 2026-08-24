@@ -437,12 +437,18 @@ function parseShapeReferenceListing(text, expectedCn) {
     return references;
 }
 
-function eventKey(event) {
-    return [event.caseId, event.gate, event.targetCode || '', event.comparisonCode || ''].join('\u001f');
-}
-
-function addEvent(events, caseId, gate, targetCode = '', comparisonCode = '') {
-    events.push({ caseId, gate, targetCode, comparisonCode });
+function addEvent(events, caseId, gate, targetCode = '', comparisonCode = '', fields = {}) {
+    events.push({
+        caseId,
+        gate,
+        targetCode,
+        comparisonCode,
+        observed: fields.observed ?? '',
+        threshold: fields.threshold ?? '',
+        details: fields.details ?? '',
+        shapeRawPath: fields.shapeRawPath ?? '',
+        qshapeRawPath: fields.qshapeRawPath ?? ''
+    });
 }
 
 function numericStats(signedErrors) {
@@ -489,6 +495,184 @@ function numericDistribution(values) {
     };
 }
 
+function normalizeDecimal(value) {
+    let coefficient = value.coefficient;
+    let scale = value.scale;
+    while (scale > 0 && coefficient % 10n === 0n) {
+        coefficient /= 10n;
+        scale -= 1;
+    }
+    return { coefficient, scale };
+}
+
+function addDecimals(left, right) {
+    const aligned = alignDecimals(left, right);
+    return normalizeDecimal({
+        coefficient: aligned.left + aligned.right,
+        scale: aligned.scale
+    });
+}
+
+function multiplyDecimals(left, right) {
+    return normalizeDecimal({
+        coefficient: left.coefficient * right.coefficient,
+        scale: left.scale + right.scale
+    });
+}
+
+function sumDecimals(values) {
+    return values.reduce(
+        (sum, value) => addDecimals(sum, value),
+        { coefficient: 0n, scale: 0 }
+    );
+}
+
+function rationalExponent10(numerator, denominator) {
+    assert(numerator > 0n && denominator > 0n, 'Invalid positive rational');
+    let exponent = numerator.toString().length - denominator.toString().length;
+    const belowCandidatePower = exponent >= 0
+        ? numerator < denominator * pow10(exponent)
+        : numerator * pow10(-exponent) < denominator;
+    if (belowCandidatePower) exponent -= 1;
+    return exponent;
+}
+
+function roundedIntegerToSignificantToken(coefficient, exponent, precision, negative = false) {
+    const decimalExponent = exponent - (precision - 1);
+    const decimal = decimalExponent >= 0
+        ? { coefficient: coefficient * pow10(decimalExponent), scale: 0 }
+        : { coefficient, scale: -decimalExponent };
+    if (negative) decimal.coefficient = -decimal.coefficient;
+    return decimalToSignificantHalfUp(decimal, precision);
+}
+
+function rationalToSignificantHalfUp(numerator, denominator, precision = 18) {
+    assert(typeof numerator === 'bigint' && typeof denominator === 'bigint' && denominator > 0n,
+        'Invalid rational decimal');
+    assert(Number.isInteger(precision) && precision >= 1,
+        'Invalid rational significant precision');
+    if (numerator === 0n) return '0';
+    const negative = numerator < 0n;
+    const absoluteNumerator = negative ? -numerator : numerator;
+    let exponent = rationalExponent10(absoluteNumerator, denominator);
+    const shift = precision - 1 - exponent;
+    const scaledNumerator = shift >= 0
+        ? absoluteNumerator * pow10(shift)
+        : absoluteNumerator;
+    const scaledDenominator = shift >= 0
+        ? denominator
+        : denominator * pow10(-shift);
+    let coefficient = scaledNumerator / scaledDenominator;
+    const remainder = scaledNumerator % scaledDenominator;
+    if (remainder * 2n >= scaledDenominator) coefficient += 1n;
+    if (coefficient === pow10(precision)) {
+        coefficient /= 10n;
+        exponent += 1;
+    }
+    return roundedIntegerToSignificantToken(coefficient, exponent, precision, negative);
+}
+
+function integerSqrt(value) {
+    assert(typeof value === 'bigint' && value >= 0n, 'Invalid integer square-root input');
+    if (value < 2n) return value;
+    const bitLength = BigInt(value.toString(2).length);
+    let estimate = 1n << ((bitLength + 1n) / 2n);
+    while (true) {
+        const next = (estimate + value / estimate) / 2n;
+        if (next >= estimate) return estimate;
+        estimate = next;
+    }
+}
+
+function sqrtRationalToSignificantHalfUp(numerator, denominator, precision = 18) {
+    assert(typeof numerator === 'bigint' && numerator >= 0n &&
+        typeof denominator === 'bigint' && denominator > 0n,
+    'Invalid square-root rational');
+    if (numerator === 0n) return '0';
+    let exponent = Math.floor(rationalExponent10(numerator, denominator) / 2);
+    const shift = precision - 1 - exponent;
+    const scaledNumerator = shift >= 0
+        ? numerator * pow10(2 * shift)
+        : numerator;
+    const scaledDenominator = shift >= 0
+        ? denominator
+        : denominator * pow10(-2 * shift);
+    let coefficient = integerSqrt(scaledNumerator / scaledDenominator);
+    const halfBoundary = 2n * coefficient + 1n;
+    if (4n * scaledNumerator >= scaledDenominator * halfBoundary * halfBoundary) {
+        coefficient += 1n;
+    }
+    if (coefficient === pow10(precision)) {
+        coefficient /= 10n;
+        exponent += 1;
+    }
+    return roundedIntegerToSignificantToken(coefficient, exponent, precision);
+}
+
+function decimalAverageToken(values) {
+    const sum = sumDecimals(values);
+    return rationalToSignificantHalfUp(
+        sum.coefficient,
+        BigInt(values.length) * pow10(sum.scale)
+    );
+}
+
+function decimalMedianToken(sortedValues) {
+    const midpoint = Math.floor(sortedValues.length / 2);
+    if (sortedValues.length % 2 === 1) {
+        return decimalToSignificantHalfUp(sortedValues[midpoint]);
+    }
+    const pairSum = addDecimals(sortedValues[midpoint - 1], sortedValues[midpoint]);
+    return rationalToSignificantHalfUp(pairSum.coefficient, 2n * pow10(pairSum.scale));
+}
+
+function exactDecimalDistribution(values) {
+    if (values.length === 0) {
+        return { count: 0, mean: null, median: null, p95: null, p99: null, max: null };
+    }
+    const sorted = [...values].sort(compareDecimals);
+    const nearest = probability => sorted[Math.max(1, Math.ceil(probability * sorted.length)) - 1];
+    return {
+        count: values.length,
+        mean: decimalAverageToken(values),
+        median: decimalMedianToken(sorted),
+        p95: decimalToSignificantHalfUp(nearest(0.95)),
+        p99: decimalToSignificantHalfUp(nearest(0.99)),
+        max: decimalToSignificantHalfUp(sorted[sorted.length - 1])
+    };
+}
+
+function exactDecimalErrorStatistics(signedErrors) {
+    if (signedErrors.length === 0) {
+        return {
+            count: 0,
+            signed_bias: null,
+            mean_absolute_error: null,
+            root_mean_square_error: null,
+            median_absolute_error: null,
+            p95_absolute_error: null,
+            p99_absolute_error: null,
+            max_absolute_error: null
+        };
+    }
+    const absoluteErrors = signedErrors.map(absoluteDecimal);
+    const absoluteDistribution = exactDecimalDistribution(absoluteErrors);
+    const squareSum = sumDecimals(signedErrors.map(value => multiplyDecimals(value, value)));
+    return {
+        count: signedErrors.length,
+        signed_bias: decimalAverageToken(signedErrors),
+        mean_absolute_error: decimalAverageToken(absoluteErrors),
+        root_mean_square_error: sqrtRationalToSignificantHalfUp(
+            squareSum.coefficient,
+            BigInt(signedErrors.length) * pow10(squareSum.scale)
+        ),
+        median_absolute_error: absoluteDistribution.median,
+        p95_absolute_error: absoluteDistribution.p95,
+        p99_absolute_error: absoluteDistribution.p99,
+        max_absolute_error: absoluteDistribution.max
+    };
+}
+
 function decimalToFixedHalfUp(value, digits) {
     assert(Number.isInteger(digits) && digits >= 0, 'Invalid fixed-decimal width');
     const negative = value.coefficient < 0n;
@@ -505,6 +689,42 @@ function decimalToFixedHalfUp(value, digits) {
     return `${negative && coefficient !== 0n ? '-' : ''}${integer}${fraction}`;
 }
 
+function decimalToSignificantHalfUp(value, precision = 18) {
+    assert(Number.isInteger(precision) && precision >= 1,
+        'Invalid significant-decimal precision');
+    if (value.coefficient === 0n) return '0';
+    const negative = value.coefficient < 0n;
+    let coefficient = negative ? -value.coefficient : value.coefficient;
+    let digits = coefficient.toString();
+    const droppedDigits = Math.max(0, digits.length - precision);
+    if (droppedDigits > 0) {
+        const divisor = pow10(droppedDigits);
+        let rounded = coefficient / divisor;
+        if ((coefficient % divisor) * 2n >= divisor) rounded += 1n;
+        coefficient = rounded;
+    }
+    let exponent10 = droppedDigits - value.scale;
+    while (coefficient % 10n === 0n) {
+        coefficient /= 10n;
+        exponent10 += 1;
+    }
+    digits = coefficient.toString();
+    const scientificExponent = digits.length - 1 + exponent10;
+    let token;
+    if (scientificExponent <= -7 || scientificExponent >= 21) {
+        const mantissa = digits.length === 1 ? digits : `${digits[0]}.${digits.slice(1)}`;
+        token = `${mantissa}e${scientificExponent >= 0 ? '+' : ''}${scientificExponent}`;
+    } else if (exponent10 >= 0) {
+        token = `${digits}${'0'.repeat(exponent10)}`;
+    } else {
+        const point = digits.length + exponent10;
+        token = point > 0
+            ? `${digits.slice(0, point)}.${digits.slice(point)}`
+            : `0.${'0'.repeat(-point)}${digits}`;
+    }
+    return `${negative ? '-' : ''}${token}`;
+}
+
 function stableLedgerId(row, duplicateIndex = 0) {
     const payload = [
         row.case_id,
@@ -517,6 +737,111 @@ function stableLedgerId(row, duplicateIndex = 0) {
     ].join('\u001f');
     const digest = crypto.createHash('sha256').update(payload).digest('hex').slice(0, 16);
     return duplicateIndex === 0 ? `failure-${digest}` : `failure-${digest}-${duplicateIndex + 1}`;
+}
+
+function expectedDataDictionary() {
+    return {
+        schema_version: 2,
+        table_mode: 'working_tidy_data',
+        publication_status: 'not_reviewed_not_publication_ready',
+        quantities: {
+            shape_token: {
+                meaning: 'CShM printed by SHAPE .out',
+                type: 'exact non-negative fixed five-decimal token',
+                unit: 'dimensionless CShM',
+                resolution: '0.00001'
+            },
+            qshape_full_precision: {
+                meaning: 'Q-Shape Number rendered as a binary64 round-trip token',
+                type: 'IEEE-754 binary64 lexical token',
+                unit: 'dimensionless CShM'
+            },
+            qshape_float64_hex: {
+                meaning: 'big-endian hexadecimal encoding of all 64 result bits',
+                type: '16 lowercase hexadecimal characters'
+            },
+            signed_error: { meaning: 'Q-Shape minus SHAPE', unit: 'dimensionless CShM' },
+            runtime_ms: {
+                meaning: 'worker wall time per target',
+                unit: 'ms',
+                claim_boundary: 'diagnostic only'
+            }
+        },
+        gates: {
+            matched_target_absolute_error: '<0.01 CShM',
+            cshm_domain: 'finite and within [0, 100]',
+            ideal_qshape_self: '<1e-8 CShM',
+            ideal_shape_self: '<0.01 CShM',
+            shape_tie_set_gamma: '0.02001 CShM',
+            qshape_repeatability: 'identical float64 hex across independent worker processes',
+            shape_repeatability: 'identical five-decimal CShM tokens across clean runs',
+            shape_out_tab_consistency: '|out-tab|<=0.000505 CShM'
+        }
+    };
+}
+
+function expectedWorkingReport(summary, environment) {
+    const statistics = summary.totals.error_statistics;
+    const runtime = summary.totals.runtime_statistics_ms;
+    return [
+        '# Direct SHAPE parity census — working report',
+        '',
+        'Status: working validation artifact; not a publication-ready table or a claim of external chemical validity.',
+        '',
+        `Direct-campaign gate: **${summary.campaign_gate_status.toUpperCase()}**.`,
+        `Overall validation: **${summary.overall_validation_status.toUpperCase()}**.`,
+        '',
+        `- Q-Shape commit: \`${environment.qshape_commit}\`.`,
+        `- Q-Shape optimizer seed policy: \`${environment.qshape_seed_policy}\` (production path; no explicit seed).`,
+        `- SHAPE banner: \`${environment.shape_banner}\`.`,
+        `- SHAPE executable SHA-256: \`${environment.shape_executable_sha256}\`.`,
+        `- Cases: ${summary.totals.cases}; matched target evaluations per program: ${summary.totals.comparisons_observed}.`,
+        `- Failures retained in the ledger: ${summary.totals.failures}.`,
+        `- MAE / RMSE: ${statistics.mean_absolute_error ?? 'not_available'} / ${statistics.root_mean_square_error ?? 'not_available'} CShM.`,
+        `- Median / P95 / P99 / maximum absolute error: ${statistics.median_absolute_error ?? 'not_available'} / ${statistics.p95_absolute_error ?? 'not_available'} / ${statistics.p99_absolute_error ?? 'not_available'} / ${statistics.max_absolute_error ?? 'not_available'} CShM.`,
+        `- Signed bias: ${statistics.signed_bias ?? 'not_available'} CShM.`,
+        `- Q-Shape diagnostic runtime mean / median / P95 / P99 / maximum: ${runtime.mean ?? 'not_available'} / ${runtime.median ?? 'not_available'} / ${runtime.p95 ?? 'not_available'} / ${runtime.p99 ?? 'not_available'} / ${runtime.max ?? 'not_available'} ms.`,
+        '',
+        'This census covers shared ideal references and retained fixtures. It does not replace the preregistered perturbation family, external chemical holdout, browser workflow validation, or independent-user study.',
+        ''
+    ].join('\n');
+}
+
+function expectedFailureLedger(events, caseById) {
+    const rows = events.map(event => {
+        const caseItem = caseById.get(event.caseId);
+        assert(caseItem, `Recomputed failure references unknown case ${event.caseId}`);
+        return {
+            failure_id: '',
+            case_id: event.caseId,
+            stratum: caseItem.stratum,
+            cn: String(caseItem.cn),
+            gate: event.gate,
+            target_code: event.targetCode,
+            comparison_code: event.comparisonCode,
+            observed: event.observed,
+            threshold: event.threshold,
+            details: event.details,
+            shape_raw_path: event.shapeRawPath,
+            qshape_raw_path: event.qshapeRawPath,
+            severity: 'gate_failure',
+            status: 'fail'
+        };
+    }).sort((left, right) =>
+        left.case_id.localeCompare(right.case_id) ||
+        left.gate.localeCompare(right.gate) ||
+        left.target_code.localeCompare(right.target_code) ||
+        left.comparison_code.localeCompare(right.comparison_code) ||
+        left.observed.localeCompare(right.observed)
+    );
+    const idCounts = new Map();
+    for (const row of rows) {
+        const provisional = stableLedgerId(row);
+        const duplicateIndex = idCounts.get(provisional) || 0;
+        row.failure_id = stableLedgerId(row, duplicateIndex);
+        idCounts.set(provisional, duplicateIndex + 1);
+    }
+    return rows;
 }
 
 function qshapeInputFingerprint(caseItem, reference) {
@@ -998,14 +1323,37 @@ function verifyShapeEvidence(
                     const reference = targetReferences.find(item => item.shape_code === outValue.targetCode);
                     const tabValue = tabByCode.get(outValue.targetCode);
                     if (!tabValue.lexicallyValid) {
-                        addEvent(events, caseItem.case_id, 'shape_tab_lexical_token', reference.qshape_code);
+                        addEvent(
+                            events,
+                            caseItem.case_id,
+                            'shape_tab_lexical_token',
+                            reference.qshape_code,
+                            '',
+                            {
+                                observed: tabValue.valueToken,
+                                threshold: 'non-negative fixed decimal with exactly three fractional digits',
+                                details: `SHAPE repetition ${fileSet.replicate}; .tab line ${tabValue.rawLineNumber}`,
+                                shapeRawPath: fileSet.tab
+                            }
+                        );
                     } else if (outValue.lexicallyValid) {
                         const difference = absoluteDecimal(subtractDecimals(
                             parseDecimal(outValue.valueToken), parseDecimal(tabValue.valueToken)
                         ));
                         if (compareDecimals(difference, parseDecimal('0.000505')) > 0) {
-                            addEvent(events, caseItem.case_id, 'shape_out_tab_inconsistency',
-                                reference.qshape_code);
+                            addEvent(
+                                events,
+                                caseItem.case_id,
+                                'shape_out_tab_inconsistency',
+                                reference.qshape_code,
+                                '',
+                                {
+                                    observed: `.out=${outValue.valueToken}; .tab=${tabValue.valueToken}`,
+                                    threshold: '|out-tab|<=0.000505 CShM (overlapping printed-value intervals)',
+                                    details: `SHAPE repetition ${fileSet.replicate}; difference ${decimalToSignificantHalfUp(difference)}`,
+                                    shapeRawPath: `${fileSet.out}|${fileSet.tab}`
+                                }
+                            );
                         }
                     }
                     rows.push({
@@ -1032,7 +1380,12 @@ function verifyShapeEvidence(
             const second = secondMap.get(key);
             if (first.valueToken !== second.valueToken) {
                 mismatches += 1;
-                addEvent(events, first.caseId, 'shape_repeatability', first.targetCode);
+                addEvent(events, first.caseId, 'shape_repeatability', first.targetCode, '', {
+                    observed: `rep1=${first.valueToken}; rep2=${second.valueToken}`,
+                    threshold: 'identical five-decimal CShM token',
+                    details: 'Two clean SHAPE executions disagreed.',
+                    shapeRawPath: `${first.rawPath}|${second.rawPath}`
+                });
             }
         }
         assert(batch.value_token_mismatches === mismatches, 'SHAPE repeatability count mismatch');
@@ -1183,7 +1536,12 @@ function verifyQShapeEvidence(
         const repeated = second.get(key);
         if (row.valueHex !== repeated.valueHex) {
             mismatchCount += 1;
-            addEvent(events, row.caseId, 'qshape_repeatability', row.targetCode);
+            addEvent(events, row.caseId, 'qshape_repeatability', row.targetCode, '', {
+                observed: `rep1=${row.valueHex}; rep2=${repeated.valueHex}`,
+                threshold: 'identical IEEE-754 binary64 bits',
+                details: 'Independent Q-Shape worker processes disagreed.',
+                qshapeRawPath: `${row.rawPath}|${repeated.rawPath}`
+            });
             expectedMismatches.push({
                 caseId: row.caseId,
                 targetCode: row.targetCode,
@@ -1246,19 +1604,54 @@ function recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, ev
                 ? parseDecimal(shape.valueToken) : null;
             const shapeDecimal = shape.lexicallyValid ? shapeNumericDecimal : null;
             const qshapeDecimal = qshape.lexicallyValid ? parseDecimal(qshape.valueToken) : null;
-            if (!shape.lexicallyValid) addEvent(events, caseItem.case_id, 'shape_lexical_token', reference.qshape_code);
-            if (!qshape.lexicallyValid) addEvent(events, caseItem.case_id, 'qshape_lexical_token', reference.qshape_code);
+            if (!shape.lexicallyValid) {
+                addEvent(events, caseItem.case_id, 'shape_lexical_token', reference.qshape_code, '', {
+                    observed: shape.valueToken,
+                    threshold: 'non-negative fixed decimal with exactly five fractional digits',
+                    details: `Invalid SHAPE .out CShM token at line ${shape.rawLineNumber ?? 'unknown'}`,
+                    shapeRawPath: shape.rawPath
+                });
+            }
+            if (!qshape.lexicallyValid || !qshapeDecimal) {
+                addEvent(events, caseItem.case_id, 'qshape_lexical_token', reference.qshape_code, '', {
+                    observed: qshape.valueToken,
+                    threshold: 'finite IEEE-754 binary64 round-trip decimal token',
+                    qshapeRawPath: qshape.rawPath
+                });
+            }
+            if (shape.lexicallyValid && !shapeNumericDecimal) {
+                addEvent(events, caseItem.case_id, 'shape_nonfinite_result', reference.qshape_code, '', {
+                    observed: shape.valueToken,
+                    shapeRawPath: shape.rawPath
+                });
+            }
             if (shapeNumericDecimal && shapeNumericDecimal.coefficient < 0n) {
-                addEvent(events, caseItem.case_id, 'shape_negative_cshm', reference.qshape_code);
+                addEvent(events, caseItem.case_id, 'shape_negative_cshm', reference.qshape_code, '', {
+                    observed: shape.valueToken,
+                    threshold: '>=0 CShM',
+                    shapeRawPath: shape.rawPath
+                });
             }
             if (qshapeDecimal && qshapeDecimal.coefficient < 0n) {
-                addEvent(events, caseItem.case_id, 'qshape_negative_cshm', reference.qshape_code);
+                addEvent(events, caseItem.case_id, 'qshape_negative_cshm', reference.qshape_code, '', {
+                    observed: qshape.valueToken,
+                    threshold: '>=0 CShM',
+                    qshapeRawPath: qshape.rawPath
+                });
             }
             if (shapeNumericDecimal && compareDecimals(shapeNumericDecimal, parseDecimal('100')) > 0) {
-                addEvent(events, caseItem.case_id, 'shape_cshm_above_100', reference.qshape_code);
+                addEvent(events, caseItem.case_id, 'shape_cshm_above_100', reference.qshape_code, '', {
+                    observed: shape.valueToken,
+                    threshold: '<=100 CShM',
+                    shapeRawPath: shape.rawPath
+                });
             }
             if (qshapeDecimal && compareDecimals(qshapeDecimal, parseDecimal('100')) > 0) {
-                addEvent(events, caseItem.case_id, 'qshape_cshm_above_100', reference.qshape_code);
+                addEvent(events, caseItem.case_id, 'qshape_cshm_above_100', reference.qshape_code, '', {
+                    observed: qshape.valueToken,
+                    threshold: '<=100 CShM',
+                    qshapeRawPath: qshape.rawPath
+                });
             }
             const domainValid = Boolean(shapeDecimal && qshapeDecimal &&
                 shapeDecimal.coefficient >= 0n && qshapeDecimal.coefficient >= 0n &&
@@ -1267,7 +1660,13 @@ function recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, ev
             const signed = domainValid ? subtractDecimals(qshapeDecimal, shapeDecimal) : null;
             const absolute = signed ? absoluteDecimal(signed) : null;
             if (domainValid && compareDecimals(absolute, parseDecimal('0.01')) >= 0) {
-                addEvent(events, caseItem.case_id, 'absolute_error', reference.qshape_code);
+                addEvent(events, caseItem.case_id, 'absolute_error', reference.qshape_code, '', {
+                    observed: decimalToSignificantHalfUp(absolute),
+                    threshold: '<0.01 CShM',
+                    details: `Q-Shape ${qshape.valueToken}; SHAPE ${shape.valueToken}`,
+                    shapeRawPath: shape.rawPath,
+                    qshapeRawPath: qshape.rawPath
+                });
             }
             const result = {
                 caseItem,
@@ -1302,7 +1701,20 @@ function recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, ev
             compareDecimals(subtractDecimals(row.qshapeDecimal, byQ[0].qshapeDecimal), gamma) <= 0
         ).map(row => row.reference.qshape_code) : [];
         if (finite.length && !shapeTieSet.includes(qshapeBest)) {
-            addEvent(events, caseItem.case_id, 'best_geometry_outside_shape_tie_set', qshapeBest, shapeBest);
+            addEvent(
+                events,
+                caseItem.case_id,
+                'best_geometry_outside_shape_tie_set',
+                qshapeBest,
+                shapeBest,
+                {
+                    observed: `SHAPE tie set=${shapeTieSet.join('|')}; Q-Shape best=${qshapeBest}`,
+                    threshold: 'Q-Shape best must be within 0.02001 CShM of SHAPE minimum',
+                    details: `SHAPE minimum ${decimalToSignificantHalfUp(byShape[0].shapeDecimal)}`,
+                    shapeRawPath: byShape[0]?.shape.rawPath ?? '',
+                    qshapeRawPath: byQ[0]?.qshape.rawPath ?? ''
+                }
+            );
         }
         let resolvedPairs = 0;
         let discordantPairs = 0;
@@ -1316,25 +1728,76 @@ function recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, ev
                     (shapeDelta.coefficient < 0n && qDelta.coefficient < 0n);
                 if (!sameStrictSign) {
                     discordantPairs += 1;
-                    addEvent(events, caseItem.case_id, 'ranking_loss_or_inversion',
-                        finite[left].reference.qshape_code, finite[right].reference.qshape_code);
+                    addEvent(
+                        events,
+                        caseItem.case_id,
+                        'ranking_loss_or_inversion',
+                        finite[left].reference.qshape_code,
+                        finite[right].reference.qshape_code,
+                        {
+                            observed: `SHAPE delta=${decimalToSignificantHalfUp(shapeDelta)}; Q-Shape delta=${decimalToSignificantHalfUp(qDelta)}`,
+                            threshold: 'same non-zero sign when |SHAPE delta|>0.02001 CShM',
+                            details: qDelta.coefficient === 0n
+                                ? 'Q-Shape collapsed a SHAPE-resolved pair into an exact tie.'
+                                : 'Q-Shape reversed a SHAPE-resolved pair.',
+                            shapeRawPath: finite[left].shape.rawPath,
+                            qshapeRawPath: finite[left].qshape.rawPath
+                        }
+                    );
                 }
             }
         }
         if (caseItem.stratum === 'ideal_reference') {
             const own = finite.find(row => row.reference.qshape_code === caseItem.expected_own_target_code);
-            if (!own) addEvent(events, caseItem.case_id, 'missing_valid_ideal_self_result',
-                caseItem.expected_own_target_code);
+            if (!own) {
+                addEvent(events, caseItem.case_id, 'missing_valid_ideal_self_result',
+                    caseItem.expected_own_target_code);
+            }
             else {
                 if (compareDecimals(own.qshapeDecimal, parseDecimal('1e-8')) >= 0) {
-                    addEvent(events, caseItem.case_id, 'ideal_self_qshape', caseItem.expected_own_target_code);
+                    addEvent(
+                        events,
+                        caseItem.case_id,
+                        'ideal_self_qshape',
+                        caseItem.expected_own_target_code,
+                        '',
+                        {
+                            observed: decimalToSignificantHalfUp(own.qshapeDecimal),
+                            threshold: '<1e-8 CShM',
+                            qshapeRawPath: own.qshape.rawPath
+                        }
+                    );
                 }
                 if (compareDecimals(own.shapeDecimal, parseDecimal('0.01')) >= 0) {
-                    addEvent(events, caseItem.case_id, 'ideal_self_shape', caseItem.expected_own_target_code);
+                    addEvent(
+                        events,
+                        caseItem.case_id,
+                        'ideal_self_shape',
+                        caseItem.expected_own_target_code,
+                        '',
+                        {
+                            observed: decimalToSignificantHalfUp(own.shapeDecimal),
+                            threshold: '<0.01 CShM',
+                            shapeRawPath: own.shape.rawPath
+                        }
+                    );
                 }
                 if (!shapeTieSet.includes(caseItem.expected_own_target_code)) {
-                    addEvent(events, caseItem.case_id, 'ideal_nominal_outside_shape_tie_set',
-                        caseItem.expected_own_target_code);
+                    addEvent(
+                        events,
+                        caseItem.case_id,
+                        'ideal_nominal_outside_shape_tie_set',
+                        caseItem.expected_own_target_code,
+                        '',
+                        {
+                            observed: decimalToSignificantHalfUp(subtractDecimals(
+                                own.shapeDecimal, byShape[0].shapeDecimal
+                            )),
+                            threshold: '<=0.02001 CShM above SHAPE minimum',
+                            details: `SHAPE minimum belongs to ${shapeBest}`,
+                            shapeRawPath: own.shape.rawPath
+                        }
+                    );
                 }
             }
         }
@@ -1519,43 +1982,13 @@ function verifyDerivedReports(
     const ledgerRows = readCsv(
         'reports/failure-ledger.csv', FAILURE_COLUMNS, 'failure-ledger.csv'
     );
-    const expectedEventKeys = events.map(eventKey).sort();
-    const observedEventKeys = ledgerRows.map(row => eventKey({
-        caseId: row.case_id,
-        gate: row.gate,
-        targetCode: row.target_code,
-        comparisonCode: row.comparison_code
-    })).sort();
-    assert(JSON.stringify(observedEventKeys) === JSON.stringify(expectedEventKeys),
-        'Failure ledger does not match independently recomputed gate events');
-    const sortedLedger = [...ledgerRows].sort((left, right) =>
-        left.case_id.localeCompare(right.case_id) ||
-        left.gate.localeCompare(right.gate) ||
-        left.target_code.localeCompare(right.target_code) ||
-        left.comparison_code.localeCompare(right.comparison_code) ||
-        left.observed.localeCompare(right.observed)
-    );
-    assert(JSON.stringify(ledgerRows) === JSON.stringify(sortedLedger),
-        'Failure ledger is not in deterministic order');
-    const idCounts = new Map();
-    for (const row of ledgerRows) {
-        const caseItem = casesState.caseById.get(row.case_id);
-        assert(caseItem && row.stratum === caseItem.stratum && row.cn === String(caseItem.cn),
-            `Failure ledger case metadata mismatch for ${row.case_id}`);
-        const codes = EXPECTED_REFERENCE_CODES[caseItem.cn];
-        assert((row.target_code === '' || codes.includes(row.target_code)) &&
-            (row.comparison_code === '' || codes.includes(row.comparison_code)),
-            `Failure ledger target code mismatch for ${row.case_id}`);
-        assert(row.severity === 'gate_failure' && row.status === 'fail',
-            'Failure ledger row has invalid severity/status');
+    const expectedLedger = expectedFailureLedger(events, casesState.caseById);
+    for (const row of expectedLedger) {
         verifyRawPath(row.shape_raw_path, `Failure SHAPE raw path for ${row.case_id}`);
         verifyRawPath(row.qshape_raw_path, `Failure Q-Shape raw path for ${row.case_id}`);
-        const provisional = stableLedgerId(row);
-        const duplicateIndex = idCounts.get(provisional) || 0;
-        assert(row.failure_id === stableLedgerId(row, duplicateIndex),
-            `Invalid deterministic failure ID ${row.failure_id}`);
-        idCounts.set(provisional, duplicateIndex + 1);
     }
+    assert(JSON.stringify(ledgerRows) === JSON.stringify(expectedLedger),
+        'Failure ledger content does not exactly match independently reconstructed events');
 
     const summary = readJson(resolveListedFile(
         root, listedPaths, 'reports/summary.json', 'Summary report'
@@ -1624,6 +2057,16 @@ function verifyDerivedReports(
             observed.comparisons_observed === comparisons.length &&
             observed.comparisons_domain_valid === subsetErrors.length,
             `${label} census mismatch`);
+        assert(JSON.stringify(observed.error_statistics) === JSON.stringify(
+            exactDecimalErrorStatistics(
+                comparisons.filter(item => item.domainValid).map(item => item.signed)
+            )
+        ), `${label} error-statistic tokens are not canonical`);
+        assert(JSON.stringify(observed.runtime_statistics_ms) === JSON.stringify(
+            exactDecimalDistribution(
+                comparisons.map(item => parseDecimal(item.qshape.runtimeMsToken))
+            )
+        ), `${label} runtime-statistic tokens are not canonical`);
         verifyNumericStatistics(observed.error_statistics, numericStats(subsetErrors),
             `${label} error statistics`);
         verifyDistribution(observed.runtime_statistics_ms, numericDistribution(
@@ -1647,6 +2090,18 @@ function verifyDerivedReports(
         summary.totals.comparisons_expected === 952 && summary.totals.comparisons_observed === 952 &&
         summary.totals.comparisons_domain_valid === signedErrors.length &&
         summary.totals.failures === events.length, 'Summary totals mismatch');
+    const exactTotalErrorStatistics = exactDecimalErrorStatistics(
+        analysisState.comparisons.filter(item => item.domainValid).map(item => item.signed)
+    );
+    const exactTotalRuntimeStatistics = exactDecimalDistribution(
+        analysisState.comparisons.map(item => parseDecimal(item.qshape.runtimeMsToken))
+    );
+    assert(JSON.stringify(summary.totals.error_statistics) ===
+        JSON.stringify(exactTotalErrorStatistics),
+    'Summary total error statistics are not the independently reconstructed canonical tokens');
+    assert(JSON.stringify(summary.totals.runtime_statistics_ms) ===
+        JSON.stringify(exactTotalRuntimeStatistics),
+    'Summary total runtime statistics are not the independently reconstructed canonical tokens');
     verifyNumericStatistics(summary.totals.error_statistics, numericStats(signedErrors),
         'Summary total error statistics');
     verifyDistribution(summary.totals.runtime_statistics_ms,
@@ -1966,34 +2421,20 @@ function verifyPackage(packagePath) {
     }
     assert(observedCounts.failures === events.length, 'Manifest failure count mismatch');
 
-    const dictionary = readJson(resolveListedFile(
+    const dictionaryPath = resolveListedFile(
         root, listedPaths, 'metadata/data-dictionary.json', 'Data dictionary'
-    ));
-    assert(dictionary.schema_version === 2 && dictionary.table_mode === 'working_tidy_data' &&
-        dictionary.publication_status === 'not_reviewed_not_publication_ready' &&
-        dictionary.gates?.matched_target_absolute_error === '<0.01 CShM' &&
-        dictionary.gates?.cshm_domain === 'finite and within [0, 100]' &&
-        dictionary.gates?.shape_tie_set_gamma === '0.02001 CShM' &&
-        dictionary.gates?.qshape_repeatability ===
-            'identical float64 hex across independent worker processes' &&
-        dictionary.gates?.shape_repeatability ===
-            'identical five-decimal CShM tokens across clean runs',
-        'Data dictionary gate semantics mismatch');
+    );
+    const dictionaryText = fs.readFileSync(dictionaryPath, 'utf8');
+    const expectedDictionaryText = `${JSON.stringify(expectedDataDictionary(), null, 2)}\n`;
+    assert(dictionaryText === expectedDictionaryText,
+        'Data dictionary does not exactly match the independently frozen semantics');
+    readJson(dictionaryPath);
     const workingReport = fs.readFileSync(resolveListedFile(
         root, listedPaths, 'reports/working-report.md', 'Working report'
     ), 'utf8');
-    for (const requiredText of [
-        'Status: working validation artifact; not a publication-ready table',
-        `Direct-campaign gate: **${reportState.campaignGateStatus.toUpperCase()}**.`,
-        'Overall validation: **INCOMPLETE**.',
-        `Q-Shape commit: \`${environment.qshape_commit}\`.`,
-        `SHAPE executable SHA-256: \`${EXPECTED_SHAPE_HASH}\`.`,
-        `Cases: 98; matched target evaluations per program: 952.`,
-        `Failures retained in the ledger: ${events.length}.`
-    ]) assert(workingReport.includes(requiredText),
-        `Working report is missing derived text: ${requiredText}`);
-    assert(workingReport.includes('- Q-Shape diagnostic runtime mean / median / P95 / P99 / maximum:'),
-        'Working report is missing diagnostic runtime statistics');
+    const expectedReport = expectedWorkingReport(reportState.summary, environment);
+    assert(workingReport === expectedReport,
+        'Working report does not exactly match independently reconstructed values and claims');
     assert(![...listedPaths].some(token => path.posix.basename(token) === 'shape_2.1_linux64'),
         'The SHAPE executable must not be redistributed in the evidence package');
 
@@ -2020,6 +2461,26 @@ function verifyPackage(packagePath) {
     };
 }
 
+function verifyExternalSidecarIfPresent(packagePath, receipt) {
+    const sidecarPath = `${path.resolve(packagePath)}.verification.json`;
+    if (!fs.existsSync(sidecarPath)) return null;
+    const stat = fs.lstatSync(sidecarPath);
+    assert(stat.isFile() && !stat.isSymbolicLink(),
+        `Verification sidecar is not a regular file: ${sidecarPath}`);
+    const expected = {
+        schema_version: 1,
+        receipt_kind: 'external-independent-verifier-sidecar',
+        package_manifest_sha256: receipt.manifest_sha256,
+        verifier_exit_code: receipt.campaign_gate_status === 'pass' ? 0 : 2,
+        verifier_stderr: '',
+        receipt_parse_error: null,
+        receipt
+    };
+    assert(fs.readFileSync(sidecarPath, 'utf8') === `${JSON.stringify(expected, null, 2)}\n`,
+        'External verification sidecar does not exactly match a fresh verifier receipt');
+    return sidecarPath;
+}
+
 function cli(argv) {
     if (argv.length !== 1 || argv[0] === '--help' || argv[0] === '-h') {
         process.stdout.write('Usage: node validation/scripts/verify-direct-parity.cjs <package-directory>\n');
@@ -2028,6 +2489,7 @@ function cli(argv) {
     }
     try {
         const receipt = verifyPackage(argv[0]);
+        verifyExternalSidecarIfPresent(argv[0], receipt);
         process.stdout.write(`${JSON.stringify(receipt)}\n`);
         process.exitCode = receipt.campaign_gate_status === 'pass' ? 0 : 2;
     } catch (error) {
@@ -2059,7 +2521,13 @@ module.exports = {
     canonicalBinary64Token,
     compareDecimals,
     decimalToFixedHalfUp,
+    decimalToSignificantHalfUp,
+    exactDecimalDistribution,
+    exactDecimalErrorStatistics,
     exactDecimalEqual,
+    expectedDataDictionary,
+    expectedFailureLedger,
+    expectedWorkingReport,
     float64Hex,
     parseCsv,
     parseDecimal,
@@ -2067,6 +2535,10 @@ module.exports = {
     parseShapeOut,
     parseShapeTab,
     qshapeReferenceInventoryFingerprint,
+    rationalToSignificantHalfUp,
+    recomputeAnalysis,
+    sqrtRationalToSignificantHalfUp,
     subtractDecimals,
+    verifyExternalSidecarIfPresent,
     verifyPackage
 };

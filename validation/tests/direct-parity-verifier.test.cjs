@@ -3,9 +3,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const Decimal = require('decimal.js');
 
+const {
+    analyzeDirectParity,
+    errorStatistics,
+    stats
+} = require('../scripts/direct-parity-analysis.cjs');
 const verifier = require('../scripts/verify-direct-parity.cjs');
 const worker = require('../scripts/qshape-direct-worker.cjs');
 
@@ -94,6 +101,264 @@ test('independent fixed-decimal rendering uses exact decimal half-up rounding', 
     assert.equal(verifier.decimalToFixedHalfUp(verifier.parseDecimal('100'), 5), '100.00000');
 });
 
+test('independent significant-decimal rendering matches the analysis contract', () => {
+    const tokens = [
+        '0', '-0', '1e-8', '1e-7', '1e-6', '0.010000000000000001',
+        '0.009999999999999999', '999999999999999999.5', '9999999999999999999',
+        '1e20', '1e21', '-12345678901234567895', '0.00000009999999999999999995'
+    ];
+    for (const token of tokens) {
+        const expected = new Decimal(token).toSignificantDigits(18).toString();
+        assert.equal(
+            verifier.decimalToSignificantHalfUp(verifier.parseDecimal(token)),
+            expected,
+            token
+        );
+    }
+});
+
+test('independent rational and square-root rounding match Decimal.js', () => {
+    const rationalCases = [
+        [1n, 3n], [2n, 3n], [9999999999999999995n, 10n],
+        [-1n, 7n], [1n, 10n ** 40n], [10n ** 40n, 7n]
+    ];
+    for (const [numerator, denominator] of rationalCases) {
+        const expected = new Decimal(numerator.toString())
+            .dividedBy(denominator.toString()).toSignificantDigits(18).toString();
+        assert.equal(verifier.rationalToSignificantHalfUp(numerator, denominator), expected);
+    }
+    const squareRootCases = [
+        [1n, 2n], [2n, 3n], [1n, 10n ** 41n],
+        [999999999999999999n, 7n], [10n ** 45n, 3n]
+    ];
+    for (const [numerator, denominator] of squareRootCases) {
+        const expected = new Decimal(numerator.toString())
+            .dividedBy(denominator.toString()).sqrt().toSignificantDigits(18).toString();
+        assert.equal(
+            verifier.sqrtRationalToSignificantHalfUp(numerator, denominator),
+            expected
+        );
+    }
+});
+
+test('independent exact statistics reproduce Decimal.js tokens', () => {
+    const signedTokens = [
+        '0.010000000000000001', '-0.009999999999999999',
+        '0.000000000000000003', '-0.000000000000000002', '1.2345678901234567'
+    ];
+    const runtimeTokens = ['0.001', '1.234', '2.345', '3.456', '99.999', '100.001'];
+    assert.deepEqual(
+        verifier.exactDecimalErrorStatistics(signedTokens.map(verifier.parseDecimal)),
+        errorStatistics(signedTokens.map(token => new Decimal(token)))
+    );
+    assert.deepEqual(
+        verifier.exactDecimalDistribution(runtimeTokens.map(verifier.parseDecimal)),
+        stats(runtimeTokens.map(token => new Decimal(token)))
+    );
+});
+
+test('data dictionary is independently frozen field for field', () => {
+    assert.deepEqual(verifier.expectedDataDictionary(), {
+        schema_version: 2,
+        table_mode: 'working_tidy_data',
+        publication_status: 'not_reviewed_not_publication_ready',
+        quantities: {
+            shape_token: {
+                meaning: 'CShM printed by SHAPE .out',
+                type: 'exact non-negative fixed five-decimal token',
+                unit: 'dimensionless CShM',
+                resolution: '0.00001'
+            },
+            qshape_full_precision: {
+                meaning: 'Q-Shape Number rendered as a binary64 round-trip token',
+                type: 'IEEE-754 binary64 lexical token',
+                unit: 'dimensionless CShM'
+            },
+            qshape_float64_hex: {
+                meaning: 'big-endian hexadecimal encoding of all 64 result bits',
+                type: '16 lowercase hexadecimal characters'
+            },
+            signed_error: { meaning: 'Q-Shape minus SHAPE', unit: 'dimensionless CShM' },
+            runtime_ms: {
+                meaning: 'worker wall time per target',
+                unit: 'ms',
+                claim_boundary: 'diagnostic only'
+            }
+        },
+        gates: {
+            matched_target_absolute_error: '<0.01 CShM',
+            cshm_domain: 'finite and within [0, 100]',
+            ideal_qshape_self: '<1e-8 CShM',
+            ideal_shape_self: '<0.01 CShM',
+            shape_tie_set_gamma: '0.02001 CShM',
+            qshape_repeatability: 'identical float64 hex across independent worker processes',
+            shape_repeatability: 'identical five-decimal CShM tokens across clean runs',
+            shape_out_tab_consistency: '|out-tab|<=0.000505 CShM'
+        }
+    });
+});
+
+test('working report is reconstructed exactly from summary and environment values', () => {
+    const summary = {
+        campaign_gate_status: 'pass',
+        overall_validation_status: 'incomplete',
+        totals: {
+            cases: 98,
+            comparisons_observed: 952,
+            failures: 0,
+            error_statistics: {
+                mean_absolute_error: '0.001',
+                root_mean_square_error: '0.002',
+                median_absolute_error: '0.0009',
+                p95_absolute_error: '0.004',
+                p99_absolute_error: '0.006',
+                max_absolute_error: '0.009',
+                signed_bias: '-0.0001'
+            },
+            runtime_statistics_ms: {
+                mean: '1', median: '2', p95: '3', p99: '4', max: '5'
+            }
+        }
+    };
+    const environment = {
+        qshape_commit: '0123456789abcdef',
+        qshape_seed_policy: 'input-derived',
+        shape_banner: 'SHAPE v2.1',
+        shape_executable_sha256: 'a'.repeat(64)
+    };
+    const report = verifier.expectedWorkingReport(summary, environment);
+    assert.match(report, /Direct-campaign gate: \*\*PASS\*\*\./);
+    assert.match(report, /MAE \/ RMSE: 0\.001 \/ 0\.002 CShM\./);
+    assert.match(report, /Signed bias: -0\.0001 CShM\./);
+    assert.match(report, /maximum: 1 \/ 2 \/ 3 \/ 4 \/ 5 ms\./);
+    assert.ok(report.endsWith('\n'));
+});
+
+test('failure ledger reconstruction binds every semantic and provenance field', () => {
+    const caseById = new Map([['case-1', {
+        case_id: 'case-1', stratum: 'retained_fixture', cn: 4
+    }]]);
+    const event = {
+        caseId: 'case-1',
+        gate: 'absolute_error',
+        targetCode: 'T-4',
+        comparisonCode: '',
+        observed: '0.01',
+        threshold: '<0.01 CShM',
+        details: 'Q-Shape 1.01; SHAPE 1.00',
+        shapeRawPath: 'oracle/raw/cn04.out',
+        qshapeRawPath: 'qshape/raw/repetition-01.json'
+    };
+    const [row] = verifier.expectedFailureLedger([event], caseById);
+    assert.deepEqual({ ...row, failure_id: '' }, {
+        failure_id: '',
+        case_id: 'case-1',
+        stratum: 'retained_fixture',
+        cn: '4',
+        gate: 'absolute_error',
+        target_code: 'T-4',
+        comparison_code: '',
+        observed: '0.01',
+        threshold: '<0.01 CShM',
+        details: 'Q-Shape 1.01; SHAPE 1.00',
+        shape_raw_path: 'oracle/raw/cn04.out',
+        qshape_raw_path: 'qshape/raw/repetition-01.json',
+        severity: 'gate_failure',
+        status: 'fail'
+    });
+    assert.match(row.failure_id, /^failure-[0-9a-f]{16}$/);
+    const [changed] = verifier.expectedFailureLedger([
+        { ...event, observed: '0.02' }
+    ], caseById);
+    assert.notEqual(changed.failure_id, row.failure_id);
+    const duplicateRows = verifier.expectedFailureLedger([event, event], caseById);
+    assert.equal(duplicateRows[1].failure_id, `${duplicateRows[0].failure_id}-2`);
+});
+
+test('independent gate reconstruction matches the analyzer failure ledger exactly', () => {
+    const cases = [
+        {
+            caseId: 'fixture-cn02',
+            stratum: 'retained_fixture',
+            cn: 2,
+            sourceName: 'fixture'
+        },
+        {
+            caseId: 'ideal-cn02-a',
+            stratum: 'ideal_reference',
+            cn: 2,
+            sourceName: 'ideal A',
+            expectedOwnTargetCode: 'A'
+        }
+    ];
+    const inventory = [{
+        cn: 2,
+        count: 2,
+        targets: [
+            { code: 'A', name: 'reference A', shapeCode: 'L-2' },
+            { code: 'B', name: 'reference B', shapeCode: 'A-2' }
+        ]
+    }];
+    const values = {
+        'fixture-cn02': {
+            A: { shape: '0.00000', qshape: '0.02' },
+            B: { shape: '0.05000', qshape: '0' }
+        },
+        'ideal-cn02-a': {
+            A: { shape: '0.03000', qshape: '1e-8' },
+            B: { shape: '0.00000', qshape: '0' }
+        }
+    };
+    const shapeRows = [];
+    const qshapeRows = [];
+    for (const item of cases) {
+        for (const target of inventory[0].targets) {
+            const value = values[item.caseId][target.code];
+            shapeRows.push({
+                caseId: item.caseId,
+                targetCode: target.code,
+                shapeCode: target.shapeCode,
+                valueToken: value.shape,
+                lexicallyValid: true,
+                rawLineNumber: 10,
+                rawPath: `oracle/raw/${item.caseId}.out`
+            });
+            qshapeRows.push({
+                caseId: item.caseId,
+                targetCode: target.code,
+                valueToken: value.qshape,
+                valueHex: '0000000000000000',
+                lexicallyValid: true,
+                runtimeMsToken: '1',
+                seedPolicy: 'input-derived',
+                explicitSeed: '',
+                rawPath: 'qshape/raw/repetition-01.json'
+            });
+        }
+    }
+    const analyzed = analyzeDirectParity({ cases, inventory, shapeRows, qshapeRows });
+    const verifierCases = cases.map(item => ({
+        case_id: item.caseId,
+        stratum: item.stratum,
+        cn: item.cn,
+        expected_own_target_code: item.expectedOwnTargetCode ?? ''
+    }));
+    const casesState = {
+        cases: verifierCases,
+        caseById: new Map(verifierCases.map(item => [item.case_id, item]))
+    };
+    const referencesByCn = new Map([[2, inventory[0].targets.map(target => ({
+        qshape_code: target.code,
+        qshape_name: target.name,
+        shape_code: target.shapeCode
+    }))]]);
+    const events = [];
+    verifier.recomputeAnalysis(casesState, referencesByCn, shapeRows, qshapeRows, events);
+    const reconstructed = verifier.expectedFailureLedger(events, casesState.caseById);
+    const expected = analyzed.failures.map(row => ({ ...row, cn: String(row.cn) }));
+    assert.deepEqual(reconstructed, expected);
+});
+
 test('Q-Shape input fingerprint freezes ligand order, target bits, mode, and seed', () => {
     const item = {
         caseId: 'fixture-cn02',
@@ -137,4 +402,46 @@ test('verifier CLI classifies a missing package as invalid rather than an intern
     const receipt = JSON.parse(result.stdout);
     assert.equal(receipt.verification_status, 'invalid');
     assert.match(receipt.error, /does not exist/);
+});
+
+test('external sidecar must equal a fresh verifier receipt byte for byte', () => {
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qshape-sidecar-test-'));
+    try {
+        const packagePath = path.join(temporaryRoot, 'package');
+        fs.mkdirSync(packagePath);
+        const receipt = {
+            schema_version: 1,
+            verifier: 'verify-direct-parity.cjs',
+            verification_status: 'valid',
+            manifest_sha256: 'a'.repeat(64),
+            package_status: 'complete',
+            campaign_gate_status: 'pass',
+            overall_validation_status: 'incomplete',
+            verified_counts: { cases: 98 },
+            warnings: []
+        };
+        const sidecarPath = `${packagePath}.verification.json`;
+        const sidecar = {
+            schema_version: 1,
+            receipt_kind: 'external-independent-verifier-sidecar',
+            package_manifest_sha256: receipt.manifest_sha256,
+            verifier_exit_code: 0,
+            verifier_stderr: '',
+            receipt_parse_error: null,
+            receipt: JSON.parse(JSON.stringify(receipt))
+        };
+        fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+        assert.equal(
+            verifier.verifyExternalSidecarIfPresent(packagePath, receipt),
+            sidecarPath
+        );
+        sidecar.receipt.verified_counts.cases = 97;
+        fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+        assert.throws(
+            () => verifier.verifyExternalSidecarIfPresent(packagePath, receipt),
+            /does not exactly match/
+        );
+    } finally {
+        fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    }
 });

@@ -693,7 +693,11 @@ function main() {
     )) {
         throw new Error('Output directory must be outside the Q-Shape repository');
     }
+    const verificationSidecarPath = `${outputRoot}.verification.json`;
     if (fs.existsSync(outputRoot)) throw new Error(`Output directory already exists: ${outputRoot}`);
+    if (fs.existsSync(verificationSidecarPath)) {
+        throw new Error(`Verification sidecar already exists: ${verificationSidecarPath}`);
+    }
     fs.mkdirSync(outputRoot, { recursive: false });
     RUN_CONTEXT.outputRoot = outputRoot;
 
@@ -1234,8 +1238,63 @@ function main() {
     writeJson(manifestPath, manifest);
     writeText(path.join(outputRoot, 'manifest.sha256'), `${sha256File(manifestPath)}  manifest.json\n`);
 
+    const verifierResult = run(process.execPath, [
+        path.join(REPO_ROOT, 'validation', 'scripts', 'verify-direct-parity.cjs'),
+        outputRoot
+    ], { allowFailure: true, purpose: 'independent sealed-package verification' });
+    let verificationReceipt = null;
+    let receiptParseError = null;
+    try {
+        verificationReceipt = JSON.parse((verifierResult.stdout || '').trim());
+    } catch (error) {
+        receiptParseError = error.message;
+    }
+    const manifestSha256 = sha256File(manifestPath);
+    writeJson(verificationSidecarPath, {
+        schema_version: 1,
+        receipt_kind: 'external-independent-verifier-sidecar',
+        package_manifest_sha256: manifestSha256,
+        verifier_exit_code: verifierResult.status,
+        verifier_stderr: verifierResult.stderr || '',
+        receipt_parse_error: receiptParseError,
+        receipt: verificationReceipt
+    });
+    const expectedVerifierExit = analysis.summary.campaign_gate_status === 'pass' ? 0 : 2;
+    const expectedVerifiedCounts = {
+        references: 87,
+        cases: 98,
+        matched_target_evaluations_per_program: 952,
+        qshape_rows_with_repetitions: 1904,
+        shape_rows_with_repetitions: 1904,
+        shape_batches: 15,
+        shape_runs: 30,
+        gate_failures: analysis.failures.length
+    };
+    const verifierAccepted = verifierResult.status === expectedVerifierExit &&
+        (verifierResult.stderr || '') === '' && receiptParseError === null &&
+        verificationReceipt?.schema_version === 1 &&
+        verificationReceipt?.verifier === 'verify-direct-parity.cjs' &&
+        verificationReceipt?.verification_status === 'valid' &&
+        verificationReceipt?.manifest_sha256 === manifestSha256 &&
+        verificationReceipt?.package_status === 'complete' &&
+        verificationReceipt?.campaign_gate_status === analysis.summary.campaign_gate_status &&
+        verificationReceipt?.overall_validation_status === 'incomplete' &&
+        JSON.stringify(verificationReceipt?.verified_counts) ===
+            JSON.stringify(expectedVerifiedCounts) &&
+        Array.isArray(verificationReceipt?.warnings) &&
+        JSON.stringify(verificationReceipt.warnings) ===
+            JSON.stringify([...verificationReceipt.warnings].sort());
+    if (!verifierAccepted) {
+        process.stderr.write(
+            `Independent verifier rejected the sealed package; receipt: ${verificationSidecarPath}\n`
+        );
+        process.exitCode = 3;
+        return;
+    }
+
     process.stdout.write(
         `Direct parity package written to ${outputRoot}\n` +
+        `Independent verification receipt written to ${verificationSidecarPath}\n` +
         `Campaign gate: ${analysis.summary.campaign_gate_status.toUpperCase()}\n` +
         `Overall validation: INCOMPLETE\n` +
         `Cases: ${cases.length}; matched target evaluations: ${analysis.summary.totals.comparisons_observed}; ` +
