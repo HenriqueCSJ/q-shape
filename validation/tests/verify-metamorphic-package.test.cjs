@@ -100,9 +100,14 @@ function loadFocusedVerifier() {
         '    pairKeyOf,\n' +
         '    qInputFingerprint,\n' +
         '    qTokenBits,\n' +
+        '    runtimeIdentitySha256,\n' +
+        '    validateExecutionRuntimeBoundary,\n' +
         '    validateManifestVerifiedCounts,\n' +
         '    validatePriorShapeAttemptCheckpoint,\n' +
+        '    validateQPayload,\n' +
         '    validateQShapeEvidence,\n' +
+        '    validateRetainedInputBundleReceipt,\n' +
+        '    validateRuntimeIdentityDocument,\n' +
         '    validateShapeEvidence,\n' +
         '    verifyMalformedObserved,\n' +
         '    verifyReports\n' +
@@ -116,6 +121,265 @@ function loadFocusedVerifier() {
 
 const focusedVerifier = loadFocusedVerifier();
 const privateVerifier = focusedVerifier.__packageTest;
+
+function runtimeIdentityFixture(lockSha256 = 'a'.repeat(64)) {
+    return {
+        schema_version: 1,
+        identity_kind: 'qshape-node-runtime-v1',
+        process_model: 'in_process_runner',
+        node_version: 'v20.20.2',
+        node_versions_node: '20.20.2',
+        v8_version: '11.3.244.8-node.33',
+        platform: 'win32',
+        arch: 'x64',
+        node_executable_path: 'C:\\Program Files\\nodejs\\node.exe',
+        node_executable_sha256: 'b'.repeat(64),
+        node_executable_size_bytes: 81234567,
+        intl_locale: 'en-US',
+        intl_time_zone: 'America/Sao_Paulo',
+        environment_locale: {
+            lc_all: null,
+            lang: 'en_US.UTF-8',
+            language: null
+        },
+        environment_time_zone: 'America/Sao_Paulo',
+        dependency_lockfile: {
+            path: 'package-lock.json',
+            sha256: lockSha256
+        }
+    };
+}
+
+test('independent verifier validates exact runtime fields and binds every Q payload to them', () => {
+    const lockSha256 = 'a'.repeat(64);
+    const identity = runtimeIdentityFixture(lockSha256);
+    const identitySha256 = privateVerifier.runtimeIdentitySha256(identity);
+    assert.equal(
+        privateVerifier.validateRuntimeIdentityDocument(identity, lockSha256, 'fixture runtime'),
+        identitySha256
+    );
+    assert.throws(() => privateVerifier.validateRuntimeIdentityDocument(
+        { ...identity, invented: true }, lockSha256, 'fixture runtime'
+    ), /fields/i);
+    assert.throws(() => privateVerifier.validateRuntimeIdentityDocument(
+        identity, '0'.repeat(64), 'fixture runtime'
+    ), /incomplete|inconsistent/i);
+
+    const stream = 'q_primary_input_derived_r1';
+    const payload = {
+        schema_version: 1,
+        program: 'Q-Shape',
+        campaign_id: CAMPAIGN_ID,
+        cases_sha256: 'c'.repeat(64),
+        references_sha256: 'd'.repeat(64),
+        mode: 'default',
+        input_contract: 'frozen-metamorphic-cases-and-reference-binary64-v1',
+        stream,
+        seed_policy: 'input-derived',
+        explicit_seed_uint32: null,
+        repetition: 1,
+        shard_index: 0,
+        shard_count: 1,
+        case_count: 1,
+        count: 1,
+        expected_count: 1,
+        execution_process: 'in_process_runner',
+        runtime_identity_sha256: identitySha256,
+        runtime_identity: identity,
+        results: []
+    };
+    assert.doesNotThrow(() => privateVerifier.validateQPayload(
+        payload, stream, payload.cases_sha256, payload.references_sha256,
+        { identity, identitySha256 }
+    ));
+    assert.throws(() => privateVerifier.validateQPayload(
+        { ...payload, runtime_identity_sha256: '0'.repeat(64) },
+        stream, payload.cases_sha256, payload.references_sha256,
+        { identity, identitySha256 }
+    ), /in-process runner/i);
+});
+
+test('independent verifier reconstructs initial/final/manifest runtime binding', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qshape-meta-runtime-boundary-'));
+    try {
+        const lockSha256 = 'a'.repeat(64);
+        const identity = runtimeIdentityFixture(lockSha256);
+        const identitySha256 = privateVerifier.runtimeIdentitySha256(identity);
+        const workerExecution = 'in-process; no child Node process is used';
+        const runtimeStage = {
+            status: 'complete',
+            identity_sha256: identitySha256,
+            process_model: 'in_process_runner',
+            dependency_lockfile_sha256: lockSha256
+        };
+        const finalStage = {
+            status: 'complete',
+            identity_sha256: identitySha256,
+            process_model: 'in_process_runner'
+        };
+        const initialDocument = {
+            schema_version: 1,
+            identity,
+            identity_sha256: identitySha256,
+            qshape_worker_execution: workerExecution
+        };
+        const finalDocument = {
+            schema_version: 1,
+            status: 'unchanged',
+            identity_sha256: identitySha256,
+            initial_identity_sha256: identitySha256,
+            qshape_worker_execution: workerExecution,
+            identity
+        };
+        const initialPath = path.join(root, 'metadata', 'runtime-initial.json');
+        const finalPath = path.join(root, 'metadata', 'runtime-final-recheck.json');
+        writeText(initialPath, `${JSON.stringify(stable(initialDocument), null, 2)}\n`);
+        writeText(finalPath, `${JSON.stringify(stable(finalDocument), null, 2)}\n`);
+        writeJson(path.join(root, 'run-state.json'), {
+            execution_runtime_identity: identity,
+            execution_runtime_identity_sha256: identitySha256,
+            stages: {
+                runtime_preflight: runtimeStage,
+                final_runtime_recheck: finalStage
+            }
+        });
+        const manifest = {
+            execution_runtime: {
+                identity_kind: 'qshape-node-runtime-v1',
+                process_model: 'in_process_runner',
+                identity_sha256: identitySha256,
+                initial_path: 'metadata/runtime-initial.json',
+                initial_sha256: sha256(fs.readFileSync(initialPath)),
+                final_recheck_path: 'metadata/runtime-final-recheck.json',
+                final_recheck_sha256: sha256(fs.readFileSync(finalPath)),
+                qshape_worker_execution: workerExecution,
+                dependency_lockfile: { path: 'package-lock.json', sha256: lockSha256 }
+            },
+            stages: {
+                runtime_preflight: runtimeStage,
+                final_runtime_recheck: finalStage
+            }
+        };
+        const bundle = { root, listedPaths: listedFiles(root), manifest };
+        const candidateState = {
+            identity: { dependency_lockfile: { path: 'package-lock.json', sha256: lockSha256 } }
+        };
+        assert.deepEqual(
+            privateVerifier.validateExecutionRuntimeBoundary(bundle, candidateState),
+            { identity, identitySha256 }
+        );
+
+        fs.appendFileSync(finalPath, ' ');
+        assert.throws(() => privateVerifier.validateExecutionRuntimeBoundary(
+            bundle, candidateState
+        ), /not canonical/i);
+        writeText(finalPath, `${JSON.stringify(stable(finalDocument), null, 2)}\n`);
+        const changed = JSON.parse(fs.readFileSync(finalPath, 'utf8'));
+        changed.identity.v8_version = 'changed';
+        writeText(finalPath, `${JSON.stringify(stable(changed), null, 2)}\n`);
+        assert.throws(() => privateVerifier.validateExecutionRuntimeBoundary(
+            bundle, candidateState
+        ), /differs from the initial runtime/i);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('independent verifier reconstructs the retained input-bundle receipt and candidate binding', () => {
+    const cases = {
+        campaign_id: CAMPAIGN_ID,
+        count: 2,
+        expected_matched_target_evaluations_per_program: 3
+    };
+    const references = {
+        count: 1,
+        metamorphic_binding: { source_direct_references_sha256: 'a'.repeat(64) }
+    };
+    const malformed = {
+        campaign_id: CONTROL_CAMPAIGN_ID,
+        count: 2,
+        controls: [
+            { control_id: 'mal-a', expected_numeric_rows: 0 },
+            { control_id: 'mal-b', expected_numeric_rows: 1 }
+        ]
+    };
+    const casesRaw = Buffer.from(`${JSON.stringify(cases, null, 2)}\n`);
+    const referencesRaw = Buffer.from(`${JSON.stringify(references, null, 2)}\n`);
+    const malformedRaw = Buffer.from(`${JSON.stringify(malformed, null, 2)}\n`);
+    const commit = '1'.repeat(40);
+    const contract = {
+        schema_version: 2,
+        receipt_kind: 'frozen-metamorphic-execution-input-bundle',
+        campaign_id: 'qshape-metamorphic-execution-inputs-v1',
+        source_commit: commit,
+        positive_cases: {
+            campaign_id: CAMPAIGN_ID,
+            sha256: sha256(casesRaw),
+            count: 2,
+            matched_target_evaluations_per_program: 3
+        },
+        references: {
+            sha256: sha256(referencesRaw),
+            count: 1,
+            source_direct_references_sha256: 'a'.repeat(64)
+        },
+        malformed_controls: {
+            campaign_id: CONTROL_CAMPAIGN_ID,
+            sha256: sha256(malformedRaw),
+            count: 2,
+            expected_numeric_rows_contract: 'per-control',
+            expected_numeric_rows_by_control: { 'mal-a': 0, 'mal-b': 1 },
+            expected_numeric_rows_total: 1
+        }
+    };
+    const bundleSha256 = sha256(Buffer.from(JSON.stringify(stable(contract))));
+    const receipt = {
+        ...contract,
+        status: 'preregistered_execution_inputs',
+        positive_execution_started: false,
+        output_policy: 'input-only directory; numerical outputs are forbidden',
+        bundle_sha256: bundleSha256,
+        files: {
+            references: 'references.json',
+            malformed_controls: 'malformed-controls.json',
+            receipt: 'receipt.json',
+            status: 'STATUS.md'
+        }
+    };
+    const receiptRaw = Buffer.from(`${JSON.stringify(stable(receipt), null, 2)}\n`);
+    const files = {
+        receipt: { value: receipt, raw: receiptRaw },
+        cases: { value: cases, raw: casesRaw },
+        references: { value: references, raw: referencesRaw },
+        malformed: { value: malformed, raw: malformedRaw }
+    };
+    const manifest = {
+        candidate_source: { repo_commit: commit },
+        input_bundle_sha256: bundleSha256,
+        input_bundle_receipt_sha256: sha256(receiptRaw)
+    };
+    assert.deepEqual(privateVerifier.validateRetainedInputBundleReceipt(
+        files.receipt, files.cases, files.references, files.malformed, manifest
+    ), {
+        receipt,
+        receiptSha256: sha256(receiptRaw),
+        bundleSha256
+    });
+    assert.throws(() => privateVerifier.validateRetainedInputBundleReceipt(
+        files.receipt, files.cases, files.references, files.malformed,
+        { ...manifest, candidate_source: { repo_commit: '2'.repeat(40) } }
+    ), /does not exactly bind/i);
+    assert.throws(() => privateVerifier.validateRetainedInputBundleReceipt(
+        files.receipt, files.cases, files.references, files.malformed,
+        { ...manifest, input_bundle_sha256: '0'.repeat(64) }
+    ), /bundle SHA-256 mismatch/i);
+    const noncanonicalReceiptRaw = Buffer.concat([receiptRaw, Buffer.from(' ')]);
+    assert.throws(() => privateVerifier.validateRetainedInputBundleReceipt(
+        { value: receipt, raw: noncanonicalReceiptRaw },
+        files.cases, files.references, files.malformed,
+        { ...manifest, input_bundle_receipt_sha256: sha256(noncanonicalReceiptRaw) }
+    ), /not canonical/i);
+});
 
 test('manifest expected verified counts are bound exactly to the independent census', () => {
     const counts = {

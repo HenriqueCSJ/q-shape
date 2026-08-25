@@ -40,6 +40,8 @@ const UINT32_MAX = 0xffffffff;
 const FIXED15_TOKEN = /^[+-]?\d+\.\d{15}$/;
 const BINARY64_TOKEN = value => Object.is(value, -0) ? '-0' : value.toPrecision(17);
 const PAIR_SEPARATOR = '\u0000';
+const RUNTIME_IDENTITY_KIND = 'qshape-node-runtime-v1';
+const IN_PROCESS_MODEL = 'in_process_runner';
 
 function sha256Buffer(buffer) {
     return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -47,6 +49,54 @@ function sha256Buffer(buffer) {
 
 function sha256File(filePath) {
     return sha256Buffer(fs.readFileSync(filePath));
+}
+
+function stable(value) {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+    }
+    return value;
+}
+
+function runtimeIdentitySha256(identity) {
+    return sha256Buffer(Buffer.from(JSON.stringify(stable(identity)), 'utf8'));
+}
+
+function captureWorkerRuntimeIdentity(repoRoot, processModel = IN_PROCESS_MODEL) {
+    const executablePath = fs.realpathSync.native(path.resolve(process.execPath));
+    const executableStat = fs.statSync(executablePath);
+    const packageLockPath = path.resolve(repoRoot, 'package-lock.json');
+    if (!executableStat.isFile() || !fs.statSync(packageLockPath).isFile()) {
+        throw new Error('Q-Shape worker runtime or package-lock boundary is not a regular file');
+    }
+    const intl = Intl.DateTimeFormat().resolvedOptions();
+    const identity = {
+        schema_version: 1,
+        identity_kind: RUNTIME_IDENTITY_KIND,
+        process_model: processModel,
+        node_version: process.version,
+        node_versions_node: process.versions.node,
+        v8_version: process.versions.v8,
+        platform: process.platform,
+        arch: process.arch,
+        node_executable_path: executablePath,
+        node_executable_sha256: sha256File(executablePath),
+        node_executable_size_bytes: executableStat.size,
+        intl_locale: intl.locale || null,
+        intl_time_zone: intl.timeZone || null,
+        environment_locale: {
+            lc_all: process.env.LC_ALL || null,
+            lang: process.env.LANG || null,
+            language: process.env.LANGUAGE || null
+        },
+        environment_time_zone: process.env.TZ || null,
+        dependency_lockfile: {
+            path: 'package-lock.json',
+            sha256: sha256File(packageLockPath)
+        }
+    };
+    return { identity, identitySha256: runtimeIdentitySha256(identity) };
 }
 
 function readJson(filePath, label) {
@@ -428,6 +478,15 @@ function validateRows(rows, expectedKeys) {
 }
 
 function runWorker(options, dependencies = {}) {
+    const executionProcess = options.executionProcess || 'standalone_worker_cli';
+    const observedRuntime = captureWorkerRuntimeIdentity(path.resolve(options.repo), executionProcess);
+    if (options.runtimeIdentity || options.runtimeIdentitySha256) {
+        if (executionProcess !== IN_PROCESS_MODEL ||
+            JSON.stringify(stable(options.runtimeIdentity)) !== JSON.stringify(stable(observedRuntime.identity)) ||
+            options.runtimeIdentitySha256 !== observedRuntime.identitySha256) {
+            throw new Error('Q-Shape worker runtime does not match the in-process runner identity');
+        }
+    }
     const casesFile = readJson(options.cases, 'Frozen metamorphic cases');
     const cases = parseFrozenCases(casesFile.document, casesFile.path);
     let referencesFile = null;
@@ -509,6 +568,9 @@ function runWorker(options, dependencies = {}) {
         references_sha256: referencesFile ? sha256File(referencesFile.path) : null,
         mode: 'default',
         input_contract: 'frozen-metamorphic-cases-and-reference-binary64-v1',
+        execution_process: executionProcess,
+        runtime_identity_sha256: observedRuntime.identitySha256,
+        runtime_identity: observedRuntime.identity,
         seed_policy: options.seedPolicy,
         explicit_seed_uint32: options.seedPolicy === 'explicit' ? options.explicitSeed : null,
         stream: options.stream,
@@ -568,12 +630,14 @@ module.exports = {
     EXPECTED_MATCHED_TARGET_ROWS,
     EXPECTED_REFERENCE_COUNT,
     EXPECTED_STREAMS,
+    captureWorkerRuntimeIdentity,
     canonicalValueToken,
     inputFingerprint,
     normalizeReferenceDocument,
     pairKey,
     parseArguments,
     parseFrozenCases,
+    runtimeIdentitySha256,
     runWorker,
     selectCaseShard,
     validateRows

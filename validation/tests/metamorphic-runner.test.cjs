@@ -42,6 +42,14 @@ function frozenCases() {
     return JSON.parse(fs.readFileSync(CASES_PATH, 'utf8'));
 }
 
+function stable(value) {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+    }
+    return value;
+}
+
 function runtimeBindings(cases) {
     const byCn = new Map();
     for (const item of cases.cases) {
@@ -90,6 +98,9 @@ function writeCandidateRepo(parent) {
 function writeFrozenInputs(parent, cases) {
     const casesPath = path.join(parent, 'cases.json');
     fs.copyFileSync(CASES_PATH, casesPath);
+    const repo = writeCandidateRepo(parent);
+    const bundleDirectory = path.join(parent, 'input-bundle');
+    fs.mkdirSync(bundleDirectory);
     const references = runtimeBindings(cases).map(group => ({
         cn: group.cn,
         count: group.targets.length,
@@ -102,6 +113,9 @@ function writeFrozenInputs(parent, cases) {
         schema_version: 2,
         campaign_id: cases.campaign_id,
         source_cases_sha256: runner.sha256File(casesPath),
+        metamorphic_binding: {
+            source_direct_references_sha256: 'a'.repeat(64)
+        },
         count: references.reduce((sum, group) => sum + group.count, 0),
         by_cn: references
     };
@@ -109,11 +123,75 @@ function writeFrozenInputs(parent, cases) {
         cases,
         runner.sha256File(casesPath)
     );
-    const referencesPath = path.join(parent, 'references.json');
-    const malformedPath = path.join(parent, 'malformed-controls.json');
+    const referencesPath = path.join(bundleDirectory, 'references.json');
+    const malformedPath = path.join(bundleDirectory, 'malformed-controls.json');
     fs.writeFileSync(referencesPath, `${JSON.stringify(referenceDocument, null, 2)}\n`);
     fs.writeFileSync(malformedPath, `${JSON.stringify(malformedDocument, null, 2)}\n`);
-    return { cases: casesPath, references: referencesPath, malformedControls: malformedPath, repo: writeCandidateRepo(parent) };
+    const expectedNumericRowsByControl = Object.fromEntries(
+        malformedDocument.controls.map(control => [control.control_id, control.expected_numeric_rows])
+    );
+    const contentContract = {
+        schema_version: 2,
+        receipt_kind: 'frozen-metamorphic-execution-input-bundle',
+        campaign_id: 'qshape-metamorphic-execution-inputs-v1',
+        source_commit: git(repo, ['rev-parse', 'HEAD']),
+        positive_cases: {
+            campaign_id: cases.campaign_id,
+            sha256: runner.sha256File(casesPath),
+            count: cases.count,
+            matched_target_evaluations_per_program: cases.expected_matched_target_evaluations_per_program
+        },
+        references: {
+            sha256: runner.sha256File(referencesPath),
+            count: referenceDocument.count,
+            source_direct_references_sha256: 'a'.repeat(64)
+        },
+        malformed_controls: {
+            campaign_id: malformedDocument.campaign_id,
+            sha256: runner.sha256File(malformedPath),
+            count: malformedDocument.count,
+            expected_numeric_rows_contract: 'per-control',
+            expected_numeric_rows_by_control: expectedNumericRowsByControl,
+            expected_numeric_rows_total: Object.values(expectedNumericRowsByControl)
+                .reduce((sum, value) => sum + value, 0)
+        }
+    };
+    const bundleSha256 = runner.sha256Buffer(Buffer.from(JSON.stringify(stable(contentContract)), 'utf8'));
+    const receipt = {
+        ...contentContract,
+        status: 'preregistered_execution_inputs',
+        positive_execution_started: false,
+        output_policy: 'input-only directory; numerical outputs are forbidden',
+        bundle_sha256: bundleSha256,
+        files: {
+            references: 'references.json',
+            malformed_controls: 'malformed-controls.json',
+            receipt: 'receipt.json',
+            status: 'STATUS.md'
+        }
+    };
+    const receiptPath = path.join(bundleDirectory, 'receipt.json');
+    fs.writeFileSync(receiptPath, `${JSON.stringify(stable(receipt), null, 2)}\n`);
+    fs.writeFileSync(path.join(bundleDirectory, 'STATUS.md'), [
+        '# Q-Shape metamorphic execution inputs',
+        '',
+        '- Status: preregistered input only.',
+        '- Positive numerical execution started: no.',
+        `- Source commit: \`${receipt.source_commit}\`.`,
+        `- Positive cases SHA-256: \`${receipt.positive_cases.sha256}\`.`,
+        `- Enhanced references SHA-256: \`${receipt.references.sha256}\`.`,
+        `- Malformed controls SHA-256: \`${receipt.malformed_controls.sha256}\`.`,
+        `- Bundle SHA-256: \`${receipt.bundle_sha256}\`.`,
+        '- This directory must never receive SHAPE, Q-Shape, report, log, or verification outputs.',
+        ''
+    ].join('\n'));
+    return {
+        cases: casesPath,
+        references: referencesPath,
+        malformedControls: malformedPath,
+        inputBundleReceipt: receiptPath,
+        repo
+    };
 }
 
 function basicOptions(output, cases, frozen, overrides = {}) {
@@ -122,6 +200,7 @@ function basicOptions(output, cases, frozen, overrides = {}) {
         cases: frozen.cases,
         references: frozen.references,
         malformedControls: frozen.malformedControls,
+        inputBundleReceipt: frozen.inputBundleReceipt,
         repo: frozen.repo,
         runtimeBindings: runtimeBindings(cases),
         requireFrozenCensus: false,
@@ -156,7 +235,15 @@ function fakeDependencies(trace, failFirst = false) {
             assert.equal(path.basename(path.dirname(context.cases)), 'frozen');
             assert.equal(path.basename(context.references), 'references.json');
             trace.push(`q:${context.stream}`);
-            return { payload: { stream: context.stream, results: [] } };
+            return {
+                payload: {
+                    stream: context.stream,
+                    execution_process: context.executionProcess,
+                    runtime_identity_sha256: context.runtimeIdentitySha256,
+                    runtime_identity: context.runtimeIdentity,
+                    results: []
+                }
+            };
         },
         malformedRunner: async context => {
             assert.equal(context.controlsDocument.count, 7);
@@ -333,16 +420,28 @@ test('candidate snapshot validation rejects retained source-byte tampering', () 
 
 test('retained Q stream acceptance requires its complete internally consistent evidence set', () => {
     const root = tempOutput('q-checkpoint');
-    fs.writeFileSync(path.join(root, 'payload.json'), '{"stream":"q_primary_input_derived_r1","results":[]}\n');
+    const runtimeIdentity = { fixture: 'runtime' };
+    const runtimeIdentitySha256 = 'b'.repeat(64);
+    fs.writeFileSync(path.join(root, 'payload.json'), `${JSON.stringify({
+        stream: 'q_primary_input_derived_r1',
+        execution_process: 'in_process_runner',
+        runtime_identity_sha256: runtimeIdentitySha256,
+        runtime_identity: runtimeIdentity,
+        results: []
+    })}\n`);
     fs.writeFileSync(path.join(root, 'rows.json'), '[]\n');
     fs.writeFileSync(path.join(root, 'stdout.txt'), '');
     fs.writeFileSync(path.join(root, 'stderr.txt'), '');
     fs.writeFileSync(path.join(root, 'exit-code.txt'), '0\n');
     fs.writeFileSync(path.join(root, 'raw-result.json'), '{"payload":{"results":[]}}\n');
-    assert.deepEqual(runner.readRetainedQStream(root, 'q_primary_input_derived_r1', 0, true), []);
+    assert.deepEqual(runner.readRetainedQStream(
+        root, 'q_primary_input_derived_r1', 0, true, runtimeIdentity, runtimeIdentitySha256
+    ), []);
     fs.rmSync(path.join(root, 'payload.json'));
     assert.throws(
-        () => runner.readRetainedQStream(root, 'q_primary_input_derived_r1', 0, true),
+        () => runner.readRetainedQStream(
+            root, 'q_primary_input_derived_r1', 0, true, runtimeIdentity, runtimeIdentitySha256
+        ),
         error => error.code === 'Q_STREAM_CHECKPOINT_CORRUPT'
     );
     fs.rmSync(root, { recursive: true, force: true });
@@ -461,6 +560,40 @@ test('runner serializes qualification, caps SHAPE at two, keeps five Q streams s
     assert.equal(manifest.candidate_source.repo_commit, git(frozen.repo, ['rev-parse', 'HEAD']));
     assert.equal(manifest.candidate_source.worktree_clean_before_run, true);
     assert.equal(manifest.candidate_source.worktree_clean_before_seal, true);
+    const retainedReceiptPath = path.join(
+        output, 'inputs', 'frozen', 'input-bundle-receipt.json'
+    );
+    const retainedReceipt = JSON.parse(fs.readFileSync(retainedReceiptPath, 'utf8'));
+    assert.equal(manifest.input_bundle_receipt_sha256, runner.sha256File(retainedReceiptPath));
+    assert.equal(manifest.input_bundle_sha256, retainedReceipt.bundle_sha256);
+    assert.equal(retainedReceipt.source_commit, manifest.candidate_source.repo_commit);
+    const runtimeInitial = JSON.parse(fs.readFileSync(
+        path.join(output, 'metadata', 'runtime-initial.json'), 'utf8'
+    ));
+    const runtimeFinal = JSON.parse(fs.readFileSync(
+        path.join(output, 'metadata', 'runtime-final-recheck.json'), 'utf8'
+    ));
+    assert.equal(manifest.execution_runtime.process_model, 'in_process_runner');
+    assert.equal(manifest.execution_runtime.identity_sha256, runtimeInitial.identity_sha256);
+    assert.equal(manifest.execution_runtime.initial_sha256, runner.sha256File(
+        path.join(output, 'metadata', 'runtime-initial.json')
+    ));
+    assert.equal(manifest.execution_runtime.final_recheck_sha256, runner.sha256File(
+        path.join(output, 'metadata', 'runtime-final-recheck.json')
+    ));
+    assert.equal(runtimeFinal.status, 'unchanged');
+    assert.equal(runtimeFinal.identity_sha256, runtimeInitial.identity_sha256);
+    assert.deepEqual(runtimeFinal.identity, runtimeInitial.identity);
+    assert.equal(runtimeInitial.identity.dependency_lockfile.sha256,
+        manifest.candidate_source.dependency_lockfile.sha256);
+    for (const stream of runner.Q_STREAMS) {
+        const payload = JSON.parse(fs.readFileSync(
+            path.join(output, 'qshape', stream, 'payload.json'), 'utf8'
+        ));
+        assert.equal(payload.execution_process, 'in_process_runner');
+        assert.equal(payload.runtime_identity_sha256, runtimeInitial.identity_sha256);
+        assert.deepEqual(payload.runtime_identity, runtimeInitial.identity);
+    }
     assert.deepEqual(manifest.verification_contract.expected_verified_counts, {
         references: 87,
         cases: 2871,
@@ -532,6 +665,7 @@ test('resume binds a checkpointless hard-interrupted attempt before allocating t
         cases: frozen.cases,
         references: frozen.references,
         malformedControls: frozen.malformedControls,
+        inputBundleReceipt: frozen.inputBundleReceipt,
         repo: frozen.repo,
         readyPath
     };
@@ -552,6 +686,7 @@ test('resume binds a checkpointless hard-interrupted attempt before allocating t
             cases: config.cases,
             references: config.references,
             malformedControls: config.malformedControls,
+            inputBundleReceipt: config.inputBundleReceipt,
             repo: config.repo,
             requireFrozenCensus: false,
             validateRowCounts: false,
@@ -632,7 +767,7 @@ test('resume rejects a different clean candidate commit before reusing retained 
             basicOptions(output, cases, frozen, { resume: true, scheduleBuilder }),
             fakeDependencies(trace)
         ),
-        error => error.code === 'CANDIDATE_SOURCE_CHANGED'
+        error => error.code === 'INPUT_BUNDLE_RECEIPT_INVALID'
     );
     assert.deepEqual(trace, []);
     assert.equal(fs.existsSync(path.join(output, 'manifest.json')), false);

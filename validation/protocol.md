@@ -29,6 +29,10 @@ Every run records and rechecks at both start and finish:
 
 - the exact Q-Shape commit, clean-worktree state, relevant source snapshots,
   dependency lockfile, and hashes;
+- the effective Q-Shape Node runtime: exact Node and V8 versions, platform,
+  architecture, resolved executable path, executable size and SHA-256, resolved
+  `Intl` locale/time zone, `LC_ALL`/`LANG`/`LANGUAGE`/`TZ`, and the exact
+  `package-lock.json` hash;
 - the SHAPE version banner, executable hash, registered WSL distribution,
   guest operating system, locale, and executable metadata;
 - every SHAPE control/input, raw standard stream, exit code, `.out`, and `.tab`;
@@ -40,6 +44,16 @@ The expected SHAPE executable hash is mandatory and is checked before the first
 execution. Any timeout, nonzero exit, parse failure, count/set mismatch, source
 change, executable change, or interrupted run produces an aborted package with a
 durable failure record and partial manifest. It cannot silently become a PASS.
+
+For the metamorphic campaign, every Q-Shape stream runs in the runner's Node
+process; the worker does not launch a child Node process. The runner and worker
+independently capture the same effective runtime identity before accepting a
+stream. The runner re-captures that identity before sealing, and resume is
+allowed only under the exact retained runtime and lockfile identity. The sealed
+package retains both captures, the manifest binding, and the runtime identity in
+every Q-Shape payload so that the independent verifier can reconstruct the
+complete linkage without requiring the verifier itself to run under that Node
+binary.
 
 ## 3. Evidence strata
 
@@ -163,6 +177,17 @@ The pretty-printed generated input document for campaign
 `qshape-metamorphic-adversarial-v1` is frozen at SHA-256
 `102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd`;
 any change requires a new campaign identifier and preregistration.
+
+Before execution, `freeze-metamorphic-execution-inputs.cjs` creates a new,
+input-only four-file bundle containing `references.json`,
+`malformed-controls.json`, `receipt.json`, and `STATUS.md`. The canonical receipt
+binds the exact positive-case, enhanced-reference, and malformed-control bytes;
+their schemas, campaign IDs, counts, direct-reference provenance, and expected
+numeric-row contracts; the candidate source commit; and a deterministic bundle
+hash. The runner requires this receipt through the explicit
+`--input-bundle-receipt` flag, requires its `source_commit` to equal candidate
+`HEAD`, rejects any noncanonical or extra bundle content before creating a run
+directory, and retains an immutable receipt copy in the evidence package.
 
 ### 3.3 External chemical holdout
 
@@ -363,6 +388,12 @@ The metamorphic package is separate from the sealed direct package and adds:
   controls, `.dat`, `.out`, `.tab`, stdout, stderr, exit codes, and hashes;
 - two primary input-derived Q-Shape repetitions plus three explicit-seed
   sensitivity streams, with seed mode/value and binary64 bits on every row;
+- the retained frozen input-bundle receipt, whose candidate commit, constituent
+  hashes, schemas, counts, malformed-row contract, and reconstructed bundle hash
+  must agree with the manifest, frozen registry, and retained input bytes;
+- initial and final effective-Node runtime records, including executable and
+  lockfile hashes, plus the same in-process runtime identity in every Q-Shape
+  payload and in `manifest.json`;
 - a separate boundary-control package with per-interface expected and observed
   outcomes, numeric-row counts, retained raw evidence, and an explicit
   product-boundary invocation marker;
@@ -377,8 +408,9 @@ independently checks hashes, safe paths, exact sets and multiplicities, controls
 coordinates, transformation reconstruction, raw outputs, result bits, gates,
 summaries, CSVs, and manifest counts. The metamorphic verifier also reconstructs
 the 2,871 positive cases from the 87 parents and recipe registries, checks the
-28,545-pair census and all parent-child/seed relations, and never imports the
-input generator. After sealing the manifest, each runner automatically invokes
+28,545-pair census and all parent-child/seed relations, validates the complete
+frozen-input receipt/bundle/commit linkage and initial-to-final runtime binding,
+and never imports the input generator. After sealing the manifest, each runner automatically invokes
 its verifier and writes a deterministic, timestamp-free receipt to the sibling
 file `<package-directory>.verification.json`. Keeping the receipt outside the
 sealed directory avoids a manifest/receipt hash cycle. A run is accepted only

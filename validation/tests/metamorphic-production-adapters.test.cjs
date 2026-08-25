@@ -212,12 +212,18 @@ test('Q, malformed, and verifier adapters delegate to injected/existing producti
         }
     };
     const production = adapters.createProductionDependencies(baseOptions({ casesPath: 'C:/cases.json', referencesPath: 'C:/references.json' }), dependencies);
+    const runtimeIdentity = { schema_version: 1, fixture: 'effective-node-runtime' };
     const qResult = await production.qRunner({
         cases: 'C:/cases.json', references: 'C:/references.json', repo: 'C:/repo',
-        seedPolicy: 'explicit', explicitSeed: 0, repetition: 1, stream: 'q_explicit_seed_0'
+        seedPolicy: 'explicit', explicitSeed: 0, repetition: 1, stream: 'q_explicit_seed_0',
+        executionProcess: 'in_process_runner', runtimeIdentity,
+        runtimeIdentitySha256: 'a'.repeat(64)
     });
     assert.equal(qResult.payload.stream, 'q_explicit_seed_0');
     assert.equal(qCalls[0].options.explicitSeed, 0);
+    assert.equal(qCalls[0].options.executionProcess, 'in_process_runner');
+    assert.equal(qCalls[0].options.runtimeIdentitySha256, 'a'.repeat(64));
+    assert.deepEqual(qCalls[0].options.runtimeIdentity, runtimeIdentity);
     const malformedResult = await production.malformedRunner({ cases: { frozen: true }, casesSha256: 'b'.repeat(64) });
     assert.equal(malformedResult.count, 1);
     assert.equal(malformedCalls.length, 1);

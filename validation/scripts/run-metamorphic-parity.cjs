@@ -25,6 +25,10 @@ const productionAdapters = require('./metamorphic-production-adapters.cjs');
 
 const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
 const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
+const EXECUTION_INPUT_CAMPAIGN_ID = 'qshape-metamorphic-execution-inputs-v1';
+const EXECUTION_INPUT_RECEIPT_KIND = 'frozen-metamorphic-execution-input-bundle';
+const RUNTIME_IDENTITY_KIND = 'qshape-node-runtime-v1';
+const QSHAPE_PROCESS_MODEL = 'in_process_runner';
 const CASES_SHA256 = qWorker.CAMPAIGN_CASES_SHA256;
 const SHAPE_REPETITIONS = Object.freeze([1, 2]);
 const Q_STREAMS = Object.freeze([...analysisModule.Q_STREAMS]);
@@ -73,6 +77,96 @@ function sha256Buffer(value) {
 
 function sha256File(filePath) {
     return sha256Buffer(fs.readFileSync(filePath));
+}
+
+function exactObjectKeys(value, expected, label, code = 'INPUT_BUNDLE_RECEIPT_INVALID') {
+    const observed = value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.keys(value).sort() : [];
+    const wanted = [...expected].sort();
+    if (JSON.stringify(observed) !== JSON.stringify(wanted)) {
+        fail(`${label} fields differ: observed ${observed.join(',')}; expected ${wanted.join(',')}`,
+            code);
+    }
+}
+
+function runtimeIdentitySha256(identity) {
+    return sha256Buffer(Buffer.from(JSON.stringify(stable(identity)), 'utf8'));
+}
+
+function captureRuntimeIdentity(repoRoot, dependencyLockfileSha256) {
+    const executablePath = fs.realpathSync.native(path.resolve(process.execPath));
+    const executableStat = fs.statSync(executablePath);
+    if (!executableStat.isFile()) fail('The effective Node executable is not a regular file', 'RUNTIME_INVALID');
+    const intl = Intl.DateTimeFormat().resolvedOptions();
+    const identity = {
+        schema_version: 1,
+        identity_kind: RUNTIME_IDENTITY_KIND,
+        process_model: QSHAPE_PROCESS_MODEL,
+        node_version: process.version,
+        node_versions_node: process.versions.node,
+        v8_version: process.versions.v8,
+        platform: process.platform,
+        arch: process.arch,
+        node_executable_path: executablePath,
+        node_executable_sha256: sha256File(executablePath),
+        node_executable_size_bytes: executableStat.size,
+        intl_locale: intl.locale || null,
+        intl_time_zone: intl.timeZone || null,
+        environment_locale: {
+            lc_all: process.env.LC_ALL || null,
+            lang: process.env.LANG || null,
+            language: process.env.LANGUAGE || null
+        },
+        environment_time_zone: process.env.TZ || null,
+        dependency_lockfile: {
+            path: 'package-lock.json',
+            sha256: dependencyLockfileSha256
+        }
+    };
+    validateRuntimeIdentity(identity, dependencyLockfileSha256);
+    return { identity, identitySha256: runtimeIdentitySha256(identity) };
+}
+
+function initialRuntimeEvidence(runtime) {
+    return {
+        schema_version: 1,
+        identity_sha256: runtime.identitySha256,
+        qshape_worker_execution: 'in-process; no child Node process is used',
+        identity: clone(runtime.identity)
+    };
+}
+
+function validateRuntimeIdentity(identity, dependencyLockfileSha256) {
+    exactObjectKeys(identity, [
+        'schema_version', 'identity_kind', 'process_model', 'node_version',
+        'node_versions_node', 'v8_version', 'platform', 'arch',
+        'node_executable_path', 'node_executable_sha256', 'node_executable_size_bytes',
+        'intl_locale', 'intl_time_zone', 'environment_locale', 'environment_time_zone',
+        'dependency_lockfile'
+    ], 'runtime identity', 'RUNTIME_INVALID');
+    exactObjectKeys(identity.environment_locale, ['lc_all', 'lang', 'language'],
+        'runtime environment locale', 'RUNTIME_INVALID');
+    exactObjectKeys(identity.dependency_lockfile, ['path', 'sha256'],
+        'runtime dependency lockfile', 'RUNTIME_INVALID');
+    const valid = identity.schema_version === 1 && identity.identity_kind === RUNTIME_IDENTITY_KIND &&
+        identity.process_model === QSHAPE_PROCESS_MODEL &&
+        typeof identity.node_version === 'string' && /^v\d+\.\d+\.\d+/.test(identity.node_version) &&
+        identity.node_versions_node === identity.node_version.slice(1) &&
+        typeof identity.v8_version === 'string' && identity.v8_version.length > 0 &&
+        typeof identity.platform === 'string' && identity.platform.length > 0 &&
+        typeof identity.arch === 'string' && identity.arch.length > 0 &&
+        path.isAbsolute(identity.node_executable_path) &&
+        /^[0-9a-f]{64}$/.test(identity.node_executable_sha256) &&
+        Number.isInteger(identity.node_executable_size_bytes) && identity.node_executable_size_bytes > 0 &&
+        (identity.intl_locale === null || typeof identity.intl_locale === 'string') &&
+        (identity.intl_time_zone === null || typeof identity.intl_time_zone === 'string') &&
+        Object.values(identity.environment_locale).every(value => value === null || typeof value === 'string') &&
+        (identity.environment_time_zone === null || typeof identity.environment_time_zone === 'string') &&
+        identity.dependency_lockfile.path === 'package-lock.json' &&
+        identity.dependency_lockfile.sha256 === dependencyLockfileSha256 &&
+        /^[0-9a-f]{64}$/.test(identity.dependency_lockfile.sha256);
+    if (!valid) fail('The effective Node runtime identity is incomplete or inconsistent', 'RUNTIME_INVALID');
+    return true;
 }
 
 function regularFile(filePath, label) {
@@ -261,6 +355,126 @@ function stableJson(value) {
     return `${JSON.stringify(stable(value), null, 2)}\n`;
 }
 
+function inputBundleContentContract(receipt) {
+    return {
+        schema_version: receipt.schema_version,
+        receipt_kind: receipt.receipt_kind,
+        campaign_id: receipt.campaign_id,
+        source_commit: receipt.source_commit,
+        positive_cases: receipt.positive_cases,
+        references: receipt.references,
+        malformed_controls: receipt.malformed_controls
+    };
+}
+
+function expectedInputBundleStatus(receipt) {
+    return [
+        '# Q-Shape metamorphic execution inputs',
+        '',
+        '- Status: preregistered input only.',
+        '- Positive numerical execution started: no.',
+        `- Source commit: \`${receipt.source_commit}\`.`,
+        `- Positive cases SHA-256: \`${receipt.positive_cases.sha256}\`.`,
+        `- Enhanced references SHA-256: \`${receipt.references.sha256}\`.`,
+        `- Malformed controls SHA-256: \`${receipt.malformed_controls.sha256}\`.`,
+        `- Bundle SHA-256: \`${receipt.bundle_sha256}\`.`,
+        '- This directory must never receive SHAPE, Q-Shape, report, log, or verification outputs.',
+        ''
+    ].join('\n');
+}
+
+function validateInputBundleReceipt(receiptFile, casesFile, referencesFile, malformedControlsFile,
+    candidateCommit, options = {}) {
+    const receipt = receiptFile.document;
+    exactObjectKeys(receipt, [
+        'schema_version', 'receipt_kind', 'campaign_id', 'source_commit',
+        'positive_cases', 'references', 'malformed_controls', 'status',
+        'positive_execution_started', 'output_policy', 'bundle_sha256', 'files'
+    ], 'execution-input receipt');
+    exactObjectKeys(receipt.positive_cases, [
+        'campaign_id', 'sha256', 'count', 'matched_target_evaluations_per_program'
+    ], 'execution-input positive cases');
+    exactObjectKeys(receipt.references, [
+        'sha256', 'count', 'source_direct_references_sha256'
+    ], 'execution-input references');
+    exactObjectKeys(receipt.malformed_controls, [
+        'campaign_id', 'sha256', 'count', 'expected_numeric_rows_contract',
+        'expected_numeric_rows_by_control', 'expected_numeric_rows_total'
+    ], 'execution-input malformed controls');
+    exactObjectKeys(receipt.files, ['references', 'malformed_controls', 'receipt', 'status'],
+        'execution-input receipt file registry');
+
+    const expectedRowsByControl = Object.fromEntries(
+        malformedControlsFile.document.controls.map(control => [control.control_id, control.expected_numeric_rows])
+    );
+    const expectedRowsTotal = Object.values(expectedRowsByControl)
+        .reduce((sum, value) => sum + Number(value), 0);
+    const directReferencesSha256 =
+        referencesFile.document?.metamorphic_binding?.source_direct_references_sha256;
+    const valid = receipt.schema_version === 2 &&
+        receipt.receipt_kind === EXECUTION_INPUT_RECEIPT_KIND &&
+        receipt.campaign_id === EXECUTION_INPUT_CAMPAIGN_ID &&
+        receipt.source_commit === candidateCommit && /^[0-9a-f]{40}$/.test(receipt.source_commit) &&
+        receipt.status === 'preregistered_execution_inputs' &&
+        receipt.positive_execution_started === false &&
+        receipt.output_policy === 'input-only directory; numerical outputs are forbidden' &&
+        receipt.positive_cases.campaign_id === casesFile.document.campaign_id &&
+        receipt.positive_cases.sha256 === casesFile.sha256 &&
+        receipt.positive_cases.count === casesFile.document.count &&
+        receipt.positive_cases.matched_target_evaluations_per_program ===
+            casesFile.document.expected_matched_target_evaluations_per_program &&
+        receipt.references.sha256 === referencesFile.sha256 &&
+        receipt.references.count === referencesFile.document.count &&
+        receipt.references.source_direct_references_sha256 === directReferencesSha256 &&
+        /^[0-9a-f]{64}$/.test(directReferencesSha256 || '') &&
+        receipt.malformed_controls.campaign_id === malformedControlsFile.document.campaign_id &&
+        receipt.malformed_controls.sha256 === malformedControlsFile.sha256 &&
+        receipt.malformed_controls.count === malformedControlsFile.document.count &&
+        receipt.malformed_controls.expected_numeric_rows_contract === 'per-control' &&
+        stableJson(receipt.malformed_controls.expected_numeric_rows_by_control) ===
+            stableJson(expectedRowsByControl) &&
+        receipt.malformed_controls.expected_numeric_rows_total === expectedRowsTotal &&
+        receipt.files.references === 'references.json' &&
+        receipt.files.malformed_controls === 'malformed-controls.json' &&
+        receipt.files.receipt === 'receipt.json' && receipt.files.status === 'STATUS.md';
+    if (!valid) fail('Execution-input receipt does not exactly bind the candidate and frozen inputs',
+        'INPUT_BUNDLE_RECEIPT_INVALID');
+
+    const expectedBundleSha256 = sha256Buffer(Buffer.from(
+        JSON.stringify(stable(inputBundleContentContract(receipt))), 'utf8'
+    ));
+    if (receipt.bundle_sha256 !== expectedBundleSha256) {
+        fail('Execution-input bundle SHA-256 is inconsistent with its content contract',
+            'INPUT_BUNDLE_RECEIPT_INVALID');
+    }
+    const expectedReceiptBytes = Buffer.from(stableJson(receipt), 'utf8');
+    if (!fs.readFileSync(receiptFile.path).equals(expectedReceiptBytes)) {
+        fail('Execution-input receipt bytes are not canonical', 'INPUT_BUNDLE_RECEIPT_INVALID');
+    }
+
+    const bundleDirectory = path.dirname(receiptFile.path);
+    if (!samePath(bundleDirectory, path.dirname(referencesFile.path)) ||
+        !samePath(bundleDirectory, path.dirname(malformedControlsFile.path))) {
+        fail('Execution-input files do not come from one frozen bundle directory',
+            'INPUT_BUNDLE_RECEIPT_INVALID');
+    }
+    const statusPath = path.join(bundleDirectory, 'STATUS.md');
+    if (options.requireBundleDirectory !== false) {
+        const entries = fs.readdirSync(bundleDirectory, { withFileTypes: true });
+        const names = entries.map(entry => entry.name).sort();
+        if (JSON.stringify(names) !== JSON.stringify(['STATUS.md', 'malformed-controls.json', 'receipt.json', 'references.json']) ||
+            entries.some(entry => !entry.isFile() || fs.lstatSync(path.join(bundleDirectory, entry.name)).isSymbolicLink())) {
+            fail('Execution-input bundle directory does not contain the exact four regular files',
+                'INPUT_BUNDLE_RECEIPT_INVALID');
+        }
+        if (fs.readFileSync(statusPath, 'utf8') !== expectedInputBundleStatus(receipt)) {
+            fail('Execution-input STATUS.md does not exactly match the receipt',
+                'INPUT_BUNDLE_RECEIPT_INVALID');
+        }
+    }
+    return { receipt, bundleSha256: expectedBundleSha256, statusPath };
+}
+
 function jsonValue(value) {
     return JSON.stringify(value, (_key, item) => {
         if (Buffer.isBuffer(item)) return { type: 'Buffer', data: item.toString('base64') };
@@ -408,7 +622,18 @@ function shapeRowEvidence(result) {
     return rows.map(row => ({ ...row }));
 }
 
-function readRetainedQStream(streamDir, stream, expectedRows, validateRowCounts) {
+function validateQPayloadRuntime(payload, expectedIdentity, expectedIdentitySha256, stream) {
+    if (!payload || payload.execution_process !== QSHAPE_PROCESS_MODEL ||
+        payload.runtime_identity_sha256 !== expectedIdentitySha256 ||
+        stableJson(payload.runtime_identity) !== stableJson(expectedIdentity)) {
+        fail(`Q-Shape stream ${stream} is not bound to the in-process runner runtime`,
+            'Q_RUNTIME_BINDING_INVALID');
+    }
+    return true;
+}
+
+function readRetainedQStream(streamDir, stream, expectedRows, validateRowCounts,
+    expectedRuntimeIdentity, expectedRuntimeIdentitySha256) {
     const required = ['payload.json', 'rows.json', 'stdout.txt', 'stderr.txt', 'exit-code.txt', 'raw-result.json'];
     for (const name of required) {
         const filePath = path.join(streamDir, name);
@@ -435,6 +660,7 @@ function readRetainedQStream(streamDir, stream, expectedRows, validateRowCounts)
         JSON.stringify(rowsFrom(rawResult)) !== JSON.stringify(rows)) {
         fail(`Retained Q-Shape stream ${stream} evidence is inconsistent`, 'Q_STREAM_CHECKPOINT_CORRUPT');
     }
+    validateQPayloadRuntime(payload, expectedRuntimeIdentity, expectedRuntimeIdentitySha256, stream);
     return rows;
 }
 
@@ -661,6 +887,7 @@ function parseArguments(argv) {
         else if (token === '--cases') options.cases = next();
         else if (token === '--references') options.references = next();
         else if (token === '--malformed-controls') options.malformedControls = next();
+        else if (token === '--input-bundle-receipt') options.inputBundleReceipt = next();
         else if (token === '--repo') options.repo = next();
         else if (token === '--shape-executable') options.shapeExecutable = next();
         else if (token === '--shape-sha256') options.shapeSha256 = next();
@@ -672,8 +899,10 @@ function parseArguments(argv) {
         else fail(`Unknown argument: ${token}`, 'USAGE');
     }
     if (options.help) return options;
-    if (!options.output || !options.cases || !options.references || !options.malformedControls) {
-        fail('Usage requires --output, --cases, --references, and --malformed-controls', 'USAGE');
+    if (!options.output || !options.cases || !options.references || !options.malformedControls ||
+        !options.inputBundleReceipt) {
+        fail('Usage requires --output, --cases, --references, --malformed-controls, and --input-bundle-receipt',
+            'USAGE');
     }
     if (!Number.isInteger(options.shapeConcurrency) || options.shapeConcurrency < 1 || options.shapeConcurrency > 2) {
         fail('--shape-concurrency must be 1 or 2', 'USAGE');
@@ -697,6 +926,8 @@ function preflight(options) {
 
     if (!options.references) fail('An explicit frozen reference document is required', 'REFERENCES_REQUIRED');
     if (!options.malformedControls) fail('An explicit frozen malformed-control document is required', 'MALFORMED_CONTROLS_REQUIRED');
+    if (!options.inputBundleReceipt) fail('An explicit frozen execution-input receipt is required',
+        'INPUT_BUNDLE_RECEIPT_REQUIRED');
     const referencesFile = readJson(options.references, 'Frozen reference inventory');
     if (options.requireFrozenCensus !== false) qWorker.normalizeReferenceDocument(referencesFile.document);
     else validateReferenceDocument(referencesFile.document);
@@ -709,6 +940,14 @@ function preflight(options) {
     if (malformedControlsFile.document.source_positive_cases_sha256 !== casesFile.sha256) {
         fail('Frozen malformed controls are bound to a different cases SHA-256', 'MALFORMED_HASH_MISMATCH');
     }
+    const inputBundleReceiptFile = readJson(options.inputBundleReceipt, 'Frozen execution-input receipt');
+    const inputBundle = validateInputBundleReceipt(
+        inputBundleReceiptFile,
+        casesFile,
+        referencesFile,
+        malformedControlsFile,
+        options.candidateCommit
+    );
     const frozenFiles = [];
     if (options.frozenFiles) {
         for (const item of options.frozenFiles) {
@@ -720,7 +959,14 @@ function preflight(options) {
             frozenFiles.push({ path: resolved, sha256: observed });
         }
     }
-    return { casesFile, referencesFile, malformedControlsFile, frozenFiles };
+    return {
+        casesFile,
+        referencesFile,
+        malformedControlsFile,
+        inputBundleReceiptFile,
+        inputBundle,
+        frozenFiles
+    };
 }
 
 function frozenRegistryDocument(frozen) {
@@ -729,7 +975,12 @@ function frozenRegistryDocument(frozen) {
         campaign_id: frozen.casesFile.document.campaign_id || CAMPAIGN_ID,
         cases: { path: 'cases.json', sha256: frozen.casesFile.sha256 },
         references: { path: 'references.json', sha256: frozen.referencesFile.sha256 },
-        malformed_controls: { path: 'malformed-controls.json', sha256: frozen.malformedControlsFile.sha256 }
+        malformed_controls: { path: 'malformed-controls.json', sha256: frozen.malformedControlsFile.sha256 },
+        input_bundle_receipt: {
+            path: 'input-bundle-receipt.json',
+            sha256: frozen.inputBundleReceiptFile.sha256,
+            bundle_sha256: frozen.inputBundle.bundleSha256
+        }
     };
 }
 
@@ -739,12 +990,14 @@ function verifyFrozenInputBoundary(outputRoot, frozen, registryDocument = null) 
     const expected = {
         cases: frozen.casesFile,
         references: frozen.referencesFile,
-        malformed_controls: frozen.malformedControlsFile
+        malformed_controls: frozen.malformedControlsFile,
+        input_bundle_receipt: frozen.inputBundleReceiptFile
     };
     const expectedPaths = {
         cases: 'cases.json',
         references: 'references.json',
-        malformed_controls: 'malformed-controls.json'
+        malformed_controls: 'malformed-controls.json',
+        input_bundle_receipt: 'input-bundle-receipt.json'
     };
     for (const [key, source] of Object.entries(expected)) {
         if (registry[key]?.sha256 !== source.sha256 || registry[key]?.path !== expectedPaths[key]) {
@@ -768,6 +1021,10 @@ function retainedFrozenInputs(outputRoot, registry) {
         malformedControlsFile: readJson(
             path.join(outputRoot, 'inputs', 'frozen', registry.malformed_controls.path),
             'Retained malformed controls'
+        ),
+        inputBundleReceiptFile: readJson(
+            path.join(outputRoot, 'inputs', 'frozen', registry.input_bundle_receipt.path),
+            'Retained execution-input receipt'
         )
     };
 }
@@ -906,9 +1163,18 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         fail('Campaign output must be outside the candidate Git worktree', 'OUTPUT_INSIDE_CANDIDATE_REPO');
     }
     const candidateAtStart = captureCandidateSource(repoRoot);
+    const runtimeAtStart = captureRuntimeIdentity(
+        repoRoot,
+        candidateAtStart.identity.dependency_lockfile.sha256
+    );
+    const runtimeInitialDocument = initialRuntimeEvidence(runtimeAtStart);
     normalized.repo = repoRoot;
     const casesPath = regularFile(normalized.cases, 'Frozen metamorphic cases');
-    const frozen = preflight({ ...normalized, cases: casesPath });
+    const frozen = preflight({
+        ...normalized,
+        cases: casesPath,
+        candidateCommit: candidateAtStart.identity.repo_commit
+    });
     const verifierHook = dependencies.verifier || normalized.verifier;
     if (typeof verifierHook !== 'function' && !normalized.allowUnverified) {
         fail('A real verifier hook is required by default', 'VERIFIER_REQUIRED');
@@ -924,6 +1190,17 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         const registry = readJson(registryPath, 'Frozen-input registry').document;
         verifyFrozenInputBoundary(outputRoot, frozen, registry);
         verifyCandidateSnapshot(outputRoot, candidateAtStart.identity);
+        const retainedRuntimePath = path.join(outputRoot, 'metadata', 'runtime-initial.json');
+        const retainedRuntime = readJson(
+            retainedRuntimePath,
+            'Retained initial runtime identity'
+        ).document;
+        if (stableJson(retainedRuntime) !== stableJson(runtimeInitialDocument) ||
+            !fs.readFileSync(retainedRuntimePath).equals(
+                Buffer.from(stableJson(runtimeInitialDocument), 'utf8')
+            )) {
+            fail('Resume runtime differs from the retained effective Node runtime', 'RUNTIME_CHANGED');
+        }
     }
 
     const statePath = path.join(outputRoot, 'run-state.json');
@@ -934,7 +1211,11 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         cases_sha256: frozen.casesFile.sha256,
         references_sha256: frozen.referencesFile.sha256,
         malformed_controls_sha256: frozen.malformedControlsFile.sha256,
+        input_bundle_receipt_sha256: frozen.inputBundleReceiptFile.sha256,
+        input_bundle_sha256: frozen.inputBundle.bundleSha256,
         candidate_source_identity: clone(candidateAtStart.identity),
+        execution_runtime_identity: clone(runtimeAtStart.identity),
+        execution_runtime_identity_sha256: runtimeAtStart.identitySha256,
         stages: {},
         shape_calls: { scheduled: 0, completed: 0, failed: 0, abandoned: 0, max_concurrency: 0 },
         q_streams: {}
@@ -945,6 +1226,10 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         if (stableJson(state.candidate_source_identity) !== stableJson(candidateAtStart.identity)) {
             fail('Run-state candidate identity does not match the current committed candidate', 'CANDIDATE_SOURCE_CHANGED');
         }
+        if (stableJson(state.execution_runtime_identity) !== stableJson(runtimeAtStart.identity) ||
+            state.execution_runtime_identity_sha256 !== runtimeAtStart.identitySha256) {
+            fail('Run-state runtime identity does not match the current process', 'RUNTIME_CHANGED');
+        }
     }
     state.shape_calls = { scheduled: 0, completed: 0, failed: 0, abandoned: 0, max_concurrency: 0 };
     writeJsonReplace(statePath, state);
@@ -952,11 +1237,15 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
     const writes = {
         cases: path.join(outputRoot, 'inputs', 'frozen', 'cases.json'),
         references: path.join(outputRoot, 'inputs', 'frozen', 'references.json'),
-        malformedControls: path.join(outputRoot, 'inputs', 'frozen', 'malformed-controls.json')
+        malformedControls: path.join(outputRoot, 'inputs', 'frozen', 'malformed-controls.json'),
+        inputBundleReceipt: path.join(outputRoot, 'inputs', 'frozen', 'input-bundle-receipt.json')
     };
     if (!fs.existsSync(writes.cases)) writeExclusive(writes.cases, fs.readFileSync(frozen.casesFile.path));
     if (frozen.referencesFile && !fs.existsSync(writes.references)) writeExclusive(writes.references, fs.readFileSync(frozen.referencesFile.path));
     if (!fs.existsSync(writes.malformedControls)) writeExclusive(writes.malformedControls, fs.readFileSync(frozen.malformedControlsFile.path));
+    if (!fs.existsSync(writes.inputBundleReceipt)) {
+        writeExclusive(writes.inputBundleReceipt, fs.readFileSync(frozen.inputBundleReceiptFile.path));
+    }
     if (frozen.frozenFiles.length && !fs.existsSync(path.join(outputRoot, 'inputs', 'frozen', 'additional-files.json'))) {
         writeJsonExclusive(path.join(outputRoot, 'inputs', 'frozen', 'additional-files.json'), frozen.frozenFiles);
     }
@@ -969,10 +1258,30 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
     }
     verifyFrozenInputBoundary(outputRoot, frozen, retainedRegistry);
     const retainedFrozen = retainedFrozenInputs(outputRoot, retainedRegistry);
+    const retainedInputBundle = validateInputBundleReceipt(
+        retainedFrozen.inputBundleReceiptFile,
+        retainedFrozen.casesFile,
+        retainedFrozen.referencesFile,
+        retainedFrozen.malformedControlsFile,
+        candidateAtStart.identity.repo_commit,
+        { requireBundleDirectory: false }
+    );
+    if (retainedInputBundle.bundleSha256 !== frozen.inputBundle.bundleSha256 ||
+        retainedRegistry.input_bundle_receipt?.bundle_sha256 !== frozen.inputBundle.bundleSha256) {
+        fail('Retained execution-input bundle identity changed', 'FROZEN_INPUT_CHANGED');
+    }
 
     const candidateIdentitySha256 = isResume
         ? verifyCandidateSnapshot(outputRoot, candidateAtStart.identity)
         : writeCandidateSnapshot(outputRoot, candidateAtStart);
+    const runtimeInitialPath = path.join(outputRoot, 'metadata', 'runtime-initial.json');
+    if (!fs.existsSync(runtimeInitialPath)) {
+        writeExclusive(runtimeInitialPath, stableJson(runtimeInitialDocument), { encoding: 'utf8' });
+    }
+    else if (stableJson(readJson(runtimeInitialPath, 'Retained initial runtime identity').document) !==
+        stableJson(runtimeInitialDocument)) {
+        fail('Retained initial runtime identity changed', 'RUNTIME_CHANGED');
+    }
 
     const shapeRunner = dependencies.shapeRunner || normalized.shapeRunner;
     if (typeof shapeRunner !== 'function') {
@@ -1000,6 +1309,12 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         candidate_repo_commit: candidateAtStart.identity.repo_commit,
         candidate_source_tree_sha256: candidateAtStart.identity.source_tree_sha256,
         candidate_snapshot_identity_sha256: candidateIdentitySha256
+    };
+    state.stages.runtime_preflight = {
+        status: 'complete',
+        identity_sha256: runtimeAtStart.identitySha256,
+        process_model: QSHAPE_PROCESS_MODEL,
+        dependency_lockfile_sha256: candidateAtStart.identity.dependency_lockfile.sha256
     };
 
     const recipesPath = path.join(outputRoot, 'recipes.json');
@@ -1157,15 +1472,35 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
                         streamDir,
                         stream,
                         schedule.counts.targetEvaluationsPerRepetition,
-                        normalized.validateRowCounts !== false
+                        normalized.validateRowCounts !== false,
+                        runtimeAtStart.identity,
+                        runtimeAtStart.identitySha256
                     );
                     continue;
                 }
                 result = typeof qRunner === 'function'
-                    ? await qRunner({ ...qOptions, outputRoot, stream })
-                    : qWorker.runWorker(qOptions, normalized.workerDependencies || {});
+                    ? await qRunner({
+                        ...qOptions,
+                        outputRoot,
+                        stream,
+                        runtimeIdentity: clone(runtimeAtStart.identity),
+                        runtimeIdentitySha256: runtimeAtStart.identitySha256,
+                        executionProcess: QSHAPE_PROCESS_MODEL
+                    })
+                    : qWorker.runWorker({
+                        ...qOptions,
+                        runtimeIdentity: clone(runtimeAtStart.identity),
+                        runtimeIdentitySha256: runtimeAtStart.identitySha256,
+                        executionProcess: QSHAPE_PROCESS_MODEL
+                    }, normalized.workerDependencies || {});
                 const payload = invocationResult(result);
                 const rows = rowsFrom(result);
+                validateQPayloadRuntime(
+                    payload,
+                    runtimeAtStart.identity,
+                    runtimeAtStart.identitySha256,
+                    stream
+                );
                 if (normalized.validateRowCounts !== false && rows.length !== schedule.counts.targetEvaluationsPerRepetition) {
                     fail(`Q-Shape stream ${stream} emitted ${rows.length} rows; expected ${schedule.counts.targetEvaluationsPerRepetition}`);
                 }
@@ -1176,7 +1511,12 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
                 writeExclusive(path.join(streamDir, 'stderr.txt'), toBuffer(result?.stderr));
                 writeExclusive(path.join(streamDir, 'exit-code.txt'), `${result?.exitCode ?? result?.exit_code ?? 0}\n`, { encoding: 'utf8' });
                 writeJsonExclusive(path.join(streamDir, 'raw-result.json'), result || {});
-                state.q_streams[stream] = { status: 'complete', rows: rows.length };
+                state.q_streams[stream] = {
+                    status: 'complete',
+                    rows: rows.length,
+                    runtime_identity_sha256: runtimeAtStart.identitySha256,
+                    execution_process: QSHAPE_PROCESS_MODEL
+                };
                 writeJsonReplace(statePath, state);
             } catch (error) {
                 state.q_streams[stream] = { status: 'failed', error: error.message };
@@ -1294,6 +1634,32 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
         if (finalSnapshotIdentitySha256 !== candidateIdentitySha256) {
             fail('Candidate snapshot identity bytes changed during the campaign', 'CANDIDATE_SNAPSHOT_CHANGED');
         }
+        const runtimeAtEnd = captureRuntimeIdentity(
+            repoRoot,
+            finalCandidate.identity.dependency_lockfile.sha256
+        );
+        if (stableJson(runtimeAtEnd.identity) !== stableJson(runtimeAtStart.identity) ||
+            runtimeAtEnd.identitySha256 !== runtimeAtStart.identitySha256) {
+            fail('Effective Node runtime changed during the campaign', 'RUNTIME_CHANGED');
+        }
+        const runtimeFinalRecheck = {
+            schema_version: 1,
+            status: 'unchanged',
+            identity_sha256: runtimeAtEnd.identitySha256,
+            initial_identity_sha256: runtimeAtStart.identitySha256,
+            qshape_worker_execution: 'in-process; no child Node process is used',
+            identity: clone(runtimeAtEnd.identity)
+        };
+        replaceFile(
+            path.join(outputRoot, 'metadata', 'runtime-final-recheck.json'),
+            stableJson(runtimeFinalRecheck),
+            { encoding: 'utf8' }
+        );
+        state.stages.final_runtime_recheck = {
+            status: 'complete',
+            identity_sha256: runtimeAtEnd.identitySha256,
+            process_model: QSHAPE_PROCESS_MODEL
+        };
         const candidateFinalRecheck = {
             schema_version: 1,
             status: 'unchanged',
@@ -1323,6 +1689,8 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
             cases_sha256: frozen.casesFile.sha256,
             references_sha256: frozen.referencesFile.sha256,
             malformed_controls_sha256: frozen.malformedControlsFile.sha256,
+            input_bundle_receipt_sha256: frozen.inputBundleReceiptFile.sha256,
+            input_bundle_sha256: frozen.inputBundle.bundleSha256,
             candidate_source: {
                 repo_commit: candidateAtStart.identity.repo_commit,
                 repo_branch: candidateAtStart.identity.repo_branch,
@@ -1331,6 +1699,19 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
                 source_tree_sha256: candidateAtStart.identity.source_tree_sha256,
                 snapshot_path: 'inputs/candidate-snapshot',
                 snapshot_identity_sha256: candidateIdentitySha256,
+                dependency_lockfile: clone(candidateAtStart.identity.dependency_lockfile)
+            },
+            execution_runtime: {
+                identity_kind: RUNTIME_IDENTITY_KIND,
+                process_model: QSHAPE_PROCESS_MODEL,
+                identity_sha256: runtimeAtStart.identitySha256,
+                initial_path: 'metadata/runtime-initial.json',
+                initial_sha256: sha256File(runtimeInitialPath),
+                final_recheck_path: 'metadata/runtime-final-recheck.json',
+                final_recheck_sha256: sha256File(
+                    path.join(outputRoot, 'metadata', 'runtime-final-recheck.json')
+                ),
+                qshape_worker_execution: 'in-process; no child Node process is used',
                 dependency_lockfile: clone(candidateAtStart.identity.dependency_lockfile)
             },
             sealed: true,
@@ -1482,6 +1863,7 @@ async function main(argv = process.argv.slice(2), dependencies = {}) {
         process.stdout.write(
             'Usage: node run-metamorphic-parity.cjs --output <dir> --cases <cases.json> ' +
             '--references <references.json> --malformed-controls <controls.json> ' +
+            '--input-bundle-receipt <receipt.json> ' +
             '--shape-executable </absolute/linux/path> --shape-sha256 <64-hex> ' +
             '[--wsl-distro Ubuntu-22.04] [--shape-concurrency 1|2] [--resume]\n'
         );
@@ -1534,6 +1916,7 @@ module.exports = {
     Q_STREAMS,
     SHAPE_REPETITIONS,
     bounded,
+    captureRuntimeIdentity,
     captureCandidateSource,
     collectFiles,
     main,
@@ -1541,8 +1924,12 @@ module.exports = {
     parseArguments,
     preflight,
     readRetainedQStream,
+    runtimeIdentitySha256,
     validateReferenceDocument,
     validateMalformedControlDocument,
+    validateInputBundleReceipt,
+    validateQPayloadRuntime,
+    validateRuntimeIdentity,
     runMetamorphicCampaign,
     runCampaign: runMetamorphicCampaign,
     resumeMetamorphicCampaign,

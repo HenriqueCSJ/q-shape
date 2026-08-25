@@ -9,6 +9,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
+const EXECUTION_INPUT_CAMPAIGN_ID = 'qshape-metamorphic-execution-inputs-v1';
+const EXECUTION_INPUT_RECEIPT_KIND = 'frozen-metamorphic-execution-input-bundle';
+const RUNTIME_IDENTITY_KIND = 'qshape-node-runtime-v1';
+const QSHAPE_PROCESS_MODEL = 'in_process_runner';
 const CASES_SHA256 = '102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd';
 const MAIN_REGISTRY_SHA256 = '06da4f20f3d1f92f9074bcb05860f316f497dae759f15cbdaf374dd56b727966';
 const ADVERSARIAL_REGISTRY_SHA256 = '2db4dfd689b403206bfd54b6b766866ae1770156844e02a0d96b4ea596bc7744';
@@ -1612,6 +1616,86 @@ function expectedCaseOrder(caseMap) {
     return [...caseMap.values()].map((item, index) => ({ item, ordinal: index }));
 }
 
+function inputBundleContentContract(receipt) {
+    return {
+        schema_version: receipt.schema_version,
+        receipt_kind: receipt.receipt_kind,
+        campaign_id: receipt.campaign_id,
+        source_commit: receipt.source_commit,
+        positive_cases: receipt.positive_cases,
+        references: receipt.references,
+        malformed_controls: receipt.malformed_controls
+    };
+}
+
+function validateRetainedInputBundleReceipt(receiptFile, casesFile, referencesFile, malformedFile, manifest) {
+    const receipt = receiptFile.value;
+    exactSet(Object.keys(receipt || {}), [
+        'schema_version', 'receipt_kind', 'campaign_id', 'source_commit',
+        'positive_cases', 'references', 'malformed_controls', 'status',
+        'positive_execution_started', 'output_policy', 'bundle_sha256', 'files'
+    ], 'execution-input receipt fields');
+    exactSet(Object.keys(receipt.positive_cases || {}), [
+        'campaign_id', 'sha256', 'count', 'matched_target_evaluations_per_program'
+    ], 'execution-input positive-case fields');
+    exactSet(Object.keys(receipt.references || {}), [
+        'sha256', 'count', 'source_direct_references_sha256'
+    ], 'execution-input reference fields');
+    exactSet(Object.keys(receipt.malformed_controls || {}), [
+        'campaign_id', 'sha256', 'count', 'expected_numeric_rows_contract',
+        'expected_numeric_rows_by_control', 'expected_numeric_rows_total'
+    ], 'execution-input malformed-control fields');
+    exactSet(Object.keys(receipt.files || {}), ['references', 'malformed_controls', 'receipt', 'status'],
+        'execution-input file-registry fields');
+
+    const expectedRowsByControl = Object.fromEntries(
+        malformedFile.value.controls.map(control => [control.control_id, control.expected_numeric_rows])
+    );
+    const expectedRowsTotal = Object.values(expectedRowsByControl).reduce((sum, value) => sum + value, 0);
+    const directReferencesSha256 =
+        referencesFile.value?.metamorphic_binding?.source_direct_references_sha256;
+    requireThat(receipt.schema_version === 2 &&
+        receipt.receipt_kind === EXECUTION_INPUT_RECEIPT_KIND &&
+        receipt.campaign_id === EXECUTION_INPUT_CAMPAIGN_ID &&
+        receipt.source_commit === manifest.candidate_source?.repo_commit &&
+        /^[0-9a-f]{40}$/.test(receipt.source_commit) &&
+        receipt.status === 'preregistered_execution_inputs' &&
+        receipt.positive_execution_started === false &&
+        receipt.output_policy === 'input-only directory; numerical outputs are forbidden' &&
+        receipt.positive_cases.campaign_id === CAMPAIGN_ID &&
+        receipt.positive_cases.sha256 === sha256(casesFile.raw) &&
+        receipt.positive_cases.count === casesFile.value.count &&
+        receipt.positive_cases.matched_target_evaluations_per_program ===
+            casesFile.value.expected_matched_target_evaluations_per_program &&
+        receipt.references.sha256 === sha256(referencesFile.raw) &&
+        receipt.references.count === referencesFile.value.count &&
+        receipt.references.source_direct_references_sha256 === directReferencesSha256 &&
+        /^[0-9a-f]{64}$/.test(directReferencesSha256 || '') &&
+        receipt.malformed_controls.campaign_id === CONTROL_CAMPAIGN_ID &&
+        receipt.malformed_controls.sha256 === sha256(malformedFile.raw) &&
+        receipt.malformed_controls.count === malformedFile.value.count &&
+        receipt.malformed_controls.expected_numeric_rows_contract === 'per-control' &&
+        jsonSemanticEqual(receipt.malformed_controls.expected_numeric_rows_by_control,
+            expectedRowsByControl) &&
+        receipt.malformed_controls.expected_numeric_rows_total === expectedRowsTotal &&
+        receipt.files.references === 'references.json' &&
+        receipt.files.malformed_controls === 'malformed-controls.json' &&
+        receipt.files.receipt === 'receipt.json' && receipt.files.status === 'STATUS.md',
+    'execution-input receipt does not exactly bind the retained candidate inputs');
+    const expectedBundleSha256 = sha256(Buffer.from(
+        JSON.stringify(canonicalJson(inputBundleContentContract(receipt))), 'utf8'
+    ));
+    requireThat(receipt.bundle_sha256 === expectedBundleSha256 &&
+        manifest.input_bundle_sha256 === expectedBundleSha256 &&
+        manifest.input_bundle_receipt_sha256 === sha256(receiptFile.raw),
+    'execution-input receipt or bundle SHA-256 mismatch');
+    requireThat(receiptFile.raw.equals(Buffer.from(
+        `${JSON.stringify(canonicalJson(receipt), null, 2)}\n`, 'utf8'
+    )),
+        'execution-input receipt bytes are not canonical');
+    return { receipt, receiptSha256: sha256(receiptFile.raw), bundleSha256: expectedBundleSha256 };
+}
+
 function validateFrozenPackageInputs(root, listedPaths, manifest) {
     exactSet(
         [...listedPaths].filter(filePath => filePath.startsWith('inputs/frozen/')),
@@ -1619,6 +1703,7 @@ function validateFrozenPackageInputs(root, listedPaths, manifest) {
             'inputs/frozen/cases.json',
             'inputs/frozen/references.json',
             'inputs/frozen/malformed-controls.json',
+            'inputs/frozen/input-bundle-receipt.json',
             'inputs/frozen/registry.json'
         ],
         'retained frozen-input exact file set'
@@ -1627,6 +1712,10 @@ function validateFrozenPackageInputs(root, listedPaths, manifest) {
     const referencesFile = packageJson(root, listedPaths, 'inputs/frozen/references.json', 'frozen references');
     const malformedFile = packageJson(
         root, listedPaths, 'inputs/frozen/malformed-controls.json', 'frozen malformed controls'
+    );
+    const bundleReceiptFile = packageJson(
+        root, listedPaths, 'inputs/frozen/input-bundle-receipt.json',
+        'frozen execution-input receipt'
     );
     requireThat(sha256(casesFile.raw) === CASES_SHA256, 'frozen cases SHA-256 mismatch');
     if (manifest.cases_sha256 !== CASES_SHA256) invalid('manifest cases SHA-256 mismatch');
@@ -1659,15 +1748,23 @@ function validateFrozenPackageInputs(root, listedPaths, manifest) {
     requireThat(registry.malformed_controls?.path === 'malformed-controls.json' &&
         registry.malformed_controls.sha256 === sha256(malformedFile.raw),
     'frozen malformed registry binding mismatch');
+    requireThat(registry.input_bundle_receipt?.path === 'input-bundle-receipt.json' &&
+        registry.input_bundle_receipt.sha256 === sha256(bundleReceiptFile.raw) &&
+        registry.input_bundle_receipt.bundle_sha256 === bundleReceiptFile.value.bundle_sha256,
+    'frozen execution-input receipt registry binding mismatch');
 
     validateMalformedFrozenDocument(malformedFile.value, casesFile.raw, casesFile.value);
+    const inputBundleReceipt = validateRetainedInputBundleReceipt(
+        bundleReceiptFile, casesFile, referencesFile, malformedFile, manifest
+    );
     return {
         cases: casesFile.value,
         references: referencesFile.value,
         malformed: malformedFile.value,
         malformedSha256: sha256(malformedFile.raw),
         referencesFlat: flattenReferences(referencesFile.value),
-        inputReceipt
+        inputReceipt,
+        inputBundleReceipt
     };
 }
 
@@ -1874,6 +1971,111 @@ function validateCandidateSourceBoundary(bundle) {
     return { identity, finalRecheck };
 }
 
+function runtimeIdentitySha256(identity) {
+    return sha256(Buffer.from(JSON.stringify(canonicalJson(identity)), 'utf8'));
+}
+
+function validateRuntimeIdentityDocument(identity, dependencyLockfileSha256, label) {
+    exactSet(Object.keys(identity || {}), [
+        'schema_version', 'identity_kind', 'process_model', 'node_version',
+        'node_versions_node', 'v8_version', 'platform', 'arch',
+        'node_executable_path', 'node_executable_sha256', 'node_executable_size_bytes',
+        'intl_locale', 'intl_time_zone', 'environment_locale', 'environment_time_zone',
+        'dependency_lockfile'
+    ], `${label} fields`);
+    exactSet(Object.keys(identity.environment_locale || {}), ['lc_all', 'lang', 'language'],
+        `${label} environment-locale fields`);
+    exactSet(Object.keys(identity.dependency_lockfile || {}), ['path', 'sha256'],
+        `${label} dependency-lockfile fields`);
+    const absoluteExecutable = path.posix.isAbsolute(identity.node_executable_path || '') ||
+        path.win32.isAbsolute(identity.node_executable_path || '');
+    requireThat(identity.schema_version === 1 && identity.identity_kind === RUNTIME_IDENTITY_KIND &&
+        identity.process_model === QSHAPE_PROCESS_MODEL &&
+        typeof identity.node_version === 'string' && /^v\d+\.\d+\.\d+/.test(identity.node_version) &&
+        identity.node_versions_node === identity.node_version.slice(1) &&
+        typeof identity.v8_version === 'string' && identity.v8_version.length > 0 &&
+        typeof identity.platform === 'string' && identity.platform.length > 0 &&
+        typeof identity.arch === 'string' && identity.arch.length > 0 && absoluteExecutable &&
+        /^[0-9a-f]{64}$/.test(identity.node_executable_sha256) &&
+        Number.isInteger(identity.node_executable_size_bytes) && identity.node_executable_size_bytes > 0 &&
+        (identity.intl_locale === null || typeof identity.intl_locale === 'string') &&
+        (identity.intl_time_zone === null || typeof identity.intl_time_zone === 'string') &&
+        Object.values(identity.environment_locale).every(value => value === null || typeof value === 'string') &&
+        (identity.environment_time_zone === null || typeof identity.environment_time_zone === 'string') &&
+        identity.dependency_lockfile.path === 'package-lock.json' &&
+        identity.dependency_lockfile.sha256 === dependencyLockfileSha256,
+    `${label} is incomplete or inconsistent`);
+    return runtimeIdentitySha256(identity);
+}
+
+function validateExecutionRuntimeBoundary(bundle, candidateState) {
+    const { root, listedPaths, manifest } = bundle;
+    const runtime = manifest.execution_runtime;
+    exactSet(Object.keys(runtime || {}), [
+        'identity_kind', 'process_model', 'identity_sha256', 'initial_path', 'initial_sha256',
+        'final_recheck_path', 'final_recheck_sha256', 'qshape_worker_execution',
+        'dependency_lockfile'
+    ], 'manifest execution-runtime fields');
+    const initialFile = packageJson(
+        root, listedPaths, 'metadata/runtime-initial.json', 'initial execution runtime'
+    );
+    const finalFile = packageJson(
+        root, listedPaths, 'metadata/runtime-final-recheck.json', 'final execution-runtime recheck'
+    );
+    const initial = initialFile.value;
+    const final = finalFile.value;
+    exactSet(Object.keys(initial || {}), [
+        'schema_version', 'identity_sha256', 'qshape_worker_execution', 'identity'
+    ],
+        'initial execution-runtime document fields');
+    exactSet(Object.keys(final || {}), [
+        'schema_version', 'status', 'identity_sha256', 'initial_identity_sha256',
+        'qshape_worker_execution', 'identity'
+    ], 'final execution-runtime document fields');
+    const lockSha256 = candidateState.identity.dependency_lockfile.sha256;
+    requireThat(initialFile.raw.equals(Buffer.from(
+        `${JSON.stringify(canonicalJson(initial), null, 2)}\n`, 'utf8'
+    )) && finalFile.raw.equals(Buffer.from(
+        `${JSON.stringify(canonicalJson(final), null, 2)}\n`, 'utf8'
+    )),
+    'execution-runtime evidence bytes are not canonical');
+    const recomputed = validateRuntimeIdentityDocument(initial.identity, lockSha256,
+        'initial execution runtime identity');
+    requireThat(initial.schema_version === 1 && initial.identity_sha256 === recomputed &&
+        initial.qshape_worker_execution === 'in-process; no child Node process is used',
+    'initial execution-runtime hash or process model mismatch');
+    const finalRecomputed = validateRuntimeIdentityDocument(final.identity, lockSha256,
+        'final execution runtime identity');
+    requireThat(final.schema_version === 1 && final.status === 'unchanged' &&
+        final.identity_sha256 === recomputed && final.initial_identity_sha256 === recomputed &&
+        finalRecomputed === recomputed && jsonSemanticEqual(final.identity, initial.identity) &&
+        final.qshape_worker_execution === initial.qshape_worker_execution,
+    'final execution runtime differs from the initial runtime');
+    requireThat(runtime.identity_kind === RUNTIME_IDENTITY_KIND &&
+        runtime.process_model === QSHAPE_PROCESS_MODEL && runtime.identity_sha256 === recomputed &&
+        runtime.initial_path === 'metadata/runtime-initial.json' &&
+        runtime.initial_sha256 === sha256(initialFile.raw) &&
+        runtime.final_recheck_path === 'metadata/runtime-final-recheck.json' &&
+        runtime.final_recheck_sha256 === sha256(finalFile.raw) &&
+        runtime.qshape_worker_execution === initial.qshape_worker_execution &&
+        jsonSemanticEqual(runtime.dependency_lockfile, candidateState.identity.dependency_lockfile),
+    'manifest execution runtime is not bound to the retained evidence');
+    const runState = packageJson(root, listedPaths, 'run-state.json', 'sealed run state').value;
+    requireThat(jsonSemanticEqual(runState.execution_runtime_identity, initial.identity) &&
+        runState.execution_runtime_identity_sha256 === recomputed &&
+        runState.stages?.runtime_preflight?.status === 'complete' &&
+        runState.stages.runtime_preflight.identity_sha256 === recomputed &&
+        runState.stages.runtime_preflight.process_model === QSHAPE_PROCESS_MODEL &&
+        runState.stages.runtime_preflight.dependency_lockfile_sha256 === lockSha256 &&
+        runState.stages?.final_runtime_recheck?.status === 'complete' &&
+        runState.stages.final_runtime_recheck.identity_sha256 === recomputed &&
+        runState.stages.final_runtime_recheck.process_model === QSHAPE_PROCESS_MODEL &&
+        jsonSemanticEqual(manifest.stages?.runtime_preflight, runState.stages.runtime_preflight) &&
+        jsonSemanticEqual(manifest.stages?.final_runtime_recheck, runState.stages.final_runtime_recheck),
+    'run-state/manifest runtime checkpoints are inconsistent');
+    return { identity: initial.identity, identitySha256: recomputed };
+}
+
 function validateManifestPackage(bundle) {
     const { manifest } = bundle;
     requireThat(manifest.schema_version === PACKAGE_SCHEMA_VERSION &&
@@ -1903,7 +2105,9 @@ function validateManifestPackage(bundle) {
         !Array.isArray(manifest.verification_contract.expected_verified_counts) &&
         manifest.verification_contract.receipt_location === 'sibling:<package>.verification.json',
     'metamorphic manifest verification contract mismatch');
-    validateCandidateSourceBoundary(bundle);
+    const candidate = validateCandidateSourceBoundary(bundle);
+    const runtime = validateExecutionRuntimeBoundary(bundle, candidate);
+    return { candidate, runtime };
 }
 
 function validateManifestVerifiedCounts(manifest, verifiedCounts) {
@@ -2330,7 +2534,7 @@ function qInputFingerprint(caseItem, target, seedPolicy, explicitSeed) {
     return sha256(Buffer.from(JSON.stringify(contract), 'utf8'));
 }
 
-function validateQPayload(payload, stream, casesSha256, referencesSha256) {
+function validateQPayload(payload, stream, casesSha256, referencesSha256, runtimeState = null) {
     const explicit = stream.startsWith('q_explicit_seed_');
     const expectedSeed = explicit ? Number(stream.slice('q_explicit_seed_'.length)) : null;
     requireThat(payload?.schema_version === 1 && payload.program === 'Q-Shape' &&
@@ -2343,9 +2547,15 @@ function validateQPayload(payload, stream, casesSha256, referencesSha256) {
         payload.count === MATCHED_PAIR_COUNT && payload.expected_count === MATCHED_PAIR_COUNT &&
         Array.isArray(payload.results),
     `${stream} payload identity mismatch`);
+    if (runtimeState) {
+        requireThat(payload.execution_process === QSHAPE_PROCESS_MODEL &&
+            payload.runtime_identity_sha256 === runtimeState.identitySha256 &&
+            jsonSemanticEqual(payload.runtime_identity, runtimeState.identity),
+        `${stream} payload runtime is not bound to the in-process runner`);
+    }
 }
 
-function validateQShapeEvidence(root, listedPaths, casesState, references, shapeRows) {
+function validateQShapeEvidence(root, listedPaths, casesState, references, shapeRows, runtimeState = null) {
     const refsByCode = new Map(references.map(reference => [reference.code, reference]));
     const expectedPairOrder = [...casesState.pairs.keys()];
     const qRows = {};
@@ -2360,7 +2570,7 @@ function validateQShapeEvidence(root, listedPaths, casesState, references, shape
         const rawResult = packageJson(root, listedPaths, `${streamDir}/raw-result.json`, `${stream} raw result`).value;
         const casesSha = sha256(packageJson(root, listedPaths, 'inputs/frozen/cases.json', 'frozen cases').raw);
         const refsSha = sha256(packageJson(root, listedPaths, 'inputs/frozen/references.json', 'frozen references').raw);
-        validateQPayload(payloadFile.value, stream, casesSha, refsSha);
+        validateQPayload(payloadFile.value, stream, casesSha, refsSha, runtimeState);
         requireThat(JSON.stringify(payloadFile.value.results) === JSON.stringify(rowsFile.value),
             `${stream} payload/rows mismatch`);
         const resultRows = fieldOf(rawResult, 'results', 'rows') ||
@@ -3852,7 +4062,7 @@ function expectedExternalPackageSidecar(receipt) {
 
 function verifyPackage(packagePath) {
     const bundle = verifyManifestFiles(packagePath);
-    validateManifestPackage(bundle);
+    const boundaries = validateManifestPackage(bundle);
     const frozen = validateFrozenPackageInputs(bundle.root, bundle.listedPaths, bundle.manifest);
     const casesState = expectedPairMap(frozen.cases, frozen.referencesFlat);
     casesState.referencesFlat = frozen.referencesFlat;
@@ -3860,7 +4070,8 @@ function verifyPackage(packagePath) {
         bundle.root, bundle.listedPaths, casesState, frozen.referencesFlat, bundle.manifest
     );
     const qEvidence = validateQShapeEvidence(
-        bundle.root, bundle.listedPaths, casesState, frozen.referencesFlat, shapeRows
+        bundle.root, bundle.listedPaths, casesState, frozen.referencesFlat, shapeRows,
+        boundaries.runtime
     );
     const malformedState = verifyMalformedObserved(bundle.root, bundle.listedPaths, frozen);
     const analysisState = caseStreamFailures(casesState, shapeRows, qEvidence.qRows);

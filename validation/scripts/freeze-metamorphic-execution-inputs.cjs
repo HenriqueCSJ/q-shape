@@ -38,6 +38,10 @@ function jsonBytes(value) {
     return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+function stableJsonBytes(value) {
+    return Buffer.from(`${JSON.stringify(stable(value), null, 2)}\n`, 'utf8');
+}
+
 function buildExecutionInputBundle(directBytes, casesBytes, sourceCommit) {
     assert(Buffer.isBuffer(directBytes), 'direct references must be supplied as bytes');
     assert(Buffer.isBuffer(casesBytes), 'positive cases must be supplied as bytes');
@@ -63,7 +67,8 @@ function buildExecutionInputBundle(directBytes, casesBytes, sourceCommit) {
         malformedControls.controls.map(control => [control.control_id, control.expected_numeric_rows])
     );
     const contentContract = {
-        schema_version: 1,
+        schema_version: 2,
+        receipt_kind: 'frozen-metamorphic-execution-input-bundle',
         campaign_id: EXECUTION_INPUT_CAMPAIGN_ID,
         source_commit: sourceCommit,
         positive_cases: {
@@ -98,6 +103,7 @@ function buildExecutionInputBundle(directBytes, casesBytes, sourceCommit) {
         files: {
             references: 'references.json',
             malformed_controls: 'malformed-controls.json',
+            receipt: 'receipt.json',
             status: 'STATUS.md'
         }
     };
@@ -122,7 +128,7 @@ function buildExecutionInputBundle(directBytes, casesBytes, sourceCommit) {
         files: {
             'references.json': referenceBytes,
             'malformed-controls.json': malformedBytes,
-            'receipt.json': jsonBytes(receipt),
+            'receipt.json': stableJsonBytes(receipt),
             'STATUS.md': Buffer.from(status, 'utf8')
         }
     };
