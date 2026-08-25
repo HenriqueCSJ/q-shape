@@ -9,9 +9,11 @@ const path = require('node:path');
 
 const runner = require('../scripts/run-metamorphic-parity.cjs');
 const malformedControls = require('../scripts/metamorphic-malformed-controls.cjs');
+const {
+    frozenCasesPath
+} = require('./helpers/metamorphic-fixtures.cjs');
 
-const CASES_PATH = 'C:/Users/henri/OneDrive/Academic/Production/Papers/Working/Q²M³/Q-Shape/' +
-    'validation_preregistrations/metamorphic-adversarial-v1-102895a8-20260824/cases.json';
+const CASES_PATH = frozenCasesPath();
 const EXPECTED_CANDIDATE_SOURCE_PATHS = Object.freeze([
     '.gitattributes',
     'package.json',

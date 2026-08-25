@@ -6,8 +6,11 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const frozenCasesPath = 'C:/Users/henri/OneDrive/Academic/Production/Papers/Working/Q²M³/Q-Shape/validation_preregistrations/metamorphic-adversarial-v1-102895a8-20260824/cases.json';
-const document = JSON.parse(fs.readFileSync(frozenCasesPath, 'utf8'));
+const {
+    frozenCasesDocument
+} = require('./helpers/metamorphic-fixtures.cjs');
+
+const document = frozenCasesDocument();
 
 const {
     EXPECTED_SHAPE_VALUE_COUNT,

@@ -12,15 +12,13 @@ const {
     sha256,
     writeExecutionInputBundle
 } = require('../scripts/freeze-metamorphic-execution-inputs.cjs');
+const {
+    directReferencesPath,
+    frozenCasesPath
+} = require('./helpers/metamorphic-fixtures.cjs');
 
-const DIRECT_REFERENCES = path.resolve(
-    'C:/Users/henri/OneDrive/Academic/Production/Papers/Working/Q²M³/Q-Shape/',
-    'validation_runs/direct-parity-feec5b2-qualification-20260824/references.json'
-);
-const FROZEN_CASES = path.resolve(
-    'C:/Users/henri/OneDrive/Academic/Production/Papers/Working/Q²M³/Q-Shape/',
-    'validation_preregistrations/metamorphic-adversarial-v1-102895a8-20260824/cases.json'
-);
+const DIRECT_REFERENCES = directReferencesPath();
+const FROZEN_CASES = frozenCasesPath();
 const SOURCE_COMMIT = '1'.repeat(40);
 
 function build() {
