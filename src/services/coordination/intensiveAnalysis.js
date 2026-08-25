@@ -15,6 +15,7 @@ import { detectLigandGroups } from './ringDetector';
 import { buildGeneralGeometry } from './patterns/geometryBuilder';
 import { getCoordinatingAtoms } from './sphereDetector';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
+import { formatShapeMeasure } from '../../utils/geometry';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -138,7 +139,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
 
         const elapsed = Date.now() - startTime;
 
-        console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${results[0].shapeMeasure.toFixed(4)})`);
+        console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${formatShapeMeasure(results[0].shapeMeasure)})`);
 
         return {
             geometryResults: results,

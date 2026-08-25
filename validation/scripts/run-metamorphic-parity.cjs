@@ -25,7 +25,7 @@ const reportingModule = require('./metamorphic-reporting.cjs');
 const productionAdapters = require('./metamorphic-production-adapters.cjs');
 
 const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
-const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
+const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v2';
 const EXECUTION_INPUT_CAMPAIGN_ID = 'qshape-metamorphic-execution-inputs-v1';
 const EXECUTION_INPUT_RECEIPT_KIND = 'frozen-metamorphic-execution-input-bundle';
 const CERTIFIED_DIRECT_REFERENCES_SHA256 =

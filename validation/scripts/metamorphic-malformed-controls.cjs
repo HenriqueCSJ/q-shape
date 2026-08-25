@@ -8,7 +8,10 @@ const path = require('node:path');
 const POSITIVE_CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
 const POSITIVE_CASES_SHA256 =
     '102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd';
-const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
+const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v2';
+const CONTROL_STATUS = 'prespecified_post_repair_product_boundary_probes';
+const CLAIM_BOUNDARY =
+    'raw SHAPE 2.1 .dat execution and Q-Shape core calculator/reference-registry behavior, including fail-closed Q-Shape errors for invalid coordinate inputs; legacy typed codes are synthetic-harness diagnostics only, not product API outcomes or scientific gates; browser behavior is not tested';
 const PARENT_CASE_ID = 'meta-cn04-ref01-r01';
 const FIXED15_PATTERN = /^[+-]?\d+\.\d{15}$/;
 
@@ -103,7 +106,7 @@ function buildMalformedControlDocument(positiveDocument, sourceSha256 = POSITIVE
             interface: 'qshape_core_calculator',
             category: 'incorrect_point_count',
             cn: 4,
-            expected_outcome: 'nonfinite_result',
+            expected_outcome: 'thrown_error',
             expected_numeric_rows: 0,
             harness_only_expected_rejection_code: 'qshape.ligand_count_mismatch',
             ...shared,
@@ -115,7 +118,7 @@ function buildMalformedControlDocument(positiveDocument, sourceSha256 = POSITIVE
             interface: 'qshape_core_calculator',
             category: 'nonfinite_token',
             cn: 4,
-            expected_outcome: 'nonfinite_result',
+            expected_outcome: 'thrown_error',
             expected_numeric_rows: 0,
             harness_only_expected_rejection_code: 'qshape.nonfinite_coordinate_token',
             ...shared,
@@ -139,7 +142,7 @@ function buildMalformedControlDocument(positiveDocument, sourceSha256 = POSITIVE
             interface: 'qshape_core_calculator',
             category: 'effectively_zero_length_ligand',
             cn: 4,
-            expected_outcome: 'nonfinite_result',
+            expected_outcome: 'thrown_error',
             expected_numeric_rows: 0,
             harness_only_expected_rejection_code: 'qshape.effectively_zero_length_ligand',
             ...shared,
@@ -162,8 +165,8 @@ function buildMalformedControlDocument(positiveDocument, sourceSha256 = POSITIVE
     return {
         schema_version: 1,
         campaign_id: CONTROL_CAMPAIGN_ID,
-        status: 'preregistered_product_boundary_probes',
-        claim_boundary: 'raw SHAPE 2.1 .dat execution and Q-Shape core calculator/reference-registry behavior; legacy typed codes are synthetic-harness diagnostics only, not product API outcomes or scientific gates; browser behavior is not tested',
+        status: CONTROL_STATUS,
+        claim_boundary: CLAIM_BOUNDARY,
         source_positive_campaign_id: POSITIVE_CAMPAIGN_ID,
         source_positive_cases_sha256: POSITIVE_CASES_SHA256,
         expected_numeric_rows_policy: 'per-control product-boundary contract',
@@ -188,9 +191,8 @@ function validateTokenMatrix(matrix, allowNonfinite = false) {
 function validateMalformedControlDocument(document) {
     assert(document?.schema_version === 1, 'control schema_version must be 1');
     assert(document?.campaign_id === CONTROL_CAMPAIGN_ID, 'control campaign_id mismatch');
-    assert(document?.status === 'preregistered_product_boundary_probes', 'control status mismatch');
-    assert(document?.claim_boundary ===
-        'raw SHAPE 2.1 .dat execution and Q-Shape core calculator/reference-registry behavior; legacy typed codes are synthetic-harness diagnostics only, not product API outcomes or scientific gates; browser behavior is not tested',
+    assert(document?.status === CONTROL_STATUS, 'control status mismatch');
+    assert(document?.claim_boundary === CLAIM_BOUNDARY,
     'control claim boundary mismatch');
     assert(document?.source_positive_campaign_id === POSITIVE_CAMPAIGN_ID, 'source campaign mismatch');
     assert(document?.source_positive_cases_sha256 === POSITIVE_CASES_SHA256, 'source hash mismatch');
@@ -380,7 +382,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+    CLAIM_BOUNDARY,
     CONTROL_CAMPAIGN_ID,
+    CONTROL_STATUS,
     PARENT_CASE_ID,
     POSITIVE_CAMPAIGN_ID,
     POSITIVE_CASES_SHA256,

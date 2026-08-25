@@ -71,7 +71,7 @@ function inputBundleFixture() {
     };
     const malformed = {
         schema_version: 1,
-        campaign_id: 'qshape-metamorphic-malformed-v1',
+        campaign_id: 'qshape-metamorphic-malformed-v2',
         count: 2,
         controls: [
             { control_id: 'mal-a', expected_numeric_rows: 0 },

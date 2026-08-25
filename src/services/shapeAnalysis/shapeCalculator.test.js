@@ -204,11 +204,9 @@ describe('Shape Calculator', () => {
     });
 
     describe('Edge Cases', () => {
-        test('should handle empty coordinates', () => {
-            const result = calculateShapeMeasure([], [], 'default');
-
-            expect(result.measure).toBe(Infinity);
-            expect(result.alignedCoords).toEqual([]);
+        test('rejects empty coordinates with calculation context', () => {
+            expect(() => calculateShapeMeasure([], [], 'default'))
+                .toThrow(/Shape measure calculation failed \(mode=default, actualPoints=0, referencePoints=0\).*size mismatch/);
         });
 
         test('should handle mismatched sizes', () => {
@@ -222,20 +220,15 @@ describe('Shape Calculator', () => {
                 [-1, 0, 0]
             ];
 
-            const result = calculateShapeMeasure(coords1, coords2, 'default');
-
-            expect(result.measure).toBe(Infinity);
-            expect(result.alignedCoords).toEqual([]);
+            expect(() => calculateShapeMeasure(coords1, coords2, 'default'))
+                .toThrow(/actualPoints=2, referencePoints=4.*size mismatch/);
         });
 
-        test('should handle single coordinate', () => {
+        test('rejects a single coordinate with insufficient spatial extent', () => {
             const coords = [[1, 0, 0]];
 
-            const result = calculateShapeMeasure(coords, coords, 'default');
-
-            // Should complete without error
-            expect(result.measure).toBeDefined();
-            expect(isFinite(result.measure)).toBe(true);
+            expect(() => calculateShapeMeasure(coords, coords, 'default'))
+                .toThrow(/Kabsch point set P has insufficient spatial extent/);
         });
 
         test('should handle atom at center (zero distance)', () => {
@@ -245,11 +238,8 @@ describe('Shape Calculator', () => {
                 [0, 1, 0]
             ];
 
-            const result = calculateShapeMeasure(coords, coords, 'default');
-
-            // Should return Infinity for invalid geometry
-            expect(result.measure).toBe(Infinity);
-            expect(result.alignedCoords).toEqual([]);
+            expect(() => calculateShapeMeasure(coords, coords, 'default'))
+                .toThrow(/coincides with the center|insufficient spatial extent/);
         });
 
         test('should handle very small coordinates', () => {
@@ -516,7 +506,7 @@ describe('Shape Calculator', () => {
     });
 
     describe('Error Handling', () => {
-        test('should handle NaN in coordinates gracefully', () => {
+        test('rejects NaN in coordinates with target calculation context', () => {
             const coords = [
                 [NaN, 0, 0],
                 [0, 1, 0],
@@ -529,17 +519,11 @@ describe('Shape Calculator', () => {
                 [0, 0, 1]
             ];
 
-            // Should not crash, may return Infinity or error
-            let result;
-            expect(() => {
-                result = calculateShapeMeasure(coords, reference, 'default');
-            }).not.toThrow();
-
-            // Result should be defined
-            expect(result).toBeDefined();
+            expect(() => calculateShapeMeasure(coords, reference, 'default'))
+                .toThrow(/Shape measure calculation failed.*non-finite/);
         });
 
-        test('should handle Infinity in coordinates gracefully', () => {
+        test('rejects Infinity in coordinates with target calculation context', () => {
             const coords = [
                 [Infinity, 0, 0],
                 [0, 1, 0],
@@ -552,13 +536,8 @@ describe('Shape Calculator', () => {
                 [0, 0, 1]
             ];
 
-            // Should not crash
-            let result;
-            expect(() => {
-                result = calculateShapeMeasure(coords, reference, 'default');
-            }).not.toThrow();
-
-            expect(result).toBeDefined();
+            expect(() => calculateShapeMeasure(coords, reference, 'default'))
+                .toThrow(/Shape measure calculation failed.*non-finite/);
         });
     });
 });

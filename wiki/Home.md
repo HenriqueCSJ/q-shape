@@ -13,7 +13,7 @@ Q-Shape is a web-based tool for analyzing the geometry of coordination complexes
 1. **[Continuous Shape Measures](01-Continuous-Shape-Measures.md)**
    - Mathematical definition and derivation
    - Normalization and scale invariance
-   - Interpretation scale
+   - Numerical reporting domain
    - Historical context and key references
 
 2. **[Kabsch Algorithm & SVD](02-Kabsch-Algorithm-SVD.md)**
@@ -36,14 +36,12 @@ Q-Shape is a web-based tool for analyzing the geometry of coordination complexes
    - Coordinate definitions
    - Symmetry classifications
 
-### Quality Assessment
+### Structural Summaries
 
-5. **[Quality Metrics](05-Quality-Metrics.md)**
+5. **[Structural Summary Statistics](05-Structural-Summaries.md)**
    - Bond length statistics
-   - Angular distortion index
-   - Bond length uniformity
-   - Overall quality scores
-   - RMSD approximation
+   - Ligand-metal-ligand angle statistics
+   - Scientific reporting boundaries
 
 ### Special Cases
 
@@ -57,17 +55,11 @@ Q-Shape is a web-based tool for analyzing the geometry of coordination complexes
 
 ## Quick Reference
 
-### CShM Interpretation Scale
+### CShM numerical reporting
 
-| CShM Value | Classification | Confidence |
-|------------|----------------|------------|
-| < 0.1 | Perfect | 100% |
-| 0.1 - 0.5 | Excellent | 95% |
-| 0.5 - 1.5 | Very Good | 90% |
-| 1.5 - 3.0 | Good | 80% |
-| 3.0 - 7.5 | Moderate | 60% |
-| 7.5 - 15.0 | Poor | 30% |
-| > 15.0 | No Match | 10% |
+Q-Shape reports finite CShM values in `[0, 100]`. Lower values indicate a
+closer match to a tested reference geometry. Q-Shape does not convert numerical
+ranges into qualitative classes, probabilities, or confidence estimates.
 
 ### Key Equations
 
@@ -76,9 +68,6 @@ $$S(Q, P) = 100 \times \min_{\{R, \pi\}} \frac{\sum_{i=1}^{N} |\mathbf{q}_i - R 
 
 **Kabsch Rotation:**
 $$R = V \cdot U^T \quad \text{where} \quad H = U \Sigma V^T$$
-
-**Approximate RMSD:**
-$$RMSD \approx \sqrt{\frac{CShM}{100}}$$
 
 ---
 
@@ -133,8 +122,8 @@ $$RMSD \approx \sqrt{\frac{CShM}{100}}$$
 ┌─────────────────────────────────────────────────────────────────┐
 │  4. RESULTS RANKING                                             │
 │     - Sort geometries by CShM (lowest = best)                   │
-│     - Calculate quality metrics                                  │
-│     - Generate interpretation                                    │
+│     - Calculate structural summary statistics                    │
+│     - Validate the CShM reporting domain [0, 100]                │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
@@ -142,7 +131,7 @@ $$RMSD \approx \sqrt{\frac{CShM}{100}}$$
 │                       OUTPUT REPORT                              │
 │  - Best matching geometry                                        │
 │  - CShM values for all tested geometries                        │
-│  - Quality metrics (ADI, BLUI, OQS)                             │
+│  - Bond-length and angle summary statistics                     │
 │  - Visualization of aligned structures                          │
 └─────────────────────────────────────────────────────────────────┘
 ```

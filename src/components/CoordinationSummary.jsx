@@ -1,18 +1,18 @@
 /**
  * Coordination Summary Component - v1.5.0
  *
- * Displays coordination information, quality metrics, and action buttons.
+ * Displays coordination information, structural summaries, and action buttons.
  * Buttons are context-aware - they automatically handle batch vs single mode.
  */
 
 import React from 'react';
+import { formatShapeMeasure } from '../utils/geometry';
 
 export default function CoordinationSummary({
     atoms,
     selectedMetal,
     coordAtoms,
     additionalMetrics,
-    qualityMetrics,
     progress,
     intensiveProgress,
     intensiveMetadata,
@@ -127,36 +127,6 @@ export default function CoordinationSummary({
                     )}
                 </div>
 
-                {qualityMetrics && (
-                    <div style={{
-                        padding: '1.5rem',
-                        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                        borderRadius: '12px',
-                        border: '2px solid #86efac'
-                    }}>
-                        <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: '#15803d', fontSize: '1.1rem' }}>
-                            🎯 Quality Score
-                        </div>
-                        <div style={{
-                            fontSize: '2.5rem',
-                            fontWeight: 800,
-                            color: qualityMetrics.overallQualityScore > 80 ? '#059669' : qualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626',
-                            textAlign: 'center',
-                            margin: '0.5rem 0'
-                        }}>
-                            {qualityMetrics.overallQualityScore.toFixed(1)}
-                        </div>
-                        <div style={{ textAlign: 'center', color: '#475569', fontSize: '0.9rem' }}>
-                            out of 100
-                        </div>
-                        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                <div><strong>RMSD:</strong> {Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd.toFixed(4) : '0.0000'}</div>
-                                <div><strong>Ang. Dist:</strong> {qualityMetrics.angularDistortionIndex.toFixed(2)}°</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Action Buttons - context-aware for batch vs single mode */}
@@ -424,7 +394,7 @@ export default function CoordinationSummary({
 
                     {intensiveMetadata.metadata?.bestGeometry && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
-                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {Math.max(0, intensiveMetadata.metadata.bestCShM || 0).toFixed(3)})
+                            Best fit: {intensiveMetadata.metadata.bestGeometry} (CShM = {formatShapeMeasure(intensiveMetadata.metadata.bestCShM, 3)})
                         </div>
                     )}
                 </div>

@@ -447,6 +447,6 @@ For structures with many coordinating atoms (CN > 12):
 
 ---
 
-*Previous: [Quality Metrics](05-Quality-Metrics.md)*
+*Previous: [Structural Summary Statistics](05-Structural-Summaries.md)*
 
 *Next: [Home](Home.md)*

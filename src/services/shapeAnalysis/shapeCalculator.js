@@ -337,8 +337,17 @@ function createDeterministicRandom(P_vecs, Q_vecs, mode, explicitSeed = null) {
  * console.log(`Shape measure: ${result.measure}`);
  */
 function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null, options = {}) {
-    let workingActualCoords = actualCoords;
-    let workingRefCoords = referenceCoords;
+    const actualCount = Array.isArray(actualCoords) ? actualCoords.length : 'invalid';
+    const referenceCount = Array.isArray(referenceCoords) ? referenceCoords.length : 'invalid';
+    const calculationContext = `mode=${mode}, actualPoints=${actualCount}, referencePoints=${referenceCount}`;
+
+    try {
+        if (!Array.isArray(actualCoords) || !Array.isArray(referenceCoords)) {
+            throw new TypeError('Actual and reference coordinates must be arrays');
+        }
+
+        let workingActualCoords = actualCoords;
+        let workingRefCoords = referenceCoords;
 
     // SHAPE/cosymlib include central atom in CShM calculations
     // Reference geometries have N+1 points (N ligands + 1 central atom)
@@ -349,17 +358,18 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         workingActualCoords = [...actualCoords, [0, 0, 0]];
     }
 
-    const N = workingActualCoords.length;
-    if (N !== workingRefCoords.length || N === 0) {
-        return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
-    }
+        const N = workingActualCoords.length;
+        if (N !== workingRefCoords.length || N === 0) {
+            throw new RangeError(
+                `Point set size mismatch after center handling: actual=${N}, reference=${workingRefCoords.length}`
+            );
+        }
 
     // Load parameters from constants (documented with scientific justification)
-    const currentParams = mode === 'intensive'
-        ? SHAPE_MEASURE.INTENSIVE
-        : SHAPE_MEASURE.DEFAULT;
+        const currentParams = mode === 'intensive'
+            ? SHAPE_MEASURE.INTENSIVE
+            : SHAPE_MEASURE.DEFAULT;
 
-    try {
         // Convert actual coordinates to Vector3
         const P_vecs_raw = workingActualCoords.map(c => new THREE.Vector3(...c));
 
@@ -370,15 +380,14 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             : P_vecs_raw;
         const ligandLengthSquares = ligandsToCheck.map(v => v.lengthSq());
         if (ligandLengthSquares.some(lengthSq => !Number.isFinite(lengthSq))) {
-            return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
+            throw new TypeError('Actual coordinates contain a non-finite value');
         }
         const maxLigandLengthSq = Math.max(...ligandLengthSquares);
         const hasDegenerateLigand = maxLigandLengthSq === 0 || ligandLengthSquares.some(
             lengthSq => lengthSq <= maxLigandLengthSq * KABSCH.MIN_VECTOR_LENGTH_SQ
         );
         if (hasDegenerateLigand) {
-            console.warn("Found coordinating atom at the same position as the center.");
-            return { measure: Infinity, alignedCoords: [], rotationMatrix: new THREE.Matrix4() };
+            throw new Error('A coordinating atom coincides with the center or has insufficient spatial extent');
         }
 
         // Use centroid-based scale normalization (standard for SHAPE/cosymlib)
@@ -407,6 +416,9 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         const MAX_EXHAUSTIVE_N = 8; // 7! = 5040 permutations - manageable
         if (N >= MIN_EXHAUSTIVE_N && N <= MAX_EXHAUSTIVE_N && needsCentralAtom) {
             const result = exhaustivePermutationSearch(P_vecs, Q_vecs);
+            if (!Number.isFinite(result.measure) || !Array.isArray(result.matching) || result.matching.length !== N) {
+                throw new Error('Exhaustive search did not produce a complete finite CShM result');
+            }
             const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(result.rotation));
             const finalAlignedCoords = new Array(N);
             for (const [p_idx, q_idx] of result.matching) {
@@ -575,32 +587,29 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         // STAGE 0: Kabsch Initial Alignment (IMPROVED)
         if (currentParams.USE_KABSCH) {
             reportProgress('Kabsch Alignment', 0, 1);
-            try {
-                const initialAssignableCount = needsCentralAtom ? N - 1 : N;
-                const initialCostMatrix = P_vecs.slice(0, initialAssignableCount).map(p =>
-                    Q_vecs.slice(0, initialAssignableCount).map(q => p.distanceToSquared(q))
-                );
-                const initialMatching = hungarianAlgorithm(initialCostMatrix);
-                if (needsCentralAtom) {
-                    initialMatching.push([N - 1, N - 1]);
-                }
-
-                const P_ordered = initialMatching.map(([p_idx]) => P_vecs[p_idx].toArray());
-                const Q_ordered = initialMatching.map(([, q_idx]) => Q_vecs[q_idx].toArray());
-
-                const kabschRotation = kabschAlignment(P_ordered, Q_ordered, true);
-                const kabschResult = getMeasureForRotation(kabschRotation);
-
-                if (isFinite(kabschResult.measure)) {
-                    globalBestMeasure = kabschResult.measure;
-                    globalBestRotation.copy(kabschRotation);
-                    globalBestMatching = kabschResult.matching;
-                }
-                totalSteps++;
-                reportProgress('Kabsch Alignment', 1, 1, `Initial Best: ${globalBestMeasure.toFixed(4)}`);
-            } catch (error) {
-                console.warn("Kabsch alignment failed, proceeding without it:", error);
+            const initialAssignableCount = needsCentralAtom ? N - 1 : N;
+            const initialCostMatrix = P_vecs.slice(0, initialAssignableCount).map(p =>
+                Q_vecs.slice(0, initialAssignableCount).map(q => p.distanceToSquared(q))
+            );
+            const initialMatching = hungarianAlgorithm(initialCostMatrix);
+            if (needsCentralAtom) {
+                initialMatching.push([N - 1, N - 1]);
             }
+
+            const P_ordered = initialMatching.map(([p_idx]) => P_vecs[p_idx].toArray());
+            const Q_ordered = initialMatching.map(([, q_idx]) => Q_vecs[q_idx].toArray());
+
+            const kabschRotation = kabschAlignment(P_ordered, Q_ordered, true);
+            const kabschResult = getMeasureForRotation(kabschRotation);
+
+            if (!Number.isFinite(kabschResult.measure)) {
+                throw new Error('Initial Kabsch stage produced a non-finite CShM value');
+            }
+            globalBestMeasure = kabschResult.measure;
+            globalBestRotation.copy(kabschRotation);
+            globalBestMatching = kabschResult.matching;
+            totalSteps++;
+            reportProgress('Kabsch Alignment', 1, 1, `Initial Best: ${globalBestMeasure.toFixed(4)}`);
         }
 
         // STAGE 1: deterministic pair-frame seeds for high coordination
@@ -947,6 +956,14 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         }
 
         acceptSupplementalBest();
+        if (!Number.isFinite(globalBestMeasure) || globalBestMeasure < 0 || globalBestMeasure > 100) {
+            throw new Error(`Optimization did not produce a valid CShM value (${globalBestMeasure})`);
+        }
+        if (!Array.isArray(globalBestMatching) || globalBestMatching.length !== N) {
+            throw new Error(
+                `Optimization produced an incomplete assignment (${globalBestMatching.length}/${N})`
+            );
+        }
         reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
 
         const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
@@ -963,8 +980,11 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         };
 
     } catch (error) {
-        console.error("Error during CShM calculation:", error);
-        throw new Error(`Shape measure calculation failed: ${error.message}`);
+        const wrapped = new Error(
+            `Shape measure calculation failed (${calculationContext}): ${error.message}`
+        );
+        wrapped.cause = error;
+        throw wrapped;
     }
 }
 

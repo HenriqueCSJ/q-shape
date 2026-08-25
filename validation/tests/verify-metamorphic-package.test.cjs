@@ -14,7 +14,7 @@ const productionVerifier = require('../scripts/verify-metamorphic-parity.cjs');
 
 const VERIFIER_PATH = path.resolve(__dirname, '..', 'scripts', 'verify-metamorphic-parity.cjs');
 const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
-const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
+const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v2';
 const CASES_SHA256 = '102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd';
 const CERTIFIED_DIRECT_REFERENCES_SHA256 =
     '170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787';
@@ -539,13 +539,13 @@ function malformedFixture() {
         ['mal-shape-center-misplaced-01', 'SHAPE 2.1', 'shape_2_1_raw_dat',
             'misplaced_center', 4, 'accepted_with_numeric_rows', 1],
         ['mal-qshape-point-count-01', 'Q-Shape', 'qshape_core_calculator',
-            'incorrect_point_count', 4, 'nonfinite_result', 0],
+            'incorrect_point_count', 4, 'thrown_error', 0],
         ['mal-qshape-nonfinite-01', 'Q-Shape', 'qshape_core_calculator',
-            'nonfinite_token', 4, 'nonfinite_result', 0],
+            'nonfinite_token', 4, 'thrown_error', 0],
         ['mal-qshape-duplicate-01', 'Q-Shape', 'qshape_core_calculator',
             'duplicate_ligand', 4, 'finite_result', 1],
         ['mal-qshape-zero-length-01', 'Q-Shape', 'qshape_core_calculator',
-            'effectively_zero_length_ligand', 4, 'nonfinite_result', 0],
+            'effectively_zero_length_ligand', 4, 'thrown_error', 0],
         ['mal-qshape-unsupported-cn-01', 'Q-Shape', 'qshape_reference_registry',
             'unsupported_coordination_number', 13, 'reference_set_unavailable', 0]
     ];
@@ -641,14 +641,20 @@ function malformedFixture() {
             status: 'pass'
         };
         const finite = control.expected_outcome === 'finite_result';
+        const thrown = control.expected_outcome === 'thrown_error';
         return {
             ...base,
             product_boundary: 'src/services/shapeAnalysis/shapeCalculator.js',
             product_boundary_invoked: true,
-            observed_outcome: finite ? 'finite_result' : 'nonfinite_result',
+            observed_outcome: finite ? 'finite_result' : 'thrown_error',
             observed_numeric_rows: finite ? 1 : 0,
-            observed_value_tokens: [finite ? '1.2500000000000000' : 'NaN'],
-            observed_result_type: 'number',
+            observed_value_tokens: finite ? ['1.2500000000000000'] : [],
+            ...(thrown
+                ? {
+                    observed_error_name: 'Error',
+                    observed_error_message: 'Shape measure calculation failed: synthetic invalid input'
+                }
+                : { observed_result_type: 'number' }),
             status: 'pass'
         };
     });

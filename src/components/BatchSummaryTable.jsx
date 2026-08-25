@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { interpretShapeMeasure } from '../utils/geometry';
+import { formatShapeMeasure } from '../utils/geometry';
 
 export default function BatchSummaryTable({
     structures,
@@ -113,21 +113,14 @@ export default function BatchSummaryTable({
                                     <th style={{ padding: '0.75rem', textAlign: 'center' }}>CN</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'left' }}>Best Geometry</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'right' }}>CShM</th>
-                                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>Quality</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {summary.map((row, idx) => {
                                     const isSelected = row.index === selectedStructureIndex;
-                                    const interpretation = row.bestCShM !== null
-                                        ? interpretShapeMeasure(row.bestCShM)
-                                        : null;
-
                                     // Color scheme: selected rows use soft, muted blue palette
-                                    // Non-selected rows use semantic colors for quality indicators
                                     const selectedTextColor = '#1e3a5f';      // Soft dark blue for text
                                     const selectedAccent = '#3b82f6';          // Medium blue for accents
-                                    const selectedBadgeBg = 'rgba(59, 130, 246, 0.12)'; // Very soft blue tint
 
                                     return (
                                         <tr
@@ -201,27 +194,9 @@ export default function BatchSummaryTable({
                                                 textAlign: 'right',
                                                 fontFamily: 'monospace',
                                                 fontWeight: 600,
-                                                color: isSelected ? selectedTextColor : (interpretation?.color || '#374151')
+                                                color: isSelected ? selectedTextColor : '#374151'
                                             }}>
-                                                {row.bestCShM !== null ? Math.max(0, row.bestCShM).toFixed(4) : '—'}
-                                            </td>
-                                            <td style={{
-                                                padding: '0.75rem',
-                                                textAlign: 'center'
-                                            }}>
-                                                {interpretation && (
-                                                    <span style={{
-                                                        display: 'inline-block',
-                                                        padding: '0.25rem 0.5rem',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.8rem',
-                                                        fontWeight: 600,
-                                                        background: isSelected ? selectedBadgeBg : (interpretation.color + '15'),
-                                                        color: isSelected ? selectedTextColor : interpretation.color
-                                                    }}>
-                                                        {interpretation.confidence}%
-                                                    </span>
-                                                )}
+                                                {formatShapeMeasure(row.bestCShM)}
                                             </td>
                                         </tr>
                                     );

@@ -5,7 +5,7 @@
  * - Shape measure calculation for all reference geometries
  * - Results caching
  * - Progress tracking
- * - Quality metrics calculation
+ * - Descriptive structural statistics
  * - Error handling
  *
  * @param {Object} params - Hook parameters
@@ -21,7 +21,6 @@
  *   geometryResults,
  *   bestGeometry,
  *   additionalMetrics,
- *   qualityMetrics,
  *   isLoading,
  *   progress,
  *   clearCache
@@ -31,7 +30,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
-import { calculateAdditionalMetrics, calculateQualityMetrics } from '../services/shapeAnalysis/qualityMetrics';
+import { calculateAdditionalMetrics } from '../services/shapeAnalysis/structuralMetrics';
+import {
+    isShapeResultAvailable,
+    normalizeShapeResult,
+    summarizeGeometryResults,
+    SHAPE_RESULT_STATUS
+} from '../utils/shapeResults';
 
 function exactNumberToken(value, context) {
     if (!Number.isFinite(value)) {
@@ -76,6 +81,41 @@ export function intensiveResultsMatchInput(analysisParams, atoms) {
     return currentKey !== null && analysisParams.intensiveInputKey === currentKey;
 }
 
+export function calculateGeometryResult({
+    name,
+    actualCoords,
+    refCoords,
+    mode = 'default',
+    progressCallback = null,
+    calculator = calculateShapeMeasure
+}) {
+    try {
+        const calculation = calculator(
+            actualCoords,
+            refCoords,
+            mode,
+            progressCallback
+        );
+        return normalizeShapeResult({
+            name,
+            shapeMeasure: calculation?.measure,
+            refCoords,
+            alignedCoords: calculation?.alignedCoords || [],
+            rotationMatrix: calculation?.rotationMatrix || null
+        }, name);
+    } catch (error) {
+        return normalizeShapeResult({
+            name,
+            shapeMeasure: null,
+            status: SHAPE_RESULT_STATUS.ERROR,
+            error: `Failed to analyze ${name}: ${error.message}`,
+            refCoords,
+            alignedCoords: [],
+            rotationMatrix: null
+        }, name);
+    }
+}
+
 export function useShapeAnalysis({
     coordAtoms = [],
     analysisParams = { mode: 'default', key: 0 },
@@ -86,7 +126,6 @@ export function useShapeAnalysis({
     const [geometryResults, setGeometryResults] = useState([]);
     const [bestGeometry, setBestGeometry] = useState(null);
     const [additionalMetrics, setAdditionalMetrics] = useState(null);
-    const [qualityMetrics, setQualityMetrics] = useState(null);
 
     // Analysis progress state
     const [isLoading, setIsLoading] = useState(false);
@@ -140,16 +179,22 @@ export function useShapeAnalysis({
 
         // Use service results only when they are bound to the current sphere.
         if (intensiveResultsAreCurrent) {
-            const results = analysisParams.intensiveResults;
-            setGeometryResults(results);
-            const best = results[0];
-            setBestGeometry(best);
+            const summary = summarizeGeometryResults(analysisParams.intensiveResults);
+            setGeometryResults(summary.results);
+            setBestGeometry(summary.best);
+
+            if (summary.unavailableResults.length > 0 && onWarning) {
+                onWarning(
+                    `Analysis incomplete: ${summary.unavailableResults.length} of ${summary.results.length} reference geometries are unavailable.`
+                );
+            }
+            if (!summary.best && onError) {
+                onError('Analysis completed but no valid CShM result is available');
+            }
 
             if (coordAtoms && coordAtoms.length > 0) {
                 const metrics = calculateAdditionalMetrics(coordAtoms);
                 setAdditionalMetrics(metrics);
-                const quality = calculateQualityMetrics(coordAtoms, best, best.shapeMeasure);
-                setQualityMetrics(quality);
             }
 
             setIsLoading(false);
@@ -165,7 +210,6 @@ export function useShapeAnalysis({
             setGeometryResults([]);
             setBestGeometry(null);
             setAdditionalMetrics(null);
-            setQualityMetrics(null);
             setIsLoading(false);
             setProgress(null);
             return;
@@ -180,7 +224,6 @@ export function useShapeAnalysis({
             setGeometryResults(cached.results);
             setBestGeometry(cached.best);
             setAdditionalMetrics(cached.metrics);
-            setQualityMetrics(cached.quality);
             setIsLoading(false);
             setProgress(null);
             return;
@@ -196,7 +239,6 @@ export function useShapeAnalysis({
         if (!geometries) {
             setGeometryResults([]);
             setBestGeometry(null);
-            setQualityMetrics(null);
             setIsLoading(false);
             setProgress(null);
             if (cn > 0 && onWarning) {
@@ -227,31 +269,24 @@ export function useShapeAnalysis({
                         // All geometries processed
                         if (isCancelled) return;
 
-                        results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
-                        const finiteResults = results.filter(r => isFinite(r.shapeMeasure));
+                        const summary = summarizeGeometryResults(results);
+                        setGeometryResults(summary.results);
+                        setBestGeometry(summary.best);
 
-                        if (finiteResults.length > 0) {
-                            setGeometryResults(finiteResults);
-                            const best = finiteResults[0];
-                            setBestGeometry(best);
+                        // Cache the complete result set, including explicit N/A rows.
+                        addToCache(cacheKey, {
+                            results: summary.results,
+                            best: summary.best,
+                            metrics
+                        });
 
-                            const quality = calculateQualityMetrics(coordAtoms, best, best.shapeMeasure);
-                            setQualityMetrics(quality);
-
-                            // Cache results with LRU eviction
-                            addToCache(cacheKey, {
-                                results: finiteResults,
-                                best,
-                                metrics,
-                                quality
-                            });
-                        } else {
-                            setGeometryResults([]);
-                            setBestGeometry(null);
-                            setQualityMetrics(null);
-                            if (onError) {
-                                onError("Analysis completed but no valid geometries found");
-                            }
+                        if (summary.unavailableResults.length > 0 && onWarning) {
+                            onWarning(
+                                `Analysis incomplete: ${summary.unavailableResults.length} of ${summary.results.length} reference geometries are unavailable.`
+                            );
+                        }
+                        if (!summary.best && onError) {
+                            onError('Analysis completed but no valid CShM result is available');
                         }
 
                         setIsLoading(false);
@@ -275,43 +310,32 @@ export function useShapeAnalysis({
                     const timeout = setTimeout(() => {
                         if (isCancelled) return;
 
-                        try {
-                            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-                                actualCoords,
-                                refCoords,
-                                effectiveMode,
-                                (progressInfo) => {
-                                    if (!isCancelled) {
-                                        setProgress({
-                                            geometry: name,
-                                            current: index + 1,
-                                            total: geometryNames.length,
-                                            ...progressInfo
-                                        });
-                                    }
+                        const result = calculateGeometryResult({
+                            name,
+                            actualCoords,
+                            refCoords,
+                            mode: effectiveMode,
+                            progressCallback: (progressInfo) => {
+                                if (!isCancelled) {
+                                    setProgress({
+                                        geometry: name,
+                                        current: index + 1,
+                                        total: geometryNames.length,
+                                        ...progressInfo
+                                    });
                                 }
-                            );
-
-                            if (!isCancelled) {
-                                results.push({
-                                    name,
-                                    shapeMeasure: measure,
-                                    refCoords,
-                                    alignedCoords,
-                                    rotationMatrix
-                                });
-
-                                processGeometry(index + 1);
                             }
-                        } catch (error) {
-                            if (!isCancelled) {
-                                console.error(`Error processing geometry ${name}:`, error);
-                                if (onWarning) {
-                                    onWarning(`Failed to analyze ${name}: ${error.message}`);
-                                }
-                                processGeometry(index + 1);
+                        });
+
+                        if (!isCancelled) {
+                            results.push(result);
+                            if (!isShapeResultAvailable(result)) {
+                                console.error(result.error);
                             }
+                            processGeometry(index + 1);
                         }
+                        // calculateGeometryResult always returns one explicit row,
+                        // including when the target calculation throws.
                     }, 10);
 
                     timeouts.push(timeout);
@@ -328,7 +352,6 @@ export function useShapeAnalysis({
                     }
                     setGeometryResults([]);
                     setBestGeometry(null);
-                    setQualityMetrics(null);
                     setIsLoading(false);
                     setProgress(null);
                 }
@@ -355,7 +378,8 @@ export function useShapeAnalysis({
         geometryResults,
         bestGeometry,
         additionalMetrics,
-        qualityMetrics,
+        analysisComplete: geometryResults.length > 0 && geometryResults.every(isShapeResultAvailable),
+        unavailableGeometryCount: geometryResults.filter(result => !isShapeResultAvailable(result)).length,
 
         // Progress
         isLoading,

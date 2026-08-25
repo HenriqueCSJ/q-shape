@@ -284,11 +284,10 @@ export const SHAPE_MEASURE = {
     },
 
     /**
-     * Intensive mode: Thorough search with maximum accuracy
+     * Intensive mode: Extended search
      *
-     * For publication-quality results and difficult cases.
+     * For difficult cases that benefit from additional starting points.
      * Typical completion: 5-15 seconds.
-     * Accuracy: ±0.001 CShM units.
      */
     INTENSIVE: {
         /**

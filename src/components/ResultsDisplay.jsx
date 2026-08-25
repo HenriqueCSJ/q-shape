@@ -7,11 +7,15 @@
 
 import React from 'react';
 import { POINT_GROUPS } from '../constants/referenceGeometries';
-import { interpretShapeMeasure } from '../utils/geometry';
+import { formatShapeMeasure } from '../utils/geometry';
+import {
+    isShapeResultAvailable,
+    shapeResultDetail
+} from '../utils/shapeResults';
 
 export default function ResultsDisplay({
     isLoading,
-    geometryResults,
+    geometryResults = [],
     analysisParams,
     progress,
     selectedMetal,
@@ -21,6 +25,14 @@ export default function ResultsDisplay({
     structureId = null,
     batchMode = false
 }) {
+    const indexedResults = geometryResults.map((result, index) => ({ result, index }));
+    const displayedResults = [
+        ...indexedResults.slice(0, 15),
+        ...indexedResults.slice(15).filter(({ result }) => !isShapeResultAvailable(result))
+    ];
+    const hiddenAvailableCount = geometryResults.length - displayedResults.length;
+    const unavailableCount = geometryResults.filter(result => !isShapeResultAvailable(result)).length;
+
     return (
         <div>
             <h3 style={{
@@ -56,8 +68,22 @@ export default function ResultsDisplay({
                     fontSize: '0.85rem',
                     fontStyle: 'italic'
                 }}>
-                    💡 Click on any geometry to visualize it in 3D
+                    💡 Click on any available geometry to visualize it in 3D
                 </p>
+            )}
+            {unavailableCount > 0 && !isLoading && (
+                <div role="alert" style={{
+                    margin: '0 0 1rem 0',
+                    padding: '0.75rem 1rem',
+                    color: '#92400e',
+                    background: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                }}>
+                    Analysis incomplete: {unavailableCount} reference {unavailableCount === 1 ? 'geometry is' : 'geometries are'} unavailable (N/A).
+                </div>
             )}
             {isLoading ? (
                 <div style={{
@@ -94,14 +120,14 @@ export default function ResultsDisplay({
                 </div>
             ) : geometryResults.length > 0 ? (
                 <div className="results-container">
-                    {geometryResults.slice(0, 15).map((r, i) => {
-                        const inter = interpretShapeMeasure(r.shapeMeasure);
+                    {displayedResults.map(({ result: r, index: i }) => {
+                        const isAvailable = isShapeResultAvailable(r);
                         const isSelected = i === selectedGeometryIndex;
-                        const isBest = i === 0;
+                        const isBest = i === 0 && isAvailable;
                         return (
                             <div
-                                key={i}
-                                onClick={() => onGeometrySelect && onGeometrySelect(i)}
+                                key={`${r.name}-${i}`}
+                                onClick={() => isAvailable && onGeometrySelect && onGeometrySelect(i)}
                                 style={{
                                     padding: '1rem',
                                     background: isSelected
@@ -114,7 +140,8 @@ export default function ResultsDisplay({
                                         ? '4px solid #3b82f6'
                                         : isBest ? '4px solid #10b981' : '4px solid transparent',
                                     transition: 'all 0.2s',
-                                    cursor: 'pointer'
+                                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                                    opacity: isAvailable ? 1 : 0.85
                                 }}
                                 onMouseOver={(e) => {
                                     if (!isSelected) {
@@ -157,32 +184,25 @@ export default function ResultsDisplay({
                                     <div style={{
                                         fontSize: '1.1rem',
                                         fontWeight: 800,
-                                        color: inter.color,
+                                        color: '#374151',
                                         fontFamily: 'monospace'
                                     }}>
-                                        {Math.max(0, r.shapeMeasure).toFixed(4)}
+                                        {formatShapeMeasure(r.shapeMeasure)}
                                     </div>
                                 </div>
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    fontSize: '0.8rem'
-                                }}>
-                                    <span style={{ color: '#64748b' }}>
-                                        <strong style={{ color: inter.color }}>{inter.text}</strong>
-                                    </span>
-                                    <span style={{
-                                        color: inter.confidence > 80 ? '#059669' : inter.confidence > 50 ? '#f59e0b' : '#dc2626',
-                                        fontWeight: 600
+                                {!isAvailable && (
+                                    <div style={{
+                                        color: '#92400e',
+                                        fontSize: '0.8rem',
+                                        lineHeight: 1.4
                                     }}>
-                                        {inter.confidence}%
-                                    </span>
-                                </div>
+                                        N/A — {shapeResultDetail(r)}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
-                    {geometryResults.length > 15 && (
+                    {hiddenAvailableCount > 0 && (
                         <div style={{
                             padding: '0.75rem',
                             textAlign: 'center',
@@ -191,7 +211,7 @@ export default function ResultsDisplay({
                             fontSize: '0.85rem',
                             fontStyle: 'italic'
                         }}>
-                            + {geometryResults.length - 15} more (see report)
+                            + {hiddenAvailableCount} more available {hiddenAvailableCount === 1 ? 'result' : 'results'} (see report)
                         </div>
                     )}
                 </div>

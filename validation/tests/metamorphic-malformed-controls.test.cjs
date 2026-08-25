@@ -48,16 +48,16 @@ test('malformed registry is deterministic, typed, and covers the frozen seven ca
             'unsupported_coordination_number'
         ]
     );
-    assert.equal(first.status, 'preregistered_product_boundary_probes');
+    assert.equal(first.status, 'prespecified_post_repair_product_boundary_probes');
     assert.ok(first.controls.every(control => control.campaign_gate === 'malformed_control_contract'));
     assert.deepEqual(first.controls.map(control => control.expected_numeric_rows), [1, 1, 0, 0, 1, 0, 0]);
     assert.deepEqual(first.controls.map(control => control.expected_outcome), [
         'accepted_with_numeric_rows',
         'accepted_with_numeric_rows',
-        'nonfinite_result',
-        'nonfinite_result',
+        'thrown_error',
+        'thrown_error',
         'finite_result',
-        'nonfinite_result',
+        'thrown_error',
         'reference_set_unavailable'
     ]);
 });

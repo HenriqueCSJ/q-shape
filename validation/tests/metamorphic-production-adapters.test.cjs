@@ -240,7 +240,7 @@ test('malformed adapter executes the exact frozen control bytes instead of regen
     const controlsPath = 'C:/frozen/malformed-controls.json';
     const document = {
         schema_version: 1,
-        campaign_id: 'qshape-metamorphic-malformed-v1',
+        campaign_id: 'qshape-metamorphic-malformed-v2',
         count: 1,
         controls: [{ control_id: 'frozen-1' }]
     };
@@ -339,13 +339,21 @@ test('default malformed adapter invokes raw SHAPE and real Q-Shape product bound
     const duplicate = result.results.find(row => row.category === 'duplicate_ligand');
     const zeroLength = result.results.find(row => row.category === 'effectively_zero_length_ligand');
     const unsupported = result.results.find(row => row.category === 'unsupported_coordination_number');
-    assert.equal(pointCount.observed_outcome, 'nonfinite_result');
-    assert.deepEqual(pointCount.observed_value_tokens, ['Infinity']);
-    assert.equal(nonfinite.observed_outcome, 'nonfinite_result');
+    assert.equal(pointCount.observed_outcome, 'thrown_error');
+    assert.deepEqual(pointCount.observed_value_tokens, []);
+    assert.equal(pointCount.observed_error_name, 'Error');
+    assert.match(pointCount.observed_error_message, /point set size mismatch/i);
+    assert.equal(nonfinite.observed_outcome, 'thrown_error');
+    assert.deepEqual(nonfinite.observed_value_tokens, []);
+    assert.equal(nonfinite.observed_error_name, 'Error');
+    assert.match(nonfinite.observed_error_message, /non-finite value/i);
     assert.equal(duplicate.observed_outcome, 'finite_result');
     assert.equal(duplicate.observed_numeric_rows, 1);
     assert.deepEqual(duplicate.observed_value_tokens, ['30.555555555555515']);
-    assert.equal(zeroLength.observed_outcome, 'nonfinite_result');
+    assert.equal(zeroLength.observed_outcome, 'thrown_error');
+    assert.deepEqual(zeroLength.observed_value_tokens, []);
+    assert.equal(zeroLength.observed_error_name, 'Error');
+    assert.match(zeroLength.observed_error_message, /insufficient spatial extent/i);
     assert.equal(unsupported.observed_outcome, 'reference_set_unavailable');
     assert.equal(unsupported.observed_reference_count, 0);
 });

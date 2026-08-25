@@ -24,7 +24,7 @@ import Munkres from 'munkres-js';
  * Finds the assignment that minimizes the total cost across all pairs.
  * Uses the complete Munkres algorithm implementation from munkres-js.
  *
- * Note: Greedy matching is NOT guaranteed optimal for n >= 3.
+ * Note: Greedy matching is NOT guaranteed optimal for n >= 2.
  * We use Munkres for all non-trivial cases to ensure correctness.
  *
  * @param {Array<Array<number>>} costMatrix - Square matrix of costs/distances
@@ -41,6 +41,7 @@ import Munkres from 'munkres-js';
  * // Total cost: 2 + 7 + 3 = 12 (optimal)
  */
 export default function hungarianAlgorithm(costMatrix) {
+    validateCostMatrix(costMatrix);
     const n = costMatrix.length;
     if (n === 0) return [];
 
@@ -50,27 +51,80 @@ export default function hungarianAlgorithm(costMatrix) {
     }
 
     // For all non-trivial matrices (n >= 2), use the complete Munkres algorithm
-    // to guarantee optimal assignment. Greedy is NOT optimal for n >= 3.
+    // to guarantee optimal assignment. Greedy is NOT guaranteed optimal for n >= 2.
     // munkres-js returns indices directly: [[row, col], ...]
     try {
         const result = Munkres(costMatrix);
+        validateAssignment(result, n);
         return result;
     } catch (error) {
-        console.error('Munkres algorithm failed, falling back to greedy:', error);
-        return greedyMatching(costMatrix);
+        const wrapped = new Error(
+            `Hungarian assignment failed for a ${n}x${n} cost matrix: ${error.message}`
+        );
+        wrapped.cause = error;
+        throw wrapped;
     }
 }
 
 /**
- * Greedy matching algorithm (fallback only)
+ * Validate the numerical domain required by the assignment solver.
+ * Empty matrices retain the historical explicit no-assignment result.
+ */
+export function validateCostMatrix(costMatrix) {
+    if (!Array.isArray(costMatrix)) {
+        throw new TypeError('Hungarian cost matrix must be an array');
+    }
+
+    const size = costMatrix.length;
+    costMatrix.forEach((row, rowIndex) => {
+        if (!Array.isArray(row) || row.length !== size) {
+            throw new RangeError(
+                `Hungarian cost matrix must be square: row ${rowIndex} has length ${
+                    Array.isArray(row) ? row.length : 'non-array'
+                }, expected ${size}`
+            );
+        }
+        row.forEach((cost, columnIndex) => {
+            if (typeof cost !== 'number' || !Number.isFinite(cost)) {
+                throw new TypeError(
+                    `Hungarian cost matrix contains a non-finite value at [${rowIndex}, ${columnIndex}]`
+                );
+            }
+        });
+    });
+}
+
+function validateAssignment(assignment, size) {
+    if (!Array.isArray(assignment) || assignment.length !== size) {
+        throw new Error(`Solver returned ${assignment?.length ?? 'an invalid number of'} assignments; expected ${size}`);
+    }
+
+    const rows = new Set();
+    const columns = new Set();
+    assignment.forEach((pair, index) => {
+        if (!Array.isArray(pair) || pair.length !== 2 ||
+            !Number.isInteger(pair[0]) || !Number.isInteger(pair[1]) ||
+            pair[0] < 0 || pair[0] >= size || pair[1] < 0 || pair[1] >= size) {
+            throw new Error(`Solver returned an invalid assignment at index ${index}`);
+        }
+        rows.add(pair[0]);
+        columns.add(pair[1]);
+    });
+
+    if (rows.size !== size || columns.size !== size) {
+        throw new Error('Solver returned duplicate row or column assignments');
+    }
+}
+
+/**
+ * Greedy matching algorithm (explicit approximate API)
  *
- * WARNING: This is NOT guaranteed to find the optimal solution for n >= 3.
- * Only used as a fallback if the Munkres algorithm fails.
+ * WARNING: This is NOT guaranteed to find the optimal solution for n >= 2.
+ * It is never used implicitly by the Hungarian solver.
  *
  * Provides a fast approximation by selecting assignments in order of increasing cost.
  * - For n=1: Trivially optimal (only 1 assignment possible)
- * - For n=2: Optimal (greedy works for 2x2)
- * - For n>=3: NOT guaranteed optimal - can produce suboptimal results
+ * - For n>=2: NOT guaranteed optimal - can produce suboptimal results
  *
  * Algorithm:
  * 1. Create list of all possible assignments with their costs
@@ -78,7 +132,7 @@ export default function hungarianAlgorithm(costMatrix) {
  * 3. Greedily select assignments ensuring no row/column is used twice
  *
  * @param {Array<Array<number>>} costMatrix - Square matrix of costs/distances
- * @returns {Array<Array<number>>} Array of [row, column] pairs (may be suboptimal for n>=3)
+ * @returns {Array<Array<number>>} Array of [row, column] pairs (may be suboptimal for n>=2)
  *
  * @example
  * const costs = [[1, 2], [3, 4]];
@@ -86,6 +140,7 @@ export default function hungarianAlgorithm(costMatrix) {
  * // Returns: [[0, 0], [1, 1]] with total cost 1 + 4 = 5
  */
 export function greedyMatching(costMatrix) {
+    validateCostMatrix(costMatrix);
     const N = costMatrix.length;
     const pairs = [];
 

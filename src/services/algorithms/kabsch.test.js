@@ -133,38 +133,42 @@ describe('Kabsch Algorithm', () => {
     });
 
     describe('kabschAlignment - Edge Cases', () => {
-        test('should handle empty point sets', () => {
+        test('rejects empty point sets', () => {
             const P = [];
             const Q = [];
 
-            const R = kabschAlignment(P, Q);
-
-            // Should return identity matrix on error
-            expect(R).toBeInstanceOf(THREE.Matrix4);
-            const elements = R.elements;
-            expect(elements[0]).toBe(1);
-            expect(elements[5]).toBe(1);
-            expect(elements[10]).toBe(1);
+            expect(() => kabschAlignment(P, Q)).toThrow(/must not be empty/);
         });
 
-        test('should handle mismatched point set sizes', () => {
+        test('rejects mismatched point set sizes', () => {
             const P = [[1, 0, 0], [0, 1, 0]];
             const Q = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
-            const R = kabschAlignment(P, Q);
-
-            // Should return identity matrix on error
-            expect(R).toBeInstanceOf(THREE.Matrix4);
+            expect(() => kabschAlignment(P, Q)).toThrow(/size mismatch/);
         });
 
-        test('should handle single point', () => {
+        test('rejects a single point because it has no spatial extent', () => {
             const P = [[1, 2, 3]];
             const Q = [[4, 5, 6]];
 
-            const R = kabschAlignment(P, Q);
+            expect(() => kabschAlignment(P, Q)).toThrow(/insufficient spatial extent/);
+        });
 
-            // Should return valid matrix
-            expect(R).toBeInstanceOf(THREE.Matrix4);
+        test('rejects malformed and non-finite coordinates', () => {
+            expect(() => kabschAlignment(
+                [[0, 0, 0], [1, 0]],
+                [[0, 0, 0], [1, 0, 0]]
+            )).toThrow(/exactly three coordinates/);
+            expect(() => kabschAlignment(
+                [[0, 0, 0], [NaN, 0, 0]],
+                [[0, 0, 0], [1, 0, 0]]
+            )).toThrow(/must be finite/);
+        });
+
+        test('rejects coincident multi-point sets instead of returning identity', () => {
+            const coincident = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
+            expect(() => kabschAlignment(coincident, coincident))
+                .toThrow(/insufficient spatial extent/);
         });
 
         test('should handle collinear points', () => {

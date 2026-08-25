@@ -104,27 +104,19 @@ For N=12 (icosahedron):
 - Exhaustive: 479,001,600 permutations
 - Hungarian: ~1,728 operations
 
-## 4. Interpretation Scale
+## 4. Interpretation
 
-### 4.1 Standard Interpretation
+### 4.1 Numerical reporting
 
-| CShM Value | Classification | Physical Interpretation |
-|------------|----------------|-------------------------|
-| < 0.1 | Perfect | Essentially ideal geometry |
-| 0.1 - 0.5 | Excellent | Minor thermal distortions |
-| 0.5 - 1.5 | Very Good | Small systematic deviations |
-| 1.5 - 3.0 | Good | Moderate distortion, clear geometry |
-| 3.0 - 7.5 | Moderate | Significant distortion |
-| 7.5 - 15.0 | Poor | Highly distorted |
-| > 15.0 | Very Poor | Different geometry or no match |
+For a fixed reference geometry, a smaller finite CShM in `[0, 100]` indicates
+a closer shape match. Geometry assignment should retain the numerical CShM
+values and compare all relevant same-coordination-number references. Q-Shape
+does not generate qualitative classes or probabilities from CShM ranges.
 
-### 4.2 RMSD Relationship
+### 4.2 CShM is not Cartesian RMSD
 
-For unit-normalized coordinates, the approximate RMSD can be derived:
-
-$$RMSD_{approx} = \sqrt{\frac{CShM}{100}}$$
-
-**Important caveat**: This RMSD is on the unit sphere and reflects angular deviation only. It should not be directly compared with Cartesian RMSD values in Ångströms.
+CShM is reported as its own dimensionless measure. Q-Shape does not convert it
+to RMSD or label any derived value in ångströms.
 
 ## 5. Multiple Reference Comparison
 

@@ -1,8 +1,10 @@
 # Q-Shape numerical validation protocol
 
-Status: preregistered working protocol. Passing software tests or the direct
-campaign below is necessary but is not, by itself, validation on independent
-chemical structures.
+Status: working integrated protocol. The direct and metamorphic qualification
+inputs are prespecified and frozen; the external chemical holdout is still a
+working stratum, and the browser/user-validation inputs are not yet frozen.
+Passing software tests or the direct campaign below is necessary but is not, by
+itself, validation on independent chemical structures.
 
 ## 1. Validation question and claim boundary
 
@@ -180,6 +182,15 @@ The pretty-printed generated input document for campaign
 `qshape-metamorphic-adversarial-v1` is frozen at SHA-256
 `102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd`;
 any change requires a new campaign identifier and preregistration.
+
+Malformed-control expectations for the reporting-fix candidate form the new
+post-repair lineage `qshape-metamorphic-malformed-v2`. The positive-case inputs
+remain bound to `qshape-metamorphic-adversarial-v1`, while the incorrect-point-
+count, nonfinite-token, and effectively-zero-length controls now require an
+explicit `thrown_error` with zero numeric rows. This fail-closed contract is
+frozen before executing the repaired candidate. It does not revise, replace, or
+reinterpret any retained `qshape-metamorphic-malformed-v1` campaign package or
+output.
 
 Before execution, `freeze-metamorphic-execution-inputs.cjs` creates a new,
 input-only four-file bundle containing `references.json`,

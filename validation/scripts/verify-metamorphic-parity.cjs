@@ -41,7 +41,8 @@ const SHAPE_INVOCATION_COUNT = 990;
 const SHAPE_VALUE_COUNT = 57090;
 const Q_VALUE_COUNT = 142725;
 const PACKAGE_SCHEMA_VERSION = 2;
-const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
+const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v2';
+const MALFORMED_CONTROL_STATUS = 'prespecified_post_repair_product_boundary_probes';
 const EXPECTED_COUNTS = Object.freeze({
     recipeCount: 33,
     mainRecipeCount: 30,
@@ -89,7 +90,7 @@ const MALFORMED_CATEGORIES = Object.freeze([
 ]);
 const MALFORMED_PARENT_CASE_ID = 'meta-cn04-ref01-r01';
 const MALFORMED_CLAIM_BOUNDARY =
-    'raw SHAPE 2.1 .dat execution and Q-Shape core calculator/reference-registry behavior; legacy typed codes are synthetic-harness diagnostics only, not product API outcomes or scientific gates; browser behavior is not tested';
+    'raw SHAPE 2.1 .dat execution and Q-Shape core calculator/reference-registry behavior, including fail-closed Q-Shape errors for invalid coordinate inputs; legacy typed codes are synthetic-harness diagnostics only, not product API outcomes or scientific gates; browser behavior is not tested';
 const MALFORMED_CONTROL_CONTRACTS = Object.freeze([
     Object.freeze({
         control_id: 'mal-shape-center-missing-01', program: 'SHAPE 2.1',
@@ -106,13 +107,13 @@ const MALFORMED_CONTROL_CONTRACTS = Object.freeze([
     Object.freeze({
         control_id: 'mal-qshape-point-count-01', program: 'Q-Shape',
         interface: 'qshape_core_calculator', category: 'incorrect_point_count', cn: 4,
-        expected_outcome: 'nonfinite_result', expected_numeric_rows: 0,
+        expected_outcome: 'thrown_error', expected_numeric_rows: 0,
         harness_only_expected_rejection_code: 'qshape.ligand_count_mismatch'
     }),
     Object.freeze({
         control_id: 'mal-qshape-nonfinite-01', program: 'Q-Shape',
         interface: 'qshape_core_calculator', category: 'nonfinite_token', cn: 4,
-        expected_outcome: 'nonfinite_result', expected_numeric_rows: 0,
+        expected_outcome: 'thrown_error', expected_numeric_rows: 0,
         harness_only_expected_rejection_code: 'qshape.nonfinite_coordinate_token'
     }),
     Object.freeze({
@@ -124,7 +125,7 @@ const MALFORMED_CONTROL_CONTRACTS = Object.freeze([
     Object.freeze({
         control_id: 'mal-qshape-zero-length-01', program: 'Q-Shape',
         interface: 'qshape_core_calculator', category: 'effectively_zero_length_ligand', cn: 4,
-        expected_outcome: 'nonfinite_result', expected_numeric_rows: 0,
+        expected_outcome: 'thrown_error', expected_numeric_rows: 0,
         harness_only_expected_rejection_code: 'qshape.effectively_zero_length_ligand'
     }),
     Object.freeze({
@@ -1844,7 +1845,7 @@ function validateMalformedFrozenDocument(document, casesBytes, casesDocument) {
         'source_positive_campaign_id', 'source_positive_cases_sha256',
         'expected_numeric_rows_policy', 'count', 'controls'
     ], 'malformed-control document fields');
-    requireThat(document.status === 'preregistered_product_boundary_probes' &&
+    requireThat(document.status === MALFORMED_CONTROL_STATUS &&
         document.claim_boundary === MALFORMED_CLAIM_BOUNDARY &&
         document.source_positive_campaign_id === CAMPAIGN_ID &&
         document.source_positive_cases_sha256 === sha256(casesBytes) &&

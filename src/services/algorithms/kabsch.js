@@ -19,7 +19,8 @@ import { KABSCH } from '../../constants/algorithmConstants.js';
  * @param {Array<Array<number>>} P - First point set, array of [x, y, z] coordinates
  * @param {Array<Array<number>>} Q - Second point set, array of [x, y, z] coordinates
  * @param {boolean} skipCentering - If true, skip centering (use when points are already centered)
- * @returns {THREE.Matrix4} Rotation matrix that aligns P to Q, or identity matrix on failure
+ * @returns {THREE.Matrix4} Rotation matrix that aligns P to Q
+ * @throws {TypeError|RangeError|Error} For invalid, non-finite, or spatially degenerate point sets
  *
  * @example
  * const P = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -27,11 +28,14 @@ import { KABSCH } from '../../constants/algorithmConstants.js';
  * const rotationMatrix = kabschAlignment(P, Q);
  */
 export default function kabschAlignment(P, Q, skipCentering = false) {
-    try {
+        validatePointSet(P, 'P');
+        validatePointSet(Q, 'Q');
         const N = P.length;
-        if (N !== Q.length || N === 0) {
-            throw new Error(`Point set size mismatch: P has ${P.length}, Q has ${Q.length}`);
+        if (N !== Q.length) {
+            throw new RangeError(`Kabsch point set size mismatch: P has ${P.length}, Q has ${Q.length}`);
         }
+        validateSpatialExtent(P, 'P');
+        validateSpatialExtent(Q, 'Q');
 
         let P_centered, Q_centered;
 
@@ -78,18 +82,20 @@ export default function kabschAlignment(P, Q, skipCentering = false) {
         // sets independently so SVD and identity tolerances remain meaningful
         // for coordinates ranging from sub-angstrom test scales to very large
         // Cartesian values.
-        const rmsMagnitude = points => Math.sqrt(points.reduce(
-            (sum, point) => sum + point[0] ** 2 + point[1] ** 2 + point[2] ** 2,
-            0
-        ) / N);
+        const rmsMagnitude = points => {
+            const magnitude = Math.sqrt(points.reduce(
+                (sum, point) => sum + point[0] ** 2 + point[1] ** 2 + point[2] ** 2,
+                0
+            ) / N);
+            if (!(magnitude > 0) || !Number.isFinite(magnitude)) {
+                throw new Error('Kabsch normalization scale is non-finite or zero');
+            }
+            return magnitude;
+        };
         const scaleP = rmsMagnitude(P_centered);
         const scaleQ = rmsMagnitude(Q_centered);
-        if (scaleP > 0 && Number.isFinite(scaleP)) {
-            P_centered = P_centered.map(point => point.map(value => value / scaleP));
-        }
-        if (scaleQ > 0 && Number.isFinite(scaleQ)) {
-            Q_centered = Q_centered.map(point => point.map(value => value / scaleQ));
-        }
+        P_centered = P_centered.map(point => point.map(value => value / scaleP));
+        Q_centered = Q_centered.map(point => point.map(value => value / scaleQ));
 
         // Avoid an unnecessary SVD for identical point sets. Symmetric or
         // rank-deficient identical sets do not define a unique orientation,
@@ -132,15 +138,60 @@ export default function kabschAlignment(P, Q, skipCentering = false) {
             V[1][2] *= -1;
             V[2][2] *= -1;
             const R_corrected = multiplyMatrices3x3(V, transpose3x3(U));
-            return arrayToMatrix4(R_corrected);
+            return validateRotationMatrix(arrayToMatrix4(R_corrected));
         }
 
-        return arrayToMatrix4(R);
+        return validateRotationMatrix(arrayToMatrix4(R));
+}
 
-    } catch (error) {
-        console.warn("Kabsch alignment failed:", error.message);
-        return new THREE.Matrix4(); // Return identity matrix on failure
+function validatePointSet(points, label) {
+    if (!Array.isArray(points)) {
+        throw new TypeError(`Kabsch point set ${label} must be an array`);
     }
+    if (points.length === 0) {
+        throw new RangeError(`Kabsch point set ${label} must not be empty`);
+    }
+    points.forEach((point, pointIndex) => {
+        if (!Array.isArray(point) || point.length !== 3) {
+            throw new RangeError(
+                `Kabsch point ${label}[${pointIndex}] must contain exactly three coordinates`
+            );
+        }
+        point.forEach((coordinate, coordinateIndex) => {
+            if (typeof coordinate !== 'number' || !Number.isFinite(coordinate)) {
+                throw new TypeError(
+                    `Kabsch point ${label}[${pointIndex}][${coordinateIndex}] must be finite`
+                );
+            }
+        });
+    });
+}
+
+function validateSpatialExtent(points, label) {
+    const origin = points[0];
+    const maximumSeparation = points.reduce((maximum, point) => {
+        const separation = Math.hypot(
+            point[0] - origin[0],
+            point[1] - origin[1],
+            point[2] - origin[2]
+        );
+        return Math.max(maximum, separation);
+    }, 0);
+
+    if (!(maximumSeparation > 0) || !Number.isFinite(maximumSeparation)) {
+        throw new Error(`Kabsch point set ${label} has insufficient spatial extent`);
+    }
+}
+
+function validateRotationMatrix(rotation) {
+    if (!rotation.elements.every(Number.isFinite)) {
+        throw new Error('Kabsch alignment produced a non-finite rotation matrix');
+    }
+    const determinant = rotation.determinant();
+    if (!Number.isFinite(determinant) || Math.abs(determinant - 1) > 1e-8) {
+        throw new Error(`Kabsch alignment produced an invalid rotation determinant (${determinant})`);
+    }
+    return rotation;
 }
 
 /**

@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import { formatShapeMeasure } from '../utils/geometry';
 
 export default function BatchModePanel({
     structures,
@@ -62,7 +63,7 @@ export default function BatchModePanel({
                             <option key={structure.id || index} value={index}>
                                 {structure.id}
                                 {hasResult && result.bestGeometry
-                                    ? ` — ${result.bestGeometry.name} (CShM: ${result.bestGeometry.shapeMeasure.toFixed(3)})`
+                                    ? ` — ${result.bestGeometry.name} (CShM: ${formatShapeMeasure(result.bestGeometry.shapeMeasure, 3)})`
                                     : ' — Not analyzed'
                                 }
                             </option>

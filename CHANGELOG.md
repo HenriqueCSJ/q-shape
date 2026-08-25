@@ -5,6 +5,20 @@ All notable changes to Q-Shape will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Corrected
+
+- Removed the heuristic Overall Quality Score and all of its UI/report consumers.
+- Removed the CShM-derived approximate RMSD, placeholder polyhedral volume ratio,
+  shape-deviation parameter, and geometry “confidence %” outputs.
+- Centralized CShM validation and formatting so non-finite and negative values
+  are reported as invalid and JavaScript negative zero is displayed as zero.
+- Retained only direct bond-length and ligand-metal-ligand angle summaries.
+
+Entries below describe the behavior of their historical releases; removed
+features are not part of the current unreleased code.
+
 ## [1.5.0] - 2025-01-28
 
 ### 🎯 Overview

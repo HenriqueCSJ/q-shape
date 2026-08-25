@@ -6,8 +6,13 @@
  */
 
 import { REFERENCE_GEOMETRIES, POINT_GROUPS } from '../constants/referenceGeometries';
-import { interpretShapeMeasure } from '../utils/geometry';
-import { calculateAdditionalMetrics, calculateQualityMetrics } from './shapeAnalysis/qualityMetrics';
+import { formatShapeMeasure } from '../utils/geometry';
+import {
+    isShapeResultAvailable,
+    shapeResultDetail,
+    shapeResultStatusLabel
+} from '../utils/shapeResults';
+import { calculateAdditionalMetrics } from './shapeAnalysis/structuralMetrics';
 import { APP_VERSION, APP_FULL_NAME, getCitationString, CITATION } from '../constants/appMetadata';
 
 /**
@@ -26,6 +31,11 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+function csvField(value) {
+    const text = value == null ? '' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
 /**
  * Generate PDF report (opens in new window)
  *
@@ -37,7 +47,6 @@ function escapeHtml(str) {
  * @param {number} params.coordRadius - Coordination radius
  * @param {Array} params.geometryResults - All geometry analysis results
  * @param {Object} params.additionalMetrics - Bond statistics
- * @param {Object} params.qualityMetrics - Quality metrics
  * @param {Array} params.warnings - Analysis warnings
  * @param {string} params.fileName - Structure file name
  * @param {string} params.analysisMode - 'default' or 'intensive'
@@ -53,7 +62,6 @@ export function generatePDFReport({
     coordRadius,
     geometryResults,
     additionalMetrics,
-    qualityMetrics,
     warnings,
     fileName,
     analysisMode,
@@ -67,7 +75,6 @@ export function generatePDFReport({
     const metal = atoms[selectedMetal];
     const date = new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' });
     const { name, shapeMeasure } = bestGeometry;
-    const interpretation = interpretShapeMeasure(shapeMeasure);
 
     const totalAvailableGeometries = Object.values(REFERENCE_GEOMETRIES).reduce(
         (sum, geoms) => sum + Object.keys(geoms).length,
@@ -205,16 +212,6 @@ h3 {
   font-size: 1.25em;
   font-weight: 700;
   color: #1e293b;
-}
-
-.quality-score {
-  font-size: 2.5rem;
-  font-weight: 800;
-  text-align: center;
-  padding: 2rem;
-  border-radius: 12px;
-  margin: 1.5rem 0;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .metrics-grid {
@@ -404,7 +401,6 @@ footer strong {
 }
 
 @media print {
-  .quality-score,
   .metric-box {
     break-inside: avoid;
   }
@@ -461,7 +457,7 @@ footer strong {
     </div>
     <div class="summary-item">
       <strong>Best Match Geometry</strong>
-      <span style="color:${interpretation.color};">${name}</span>
+      <span>${name}</span>
     </div>
     <div class="summary-item">
       <strong>Point Group</strong>
@@ -469,42 +465,9 @@ footer strong {
     </div>
     <div class="summary-item">
       <strong>CShM Value</strong>
-      <span style="color:${interpretation.color};">${Math.max(0, shapeMeasure).toFixed(4)}</span>
-    </div>
-    <div class="summary-item">
-      <strong>Interpretation</strong>
-      <span style="color:${interpretation.color};">${interpretation.text}</span>
+      <span>${formatShapeMeasure(shapeMeasure)}</span>
     </div>
   </div>
-
-  ${qualityMetrics ? `
-  <h2>🎯 Quality Metrics</h2>
-  <div class="quality-score" style="background: linear-gradient(135deg, ${qualityMetrics.overallQualityScore > 80 ? '#d1fae5' : qualityMetrics.overallQualityScore > 60 ? '#fef3c7' : '#fee2e2'}, transparent); color: ${qualityMetrics.overallQualityScore > 80 ? '#059669' : qualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626'};">
-    Overall Quality Score: ${qualityMetrics.overallQualityScore.toFixed(1)}/100
-  </div>
-  <div class="metrics-grid">
-    <div class="metric-box">
-      <div class="metric-label">Angular Distortion Index</div>
-      <div class="metric-value">${qualityMetrics.angularDistortionIndex.toFixed(3)}°</div>
-      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Lower is better (ideal = 0)</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-label">Bond Length Uniformity</div>
-      <div class="metric-value">${qualityMetrics.bondLengthUniformityIndex.toFixed(1)}%</div>
-      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Higher is better (ideal = 100)</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-label">Shape Deviation Parameter</div>
-      <div class="metric-value">${qualityMetrics.shapeDeviationParameter.toFixed(4)}</div>
-      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Normalized distortion measure</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-label">RMSD</div>
-      <div class="metric-value">${(Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd : 0).toFixed(4)} Å</div>
-      <div style="font-size: 0.8em; color: #64748b; margin-top: 0.5rem;">Root mean square deviation</div>
-    </div>
-  </div>
-  ` : ''}
 
   ${additionalMetrics ? `
   <h2>📈 Bond Statistics</h2>
@@ -521,6 +484,7 @@ footer strong {
       <div class="metric-label">Bond Length Range</div>
       <div class="metric-value">${additionalMetrics.minBondLength.toFixed(3)} - ${additionalMetrics.maxBondLength.toFixed(3)} Å</div>
     </div>
+    ${additionalMetrics.angleStats?.count > 0 ? `
     <div class="metric-box">
       <div class="metric-label">Mean L-M-L Angle</div>
       <div class="metric-value">${additionalMetrics.angleStats.mean.toFixed(2)}° ± ${additionalMetrics.angleStats.stdDev.toFixed(2)}°</div>
@@ -533,6 +497,7 @@ footer strong {
       <div class="metric-label">Number of L-M-L Angles</div>
       <div class="metric-value">${additionalMetrics.angleStats.count}</div>
     </div>
+    ` : ''}
   </div>
   ` : ''}
 
@@ -544,7 +509,6 @@ footer strong {
     ${intensiveMetadata.metadata.patternDetected ? `
     <div style="padding: 1rem; background: white; border-radius: 8px; margin: 1rem 0;">
       <p style="margin: 0.5rem 0;"><strong>Pattern:</strong> <span style="text-transform: capitalize;">${intensiveMetadata.metadata.patternDetected.replace('_', ' ')}</span></p>
-      <p style="margin: 0.5rem 0;"><strong>Confidence:</strong> ${Math.round(intensiveMetadata.metadata.patternConfidence * 100)}%</p>
       <p style="margin: 0.5rem 0;"><strong>Coordination Number:</strong> ${intensiveMetadata.metadata.coordinationNumber}</p>
     </div>
     ` : ''}
@@ -578,7 +542,7 @@ footer strong {
     ${intensiveMetadata.metadata.bestGeometry ? `
     <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px;">
       <p style="margin: 0;"><strong>Best Geometry:</strong> ${intensiveMetadata.metadata.bestGeometry}</p>
-      <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${intensiveMetadata.metadata.bestCShM != null ? Math.max(0, intensiveMetadata.metadata.bestCShM).toFixed(4) : 'N/A'}</p>
+      <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${formatShapeMeasure(intensiveMetadata.metadata.bestCShM)}</p>
     </div>
     ` : ''}
   </div>
@@ -595,19 +559,19 @@ footer strong {
         <th>Geometry</th>
         <th>Point Group</th>
         <th>CShM</th>
-        <th>Interpretation</th>
-        <th>Confidence</th>
+        <th>Status</th>
+        <th>Details</th>
       </tr>
     </thead>
     <tbody>
       ${geometryResults.map((r, i) => `
-      <tr class="${i === 0 ? 'best-result' : ''}">
+      <tr class="${i === 0 && isShapeResultAvailable(r) ? 'best-result' : ''}">
         <td>${i + 1}</td>
         <td><strong>${r.name}</strong></td>
         <td style="font-family: monospace; font-weight: 600; color: #6366f1;">${POINT_GROUPS[r.name] || '—'}</td>
-        <td style="font-family: monospace; font-weight: 600;">${Math.max(0, r.shapeMeasure).toFixed(4)}</td>
-        <td style="color: ${interpretShapeMeasure(r.shapeMeasure).color}; font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).text}</td>
-        <td style="font-weight: 600;">${interpretShapeMeasure(r.shapeMeasure).confidence}%</td>
+        <td style="font-family: monospace; font-weight: 600;">${formatShapeMeasure(r.shapeMeasure)}</td>
+        <td>${shapeResultStatusLabel(r)}</td>
+        <td>${escapeHtml(shapeResultDetail(r))}</td>
       </tr>
       `).join('')}
     </tbody>
@@ -691,20 +655,19 @@ export function generateCSVReport({ geometryResults, fileName }) {
     }
 
     // CSV Header
-    const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Interpretation', 'Confidence %'];
+    const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Status', 'Details'];
 
     // CSV Rows
     const rows = geometryResults.map((result, index) => {
-        const interpretation = interpretShapeMeasure(result.shapeMeasure);
         const pointGroup = POINT_GROUPS[result.name] || '';
 
         return [
             index + 1,
-            `"${result.name}"`, // Quote to handle commas in names
+            csvField(result.name),
             pointGroup,
-            Math.max(0, result.shapeMeasure).toFixed(4),
-            `"${interpretation.text}"`,
-            interpretation.confidence
+            formatShapeMeasure(result.shapeMeasure),
+            shapeResultStatusLabel(result),
+            csvField(shapeResultDetail(result))
         ];
     });
 
@@ -760,7 +723,6 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
         if (result && result.bestGeometry) {
-            const interpretation = interpretShapeMeasure(result.bestGeometry.shapeMeasure);
             summaryRows.push(`
                 <tr>
                     <td>${index + 1}</td>
@@ -768,8 +730,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     <td>${structure.atoms[result.metalIndex]?.element || 'N/A'}</td>
                     <td style="text-align: center;">${result.coordinationNumber || 'N/A'}</td>
                     <td>${result.bestGeometry.name}</td>
-                    <td style="font-family: monospace; color: ${interpretation.color};">${Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4)}</td>
-                    <td style="text-align: center;">${interpretation.confidence}%</td>
+                    <td style="font-family: monospace;">${formatShapeMeasure(result.bestGeometry.shapeMeasure)}</td>
                 </tr>
             `);
         }
@@ -783,26 +744,18 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
             // Get coordAtoms from the result (stored during batch analysis)
             const coordAtoms = result.coordAtoms || [];
 
-            // Calculate metrics
+            // Calculate descriptive structural summaries
             const additionalMetrics = calculateAdditionalMetrics(coordAtoms);
-            const qualityMetrics = result.bestGeometry
-                ? calculateQualityMetrics(coordAtoms, result.bestGeometry, result.bestGeometry.shapeMeasure)
-                : null;
-
-            const bestInterp = result.bestGeometry
-                ? interpretShapeMeasure(result.bestGeometry.shapeMeasure)
-                : null;
 
             const geomRows = result.geometryResults.map((r, i) => {
-                const interp = interpretShapeMeasure(r.shapeMeasure);
                 return `
-                    <tr class="${i === 0 ? 'best-result' : ''}">
+                    <tr class="${i === 0 && isShapeResultAvailable(r) ? 'best-result' : ''}">
                         <td>${i + 1}</td>
                         <td><strong>${r.name}</strong></td>
                         <td style="font-family: monospace;">${POINT_GROUPS[r.name] || '—'}</td>
-                        <td style="font-family: monospace; color: ${interp.color};">${Math.max(0, r.shapeMeasure).toFixed(4)}</td>
-                        <td style="color: ${interp.color};">${interp.text}</td>
-                        <td>${interp.confidence}%</td>
+                        <td style="font-family: monospace;">${formatShapeMeasure(r.shapeMeasure)}</td>
+                        <td>${shapeResultStatusLabel(r)}</td>
+                        <td>${escapeHtml(shapeResultDetail(r))}</td>
                     </tr>
                 `;
             }).join('');
@@ -858,11 +811,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                             <div class="summary-item">
                                 <strong>CShM Value</strong>
-                                <span style="color: ${bestInterp?.color || '#374151'};">${result.bestGeometry?.shapeMeasure != null ? Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4) : 'N/A'}</span>
-                            </div>
-                            <div class="summary-item">
-                                <strong>Interpretation</strong>
-                                <span style="color: ${bestInterp?.color || '#374151'};">${bestInterp?.text || 'N/A'}</span>
+                                <span>${formatShapeMeasure(result.bestGeometry?.shapeMeasure)}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Ligands</strong>
@@ -870,35 +819,6 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                         </div>
                     </div>
-
-                    ${qualityMetrics ? `
-                    <!-- Quality Metrics -->
-                    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #86efac; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                        <h4 style="margin: 0 0 0.75rem 0; color: #15803d;">🎯 Quality Metrics</h4>
-                        <div class="summary-grid">
-                            <div class="summary-item">
-                                <strong>Overall Quality Score</strong>
-                                <span style="font-size: 1.2em; font-weight: 700; color: ${qualityMetrics.overallQualityScore > 80 ? '#059669' : qualityMetrics.overallQualityScore > 60 ? '#d97706' : '#dc2626'};">${qualityMetrics.overallQualityScore.toFixed(1)}/100</span>
-                            </div>
-                            <div class="summary-item">
-                                <strong>Angular Distortion Index</strong>
-                                <span>${qualityMetrics.angularDistortionIndex.toFixed(3)}°</span>
-                            </div>
-                            <div class="summary-item">
-                                <strong>Bond Length Uniformity</strong>
-                                <span>${qualityMetrics.bondLengthUniformityIndex.toFixed(1)}%</span>
-                            </div>
-                            <div class="summary-item">
-                                <strong>Shape Deviation Parameter</strong>
-                                <span>${qualityMetrics.shapeDeviationParameter.toFixed(4)}</span>
-                            </div>
-                            <div class="summary-item">
-                                <strong>RMSD</strong>
-                                <span>${(Number.isFinite(qualityMetrics.rmsd) ? qualityMetrics.rmsd : 0).toFixed(4)} Å</span>
-                            </div>
-                        </div>
-                    </div>
-                    ` : ''}
 
                     ${additionalMetrics && additionalMetrics.meanBondLength > 0 ? `
                     <!-- Bond Statistics -->
@@ -994,8 +914,8 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                                 <th>Geometry</th>
                                 <th>Point Group</th>
                                 <th>CShM</th>
-                                <th>Interpretation</th>
-                                <th>Confidence</th>
+                                <th>Status</th>
+                                <th>Details</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1046,7 +966,6 @@ ${getBatchReportStyles()}
         <th>CN</th>
         <th>Best Geometry</th>
         <th>CShM</th>
-        <th>Confidence</th>
       </tr>
     </thead>
     <tbody>
@@ -1113,8 +1032,6 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
         'Best_Geometry',
         'Point_Group',
         'CShM',
-        'Interpretation',
-        'Confidence_%',
         'Analysis_Mode'
     ];
 
@@ -1122,7 +1039,6 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
         if (result && result.bestGeometry) {
-            const interpretation = interpretShapeMeasure(result.bestGeometry.shapeMeasure);
             rows.push([
                 `"${structure.id}"`,
                 structure.atoms[result.metalIndex]?.element || '',
@@ -1130,9 +1046,7 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
                 result.radius?.toFixed(3) || '',
                 `"${result.bestGeometry.name}"`,
                 POINT_GROUPS[result.bestGeometry.name] || '',
-                Math.max(0, result.bestGeometry.shapeMeasure).toFixed(4),
-                `"${interpretation.text}"`,
-                interpretation.confidence,
+                formatShapeMeasure(result.bestGeometry.shapeMeasure),
                 result.analysisMode || 'default'
             ]);
         }
@@ -1165,8 +1079,8 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
         'Geometry_Name',
         'Point_Group',
         'CShM',
-        'Interpretation',
-        'Confidence_%',
+        'Status',
+        'Details',
         'Is_Best_Match'
     ];
 
@@ -1175,18 +1089,17 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
         const result = batchResults.get(index);
         if (result && result.geometryResults) {
             result.geometryResults.forEach((geom, geomIndex) => {
-                const interpretation = interpretShapeMeasure(geom.shapeMeasure);
                 rows.push([
                     `"${structure.id}"`,
                     structure.atoms[result.metalIndex]?.element || '',
                     result.coordinationNumber || '',
                     geomIndex + 1,
-                    `"${geom.name}"`,
+                    csvField(geom.name),
                     POINT_GROUPS[geom.name] || '',
-                    Math.max(0, geom.shapeMeasure).toFixed(4),
-                    `"${interpretation.text}"`,
-                    interpretation.confidence,
-                    geomIndex === 0 ? 'Yes' : 'No'
+                    formatShapeMeasure(geom.shapeMeasure),
+                    shapeResultStatusLabel(geom),
+                    csvField(shapeResultDetail(geom)),
+                    geomIndex === 0 && isShapeResultAvailable(geom) ? 'Yes' : 'No'
                 ]);
             });
         }

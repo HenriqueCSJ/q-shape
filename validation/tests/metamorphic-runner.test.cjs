@@ -312,7 +312,7 @@ function fakeDependencies(trace, failFirst = false) {
             }));
             return {
                 schema_version: 1,
-                campaign_id: 'qshape-metamorphic-malformed-v1',
+                campaign_id: 'qshape-metamorphic-malformed-v2',
                 campaign_gate: 'malformed_control_contract',
                 evidence_scope: 'product_boundaries',
                 product_boundary_invoked: true,

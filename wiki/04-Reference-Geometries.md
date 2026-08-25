@@ -267,7 +267,7 @@ $$\mathbf{p}_i^{norm} = \frac{\mathbf{p}_i}{||\mathbf{p}_i||}$$
 This ensures:
 1. Scale invariance in CShM comparison
 2. Consistent comparison across different polyhedra
-3. Simplified RMSD interpretation
+3. A common dimensionless reference-shape convention
 
 ### 4.2 Centering
 
@@ -343,17 +343,14 @@ function generateAntiprism(n, twistAngle = Math.PI / n) {
 }
 ```
 
-## 6. Quality Metrics for Geometry Assignment
+## 6. Geometry Assignment
 
-### 6.1 Confidence Levels
+### 6.1 Interpreting the numerical results
 
-| CShM Range | Confidence | Geometry Assignment |
-|------------|------------|---------------------|
-| 0 - 0.5 | Very High | Definitive match |
-| 0.5 - 1.5 | High | Clear match with minor distortion |
-| 1.5 - 3.0 | Moderate | Match with significant distortion |
-| 3.0 - 7.5 | Low | Possible match, consider alternatives |
-| > 7.5 | Very Low | Likely different geometry |
+Compare the finite, non-negative CShM values for all relevant
+same-coordination-number references. A lower value is a closer match to that
+reference, but Q-Shape does not convert CShM ranges into confidence
+probabilities or definitive chemical assignments.
 
 ### 6.2 Distinguishing Similar Geometries
 
@@ -415,4 +412,4 @@ for (const cn in REFERENCE_GEOMETRIES) {
 
 *Previous: [Hungarian Algorithm](03-Hungarian-Algorithm.md)*
 
-*Next: [Quality Metrics](05-Quality-Metrics.md)*
+*Next: [Structural Summary Statistics](05-Structural-Summaries.md)*

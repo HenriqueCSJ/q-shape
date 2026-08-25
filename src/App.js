@@ -15,6 +15,7 @@ import { useThreeScene } from './hooks/useThreeScene';
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
 import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateLongDetailedCSV } from './services/reportGenerator';
+import { isShapeResultAvailable } from './utils/shapeResults';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -261,7 +262,6 @@ export default function CoordinationGeometryAnalyzer() {
         geometryResults,
         bestGeometry,
         additionalMetrics,
-        qualityMetrics,
         isLoading,
         progress
     } = useShapeAnalysis({
@@ -284,8 +284,11 @@ export default function CoordinationGeometryAnalyzer() {
     }, [geometryResults]);
 
     // Determine which geometry to visualize based on user selection
-    const displayGeometry = geometryResults && geometryResults.length > selectedGeometryIndex
+    const selectedDisplayGeometry = geometryResults && geometryResults.length > selectedGeometryIndex
         ? geometryResults[selectedGeometryIndex]
+        : bestGeometry;
+    const displayGeometry = isShapeResultAvailable(selectedDisplayGeometry)
+        ? selectedDisplayGeometry
         : bestGeometry;
 
     // Three.js Scene Hook with scene key for proper re-rendering
@@ -408,7 +411,6 @@ export default function CoordinationGeometryAnalyzer() {
                 coordRadius,
                 geometryResults,
                 additionalMetrics,
-                qualityMetrics,
                 warnings,
                 fileName: currentStructure?.id || fileName,
                 analysisMode: analysisParams.mode,
@@ -420,7 +422,7 @@ export default function CoordinationGeometryAnalyzer() {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    }, [atoms, effectiveMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, qualityMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
+    }, [atoms, effectiveMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
     // Batch PDF Report
     const handleGenerateBatchReport = useCallback(() => {
@@ -579,7 +581,6 @@ export default function CoordinationGeometryAnalyzer() {
           selectedMetal={effectiveMetal}
           coordAtoms={coordAtoms}
           additionalMetrics={additionalMetrics}
-          qualityMetrics={qualityMetrics}
           progress={progress}
           intensiveProgress={intensiveProgress}
           intensiveMetadata={intensiveMetadata}

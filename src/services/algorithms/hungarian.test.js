@@ -8,7 +8,7 @@
  * minimizes total cost. A greedy approach may find suboptimal solutions.
  */
 
-import hungarianAlgorithm from './hungarian';
+import hungarianAlgorithm, { greedyMatching } from './hungarian';
 
 describe('Hungarian Algorithm - Basic Functionality', () => {
     test('should handle 1x1 matrix', () => {
@@ -55,6 +55,21 @@ describe('Hungarian Algorithm - Basic Functionality', () => {
 });
 
 describe('Hungarian Algorithm - Greedy Fails Cases', () => {
+    test('2x2 greedy assignment can already be suboptimal', () => {
+        const cost = [
+            [1, 2],
+            [2, 100]
+        ];
+
+        const greedyCost = greedyMatching(cost)
+            .reduce((sum, [i, j]) => sum + cost[i][j], 0);
+        const optimalCost = hungarianAlgorithm(cost)
+            .reduce((sum, [i, j]) => sum + cost[i][j], 0);
+
+        expect(greedyCost).toBe(101);
+        expect(optimalCost).toBe(4);
+    });
+
     test('4x4 matrix where greedy is suboptimal', () => {
         // Classic case where greedy fails
         const cost = [
@@ -163,6 +178,39 @@ describe('Hungarian Algorithm - Edge Cases', () => {
         const totalCost = result.reduce((sum, [i, j]) => sum + cost[i][j], 0);
         // Optimal: (0,0)=-5, (1,1)=-8, (2,2)=-3 = -16
         expect(totalCost).toBe(-16);
+    });
+
+    test('rejects a non-square matrix before invoking the solver', () => {
+        expect(() => hungarianAlgorithm([
+            [1, 2, 3],
+            [4, 5, 6]
+        ])).toThrow(/must be square/);
+    });
+
+    test.each([NaN, Infinity, -Infinity])(
+        'rejects non-finite matrix entry %p',
+        invalid => {
+            expect(() => hungarianAlgorithm([
+                [1, invalid],
+                [2, 3]
+            ])).toThrow(/non-finite value at \[0, 1\]/);
+        }
+    );
+
+    test('propagates a solver failure without substituting a greedy assignment', () => {
+        jest.isolateModules(() => {
+            jest.doMock('munkres-js', () => () => {
+                throw new Error('synthetic solver failure');
+            });
+            const failingHungarian = require('./hungarian').default;
+
+            expect(() => failingHungarian([
+                [10, 1, 1],
+                [1, 10, 1],
+                [1, 1, 10]
+            ])).toThrow(/Hungarian assignment failed.*synthetic solver failure/);
+        });
+        jest.dontMock('munkres-js');
     });
 });
 

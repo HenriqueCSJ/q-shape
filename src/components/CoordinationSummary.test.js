@@ -7,7 +7,6 @@ const baseProps = {
     selectedMetal: 0,
     coordAtoms: [],
     additionalMetrics: null,
-    qualityMetrics: null,
     progress: null,
     intensiveProgress: null,
     intensiveMetadata: null,

@@ -215,26 +215,6 @@
   margin-top: 0.5rem;
 }
 
-.quality-card {
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border-radius: 12px;
-  border: 2px solid #86efac;
-}
-
-.quality-score {
-  font-size: 2.5rem;
-  font-weight: 800;
-  text-align: center;
-  margin: 0.5rem 0;
-}
-
-.quality-subtitle {
-  text-align: center;
-  color: #475569;
-  font-size: 0.9rem;
-}
-
 /* ============================================
    BUTTONS
    ============================================ */

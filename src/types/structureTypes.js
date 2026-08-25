@@ -69,7 +69,6 @@
  * @property {Array<Object>} geometryResults - All geometry analysis results (sorted by CShM)
  * @property {Object} bestGeometry - Best matching geometry
  * @property {Object} additionalMetrics - Bond statistics
- * @property {Object} qualityMetrics - Quality scores
  * @property {Object} [intensiveMetadata] - Intensive analysis metadata if applicable
  * @property {number} metalIndex - Metal center used for analysis
  * @property {number} radius - Coordination radius used

@@ -28,9 +28,9 @@
 - **🌐 Browser-Based**: No installation required - runs entirely in your web browser
 - **🔒 Privacy First**: All calculations performed locally on your device. Your structures never leave your computer
 - **📊 Comprehensive**: 92 reference geometries covering CN 2-12, plus fullerenes (CN 20, 24, 48, 60)
-- **🎯 Accurate**: Implements optimal algorithms (Kabsch alignment, Hungarian matching) for rigorous results
-- **📈 Publication-Ready**: Generate professional PDF reports with 3D visualizations and statistics
-- **⚡ Dual Modes**: Fast analysis for routine work, intensive mode for publication-quality results
+- **🎯 Quantitative**: Reports Continuous Shape Measures using Kabsch alignment and assignment optimization
+- **📈 Exportable Results**: Generate HTML/print reports and CSV files with CShM values and structural summaries
+- **⚡ Dual Modes**: Standard and extended-search analysis modes
 
 ---
 
@@ -43,8 +43,8 @@
 ✅ **Auto-Detection** - Automatically identifies metal centers and coordination spheres
 ✅ **Smart Radius Control** - Fine-tune coordination sphere or find optimal radius by CN
 ✅ **Interactive 3D Visualization** - Real-time molecular viewer with ideal geometry overlay
-✅ **Comprehensive Metrics** - Bond statistics, angular distortion, quality scoring
-✅ **PDF Reports** - Professional output suitable for publication
+✅ **Structural Summaries** - Direct bond-length and ligand-metal-ligand angle statistics
+✅ **Reports and CSV** - Numerical CShM values, structural summaries, and provenance
 
 ### Multi-Structure Batch Analysis (v1.5.0)
 
@@ -65,7 +65,6 @@
 
 **Intensive Mode** (~20-30 seconds)
 - Extended optimization with global search
-- Publication-quality precision
 - Recommended for highly distorted or ambiguous geometries
 
 ---
@@ -110,16 +109,12 @@ Where:
 - **P** = ideal reference geometry (normalized)
 - Minimization over all atom permutations **σ**, rotations **R**, and isotropic scaling **c**
 
-### Interpretation Guide
+### Numerical CShM reporting
 
-| CShM Range | Quality | Meaning |
-|------------|---------|---------|
-| 0.00-0.10 | Perfect | Negligible distortion from ideal |
-| 0.10-1.50 | Excellent | Near-ideal coordination |
-| 1.50-3.00 | Good | Slight distortion, geometry clear |
-| 3.00-7.50 | Moderate | Notable distortion |
-| 7.50-15.0 | Poor | Significant distortion |
-| >15.0 | Very Poor | No clear match to this geometry |
+Q-Shape reports finite CShM values in the mathematical domain `[0, 100]`.
+Scientific interpretation should compare the numerical values for the relevant
+same-CN reference geometries directly. Q-Shape does not convert CShM ranges
+into qualitative classes, probabilities, or confidence estimates.
 
 ### Algorithms
 
@@ -287,7 +282,7 @@ Fine-tune your coordination sphere definition:
 
 Automatically determine the optimal radius for a target coordination number:
 - Uses gap detection algorithm to analyze neighbor distances
-- Reports confidence based on separation quality
+- Reports the selected radius and neighboring-distance separation
 - Supports CN 2-24
 
 ### Report Generation
@@ -295,8 +290,8 @@ Automatically determine the optimal radius for a target coordination number:
 Click "📄 Generate Report" to create a comprehensive PDF including:
 - 3D structure visualization with ideal geometry overlay
 - Complete shape measure table for all geometries
-- Quality metrics and interpretation
-- Bond length statistics and coordination table
+- Numerical dimensionless CShM values without qualitative or confidence columns
+- Bond-length and angle statistics plus the coordination table
 - Proper citation information
 
 ---
