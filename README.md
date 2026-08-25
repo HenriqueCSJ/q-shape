@@ -51,9 +51,9 @@
 ✅ **Batch Processing** - Analyze multiple structures from a single file
 ✅ **Multi-Structure XYZ/CIF Support** - Load files with multiple conformers or structures
 ✅ **Batch Summary Table** - Visual overview of all analyzed structures at a glance
-✅ **Parallel Analysis** - Run intensive analysis on all structures with progress tracking
-✅ **Batch PDF Reports** - Comprehensive reports with per-structure details
-✅ **CSV Export** - Wide summary or detailed geometry results for all structures
+✅ **Batch Analysis** - Run intensive analysis on all structures with progress tracking
+✅ **Batch Print Reports** - Print-ready HTML reports with per-structure details; save as PDF from the browser print dialog
+✅ **CSV Export** - Detailed geometry results for all processed structures, including retained failures
 ✅ **Structure Selector** - Navigate between structures with instant visualization updates
 
 ### Analysis Modes
@@ -79,12 +79,12 @@ Visit **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-
 
 ### Basic Workflow
 
-1. **Upload** your XYZ or CIF file (drag-and-drop or file picker)
+1. **Upload** your XYZ or CIF file with the file picker
 2. **Select** metal center (auto-detected or manual selection)
 3. **Adjust** coordination sphere radius if needed
 4. **Run** analysis (standard or intensive mode)
 5. **Visualize** results in 3D and review shape measures
-6. **Export** PDF report for your records
+6. **Export** a print-ready report and save it as PDF from the browser print dialog
 
 ### Batch Analysis Workflow (v1.5.0)
 
@@ -92,7 +92,7 @@ Visit **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-
 2. **Review** the batch summary table showing all structures
 3. **Run Batch Analysis** to analyze all structures with intensive mode
 4. **Navigate** between structures using the structure selector
-5. **Export** batch PDF report or CSV files with all results
+5. **Export** a batch print report or detailed CSV with all processed results
 
 ---
 
@@ -287,7 +287,7 @@ Automatically determine the optimal radius for a target coordination number:
 
 ### Report Generation
 
-Click "📄 Generate Report" to create a comprehensive PDF including:
+Click "📄 Generate Report" to open a comprehensive print-ready report that can be saved as PDF from the browser dialog, including:
 - 3D structure visualization with ideal geometry overlay
 - Complete shape measure table for all geometries
 - Numerical dimensionless CShM values without qualitative or confidence columns

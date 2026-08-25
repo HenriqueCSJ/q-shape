@@ -34,7 +34,7 @@ export default function AnalysisControls({
             {/* Metal Center Selector */}
             <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <label className="control-label" style={{ margin: 0 }}>
+                    <label htmlFor="metal-center-select" className="control-label" style={{ margin: 0 }}>
                         🎯 Metal Center
                     </label>
                     {batchMode && selectedMetal !== null && onApplyMetalToAll && (
@@ -57,6 +57,7 @@ export default function AnalysisControls({
                     )}
                 </div>
                 <select
+                    id="metal-center-select"
                     value={selectedMetal ?? ''}
                     onChange={(e) => onMetalChange(Number(e.target.value))}
                     className="select-input"
@@ -111,6 +112,7 @@ export default function AnalysisControls({
                 <div style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <input
+                            aria-label="Coordination radius value"
                             type="text"
                             value={radiusInput}
                             onChange={onRadiusInputChange}
@@ -126,6 +128,7 @@ export default function AnalysisControls({
                             }}
                         />
                         <select
+                            aria-label="Coordination radius step"
                             value={radiusStep}
                             onChange={onRadiusStepChange}
                             disabled={autoRadius}
@@ -138,6 +141,8 @@ export default function AnalysisControls({
                             <option value={0.01}>±0.01 Å</option>
                         </select>
                         <button
+                            type="button"
+                            aria-label="Increase coordination radius"
                             onClick={onIncrementRadius}
                             disabled={autoRadius}
                             style={{
@@ -153,6 +158,8 @@ export default function AnalysisControls({
                             +
                         </button>
                         <button
+                            type="button"
+                            aria-label="Decrease coordination radius"
                             onClick={onDecrementRadius}
                             disabled={autoRadius}
                             style={{
@@ -172,6 +179,7 @@ export default function AnalysisControls({
 
                 {/* Slider */}
                 <input
+                    aria-label="Coordination radius"
                     type="range"
                     min="1.5"
                     max="6.0"
@@ -192,6 +200,7 @@ export default function AnalysisControls({
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
                     <input
+                        aria-label="Target coordination number"
                         type="text"
                         value={targetCNInput}
                         onChange={(e) => onTargetCNInputChange(e.target.value)}

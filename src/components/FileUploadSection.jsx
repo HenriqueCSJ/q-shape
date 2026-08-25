@@ -22,7 +22,7 @@ export default function FileUploadSection({
 }) {
     return (
         <div className="card">
-            <label className="control-label">
+            <label htmlFor="structure-file-input" className="control-label">
                 📁 Load Molecular Structure (.xyz, .cif)
             </label>
             <p style={{
@@ -35,6 +35,7 @@ export default function FileUploadSection({
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
+                    id="structure-file-input"
                     ref={fileInputRef}
                     type="file"
                     accept=".xyz,.cif"

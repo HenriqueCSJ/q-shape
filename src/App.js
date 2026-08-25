@@ -16,6 +16,11 @@ import { useThreeScene } from './hooks/useThreeScene';
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
 import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateLongDetailedCSV } from './services/reportGenerator';
 import { isShapeResultAvailable, isShapeResultRecord } from './utils/shapeResults';
+import {
+    BATCH_RESULT_STATUS,
+    batchResultDetail,
+    createBatchFailureResult
+} from './utils/batchResults';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -237,7 +242,13 @@ export default function CoordinationGeometryAnalyzer() {
                     metalIndex: effectiveMetal,
                     radius: coordRadius,
                     coordinationNumber: results.metadata?.coordinationNumber || 0,
-                    analysisMode: 'intensive'
+                    analysisMode: 'intensive',
+                    status: bestIntensiveGeometry
+                        ? BATCH_RESULT_STATUS.AVAILABLE
+                        : BATCH_RESULT_STATUS.UNAVAILABLE,
+                    error: bestIntensiveGeometry
+                        ? null
+                        : batchResultDetail({ geometryResults: results.geometryResults })
                 }, batchOwnership);
             }
 
@@ -246,15 +257,22 @@ export default function CoordinationGeometryAnalyzer() {
         } catch (error) {
             if (!ownsRun()) return;
             console.error('Intensive analysis failed:', error);
-            if (batchMode) clearStructureResult(selectedStructureIndex, batchOwnership);
-            handleError(`Intensive analysis failed: ${error.message}`);
+            const failure = createBatchFailureResult(error, {
+                metalIndex: effectiveMetal,
+                radius: coordRadius,
+                coordinationNumber: coordAtoms.length || null
+            });
+            if (batchMode) {
+                setStructureResult(selectedStructureIndex, failure, batchOwnership);
+            }
+            handleError(`Intensive analysis failed: ${failure.error}`);
             setIntensiveProgress(null);
         } finally {
             if (runId === intensiveRunIdRef.current) {
                 setIsRunningIntensive(false);
             }
         }
-    }, [atoms, effectiveMetal, coordRadius, intensiveInputKey, intensiveContextKey,
+    }, [atoms, effectiveMetal, coordRadius, coordAtoms, intensiveInputKey, intensiveContextKey,
         handleWarning, handleError, batchMode, selectedStructureIndex,
         setStructureResult, clearStructureResult, beginStructureAnalysis,
         isAnalysisOwnershipCurrent]);
@@ -426,7 +444,7 @@ export default function CoordinationGeometryAnalyzer() {
         }
     }, [atoms, effectiveMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
-    // Batch PDF Report
+    // Batch print-ready report
     const handleGenerateBatchReport = useCallback(() => {
         if (!batchMode || batchResults.size === 0) {
             handleWarning('No batch results available for report generation');

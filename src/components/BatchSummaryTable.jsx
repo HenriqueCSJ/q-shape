@@ -18,12 +18,16 @@ export default function BatchSummaryTable({
 }) {
     const summary = getBatchSummary?.() || [];
     const hasResults = summary.length > 0;
+    const progressValue = Math.max(0, Math.min(100, Number(batchProgress?.progress) || 0));
 
     return (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
             {/* Batch Progress indicator */}
             {batchProgress && (
-                <div style={{
+                <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
                     marginBottom: hasResults ? '1.5rem' : 0,
                     padding: '0.75rem 1rem',
                     background: batchProgress.stage === 'error'
@@ -62,7 +66,13 @@ export default function BatchSummaryTable({
                         )}
                     </div>
                     {batchProgress.stage === 'analyzing' && (
-                        <div style={{
+                        <div
+                            role="progressbar"
+                            aria-label="Batch analysis progress"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow={Math.round(progressValue)}
+                            style={{
                             height: '6px',
                             background: '#e2e8f0',
                             borderRadius: '3px',
@@ -70,7 +80,7 @@ export default function BatchSummaryTable({
                         }}>
                             <div style={{
                                 height: '100%',
-                                width: `${batchProgress.progress || 0}%`,
+                                width: `${progressValue}%`,
                                 background: 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)',
                                 borderRadius: '3px',
                                 transition: 'width 0.3s ease'
@@ -113,6 +123,8 @@ export default function BatchSummaryTable({
                                     <th style={{ padding: '0.75rem', textAlign: 'center' }}>CN</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'left' }}>Best Geometry</th>
                                     <th style={{ padding: '0.75rem', textAlign: 'right' }}>CShM</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Details</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -157,16 +169,37 @@ export default function BatchSummaryTable({
                                                 fontWeight: isSelected ? 600 : 500,
                                                 color: isSelected ? selectedTextColor : '#374151'
                                             }}>
-                                                {row.id}
-                                                {isSelected && (
-                                                    <span style={{
-                                                        marginLeft: '0.5rem',
-                                                        fontSize: '0.8rem',
-                                                        color: selectedAccent
-                                                    }}>
-                                                        ◀
-                                                    </span>
-                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onSelectStructure(row.index);
+                                                    }}
+                                                    aria-pressed={isSelected}
+                                                    aria-label={`View structure ${row.id}`}
+                                                    style={{
+                                                        appearance: 'none',
+                                                        border: 0,
+                                                        padding: 0,
+                                                        background: 'transparent',
+                                                        color: 'inherit',
+                                                        font: 'inherit',
+                                                        fontWeight: 'inherit',
+                                                        textAlign: 'left',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {row.id}
+                                                    {isSelected && (
+                                                        <span aria-hidden="true" style={{
+                                                            marginLeft: '0.5rem',
+                                                            fontSize: '0.8rem',
+                                                            color: selectedAccent
+                                                        }}>
+                                                            ◀
+                                                        </span>
+                                                    )}
+                                                </button>
                                             </td>
                                             <td style={{
                                                 padding: '0.75rem',
@@ -181,7 +214,7 @@ export default function BatchSummaryTable({
                                                 fontFamily: 'monospace',
                                                 color: isSelected ? selectedTextColor : '#374151'
                                             }}>
-                                                {row.coordinationNumber}
+                                                {row.coordinationNumber ?? 'N/A'}
                                             </td>
                                             <td style={{
                                                 padding: '0.75rem',
@@ -197,6 +230,30 @@ export default function BatchSummaryTable({
                                                 color: isSelected ? selectedTextColor : '#374151'
                                             }}>
                                                 {formatShapeMeasure(row.bestCShM)}
+                                            </td>
+                                            <td style={{
+                                                padding: '0.75rem',
+                                                color: row.status === 'Error'
+                                                    ? '#b91c1c'
+                                                    : isSelected ? selectedTextColor : '#374151',
+                                                fontWeight: 600
+                                            }}>
+                                                {row.status || (
+                                                    row.bestGeometry && row.bestGeometry !== 'N/A'
+                                                        ? 'Available'
+                                                        : 'N/A'
+                                                )}
+                                            </td>
+                                            <td style={{
+                                                padding: '0.75rem',
+                                                color: row.status === 'Error'
+                                                    ? '#b91c1c'
+                                                    : isSelected ? selectedTextColor : '#64748b',
+                                                maxWidth: '24rem',
+                                                whiteSpace: 'normal',
+                                                overflowWrap: 'anywhere'
+                                            }}>
+                                                {row.details || '—'}
                                             </td>
                                         </tr>
                                     );
@@ -216,10 +273,10 @@ export default function BatchSummaryTable({
                         gap: '0.5rem'
                     }}>
                         <span>
-                            <strong>{summary.length}</strong> of <strong>{structures.length}</strong> structures analyzed
+                            <strong>{summary.length}</strong> of <strong>{structures.length}</strong> structures processed
                         </span>
                         <span>
-                            Click a row to view details
+                            Select a Structure ID to view details
                         </span>
                     </div>
                 </>

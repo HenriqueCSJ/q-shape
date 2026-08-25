@@ -1,7 +1,7 @@
 /**
  * Report Generation Services
  *
- * Handles PDF (HTML) and CSV report generation for Q-Shape analysis results.
+ * Handles print-ready HTML and CSV report generation for Q-Shape analysis results.
  * Extracted from App.js to improve maintainability and separation of concerns.
  */
 
@@ -12,6 +12,10 @@ import {
     shapeResultDetail,
     shapeResultStatusLabel
 } from '../utils/shapeResults';
+import {
+    batchResultDetail,
+    batchResultStatusLabel
+} from '../utils/batchResults';
 import { calculateAdditionalMetrics } from './shapeAnalysis/structuralMetrics';
 import { APP_VERSION, APP_FULL_NAME, getCitationString, CITATION } from '../constants/appMetadata';
 
@@ -37,7 +41,7 @@ function csvField(value) {
 }
 
 /**
- * Generate PDF report (opens in new window)
+ * Generate a print-ready report (opens in a new window)
  *
  * @param {Object} params - Report generation parameters
  * @param {Array} params.atoms - All atoms in structure
@@ -418,7 +422,7 @@ footer strong {
 </head>
 <body>
 <div class="no-print" style="text-align: center; margin-bottom: 2rem;">
-  <button class="download-btn" onclick="window.print()">📄 Download as PDF</button>
+  <button class="download-btn" onclick="window.print()">📄 Print / Save as PDF</button>
 </div>
 
 <header>
@@ -694,9 +698,9 @@ export function generateCSVReport({ geometryResults, fileName }) {
 }
 
 /**
- * Generate Batch PDF Report - v1.5.0
+ * Generate Batch Print Report - v1.5.0
  *
- * Creates a comprehensive PDF report for multiple structures with:
+ * Creates a comprehensive print-ready HTML report for multiple structures with:
  * - Batch summary table
  * - Per-structure detail sections with full geometry lists
  *
@@ -716,7 +720,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
     }
 
     const date = new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' });
-    const analyzedCount = batchResults.size;
+    const processedCount = batchResults.size;
 
     // Build summary table rows
     const summaryRows = [];
@@ -726,14 +730,18 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
             const bestGeometry = isShapeResultAvailable(result.bestGeometry)
                 ? result.bestGeometry
                 : null;
+            const status = batchResultStatusLabel(result);
+            const details = batchResultDetail(result);
             summaryRows.push(`
                 <tr>
                     <td>${index + 1}</td>
                     <td><strong>${escapeHtml(structure.id)}</strong></td>
-                    <td>${structure.atoms[result.metalIndex]?.element || 'N/A'}</td>
-                    <td style="text-align: center;">${result.coordinationNumber || 'N/A'}</td>
+                    <td>${escapeHtml(structure.atoms[result.metalIndex]?.element || 'N/A')}</td>
+                    <td style="text-align: center;">${result.coordinationNumber ?? 'N/A'}</td>
                     <td>${bestGeometry ? escapeHtml(bestGeometry.name) : 'N/A'}</td>
                     <td style="font-family: monospace;">${formatShapeMeasure(bestGeometry?.shapeMeasure)}</td>
+                    <td>${escapeHtml(status)}</td>
+                    <td>${escapeHtml(details || '—')}</td>
                 </tr>
             `);
         }
@@ -743,9 +751,14 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
     const detailSections = [];
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
-        if (result && result.geometryResults) {
+        if (result && Array.isArray(result.geometryResults)) {
             // Get coordAtoms from the result (stored during batch analysis)
             const coordAtoms = result.coordAtoms || [];
+            const structureStatus = batchResultStatusLabel(result);
+            const structureDetails = batchResultDetail(result);
+            const bestGeometry = isShapeResultAvailable(result.bestGeometry)
+                ? result.bestGeometry
+                : null;
 
             // Calculate descriptive structural summaries
             const additionalMetrics = calculateAdditionalMetrics(coordAtoms);
@@ -754,14 +767,23 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                 return `
                     <tr class="${i === 0 && isShapeResultAvailable(r) ? 'best-result' : ''}">
                         <td>${i + 1}</td>
-                        <td><strong>${r.name}</strong></td>
-                        <td style="font-family: monospace;">${POINT_GROUPS[r.name] || '—'}</td>
+                        <td><strong>${escapeHtml(r.name)}</strong></td>
+                        <td style="font-family: monospace;">${escapeHtml(POINT_GROUPS[r.name] || '—')}</td>
                         <td style="font-family: monospace;">${formatShapeMeasure(r.shapeMeasure)}</td>
-                        <td>${shapeResultStatusLabel(r)}</td>
+                        <td>${escapeHtml(shapeResultStatusLabel(r))}</td>
                         <td>${escapeHtml(shapeResultDetail(r))}</td>
                     </tr>
                 `;
-            }).join('');
+            }).join('') || `
+                <tr>
+                    <td>—</td>
+                    <td><strong>N/A</strong></td>
+                    <td style="font-family: monospace;">—</td>
+                    <td style="font-family: monospace;">N/A</td>
+                    <td>${escapeHtml(structureStatus)}</td>
+                    <td>${escapeHtml(structureDetails)}</td>
+                </tr>
+            `;
 
             // Get ligand elements
             const ligandElements = coordAtoms.length > 0
@@ -782,11 +804,18 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                         📄 Structure: ${escapeHtml(structure.id)}
                     </h3>
 
+                    ${structureStatus === 'Error' ? `
+                    <div style="background: #fef2f2; border: 2px solid #fca5a5; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Analysis status:</strong> Error</p>
+                        <p style="margin: 0;"><strong>Details:</strong> ${escapeHtml(structureDetails)}</p>
+                    </div>
+                    ` : `
                     <!-- Q-Shape Analysis Info Box -->
                     <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
                         <p style="margin: 0 0 0.5rem 0;"><strong>Q-Shape</strong> analyzed this structure against <strong>${totalAvailableGeometries} reference geometries</strong>.</p>
                         <p style="margin: 0;">For CN=${coordAtoms.length}, <strong>${cnGeometries} reference geometries</strong> were evaluated using Kabsch alignment and Hungarian algorithm.</p>
                     </div>
+                    `}
 
                     <!-- Analysis Summary -->
                     <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
@@ -794,7 +823,9 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                         <div class="summary-grid">
                             <div class="summary-item">
                                 <strong>Metal Center</strong>
-                                <span>${structure.atoms[result.metalIndex]?.element || 'N/A'} (#${(result.metalIndex || 0) + 1})</span>
+                                <span>${Number.isInteger(result.metalIndex)
+                                    ? `${escapeHtml(structure.atoms[result.metalIndex]?.element || 'N/A')} (#${result.metalIndex + 1})`
+                                    : 'N/A'}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Coordination Number</strong>
@@ -806,19 +837,27 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                             <div class="summary-item">
                                 <strong>Best Match Geometry</strong>
-                                <span>${result.bestGeometry?.name || 'N/A'}</span>
+                                <span>${escapeHtml(bestGeometry?.name || 'N/A')}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Point Group</strong>
-                                <span>${POINT_GROUPS[result.bestGeometry?.name] || '—'}</span>
+                                <span>${escapeHtml(POINT_GROUPS[bestGeometry?.name] || '—')}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>CShM Value</strong>
-                                <span>${formatShapeMeasure(result.bestGeometry?.shapeMeasure)}</span>
+                                <span>${formatShapeMeasure(bestGeometry?.shapeMeasure)}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Status</strong>
+                                <span>${escapeHtml(structureStatus)}</span>
+                            </div>
+                            <div class="summary-item">
+                                <strong>Details</strong>
+                                <span>${escapeHtml(structureDetails || '—')}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Ligands</strong>
-                                <span>${ligandElements}</span>
+                                <span>${escapeHtml(ligandElements)}</span>
                             </div>
                         </div>
                     </div>
@@ -942,7 +981,7 @@ ${getBatchReportStyles()}
 </head>
 <body>
 <div class="no-print" style="text-align: center; margin-bottom: 2rem;">
-  <button class="download-btn" onclick="window.print()">📄 Download as PDF</button>
+  <button class="download-btn" onclick="window.print()">📄 Print / Save as PDF</button>
 </div>
 
 <header>
@@ -950,7 +989,7 @@ ${getBatchReportStyles()}
   <p><strong>Coordination Geometry Analysis - Multi-Structure Report</strong></p>
   <p><strong>File:</strong> ${escapeHtml(fileName)}.${fileFormat || 'xyz'}</p>
   <p><strong>Generated:</strong> ${date}</p>
-  <p><strong>Structures Analyzed:</strong> ${analyzedCount} of ${structures.length}</p>
+  <p><strong>Structures Processed:</strong> ${processedCount} of ${structures.length}</p>
   <p><strong>Analysis Mode:</strong> Intensive (High Precision) with Kabsch Alignment</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
     Cite this: ${getCitationString()}
@@ -969,6 +1008,8 @@ ${getBatchReportStyles()}
         <th>CN</th>
         <th>Best Geometry</th>
         <th>CShM</th>
+        <th>Status</th>
+        <th>Details</th>
       </tr>
     </thead>
     <tbody>
@@ -1035,6 +1076,8 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
         'Best_Geometry',
         'Point_Group',
         'CShM',
+        'Status',
+        'Details',
         'Analysis_Mode'
     ];
 
@@ -1046,14 +1089,16 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
                 ? result.bestGeometry
                 : null;
             rows.push([
-                `"${structure.id}"`,
-                structure.atoms[result.metalIndex]?.element || '',
-                result.coordinationNumber || '',
+                csvField(structure.id),
+                csvField(structure.atoms[result.metalIndex]?.element || ''),
+                result.coordinationNumber ?? '',
                 result.radius?.toFixed(3) || '',
-                `"${bestGeometry?.name || 'N/A'}"`,
-                bestGeometry ? POINT_GROUPS[bestGeometry.name] || '' : '',
+                csvField(bestGeometry?.name || 'N/A'),
+                csvField(bestGeometry ? POINT_GROUPS[bestGeometry.name] || '' : ''),
                 formatShapeMeasure(bestGeometry?.shapeMeasure),
-                result.analysisMode || 'default'
+                csvField(batchResultStatusLabel(result)),
+                csvField(batchResultDetail(result)),
+                csvField(result.analysisMode || 'default')
             ]);
         }
     });
@@ -1093,21 +1138,34 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
     const rows = [];
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
-        if (result && result.geometryResults) {
+        if (result && Array.isArray(result.geometryResults) && result.geometryResults.length > 0) {
             result.geometryResults.forEach((geom, geomIndex) => {
                 rows.push([
-                    `"${structure.id}"`,
-                    structure.atoms[result.metalIndex]?.element || '',
-                    result.coordinationNumber || '',
+                    csvField(structure.id),
+                    csvField(structure.atoms[result.metalIndex]?.element || ''),
+                    result.coordinationNumber ?? '',
                     geomIndex + 1,
                     csvField(geom.name),
-                    POINT_GROUPS[geom.name] || '',
+                    csvField(POINT_GROUPS[geom.name] || ''),
                     formatShapeMeasure(geom.shapeMeasure),
-                    shapeResultStatusLabel(geom),
+                    csvField(shapeResultStatusLabel(geom)),
                     csvField(shapeResultDetail(geom)),
-                    geomIndex === 0 && isShapeResultAvailable(geom) ? 'Yes' : 'No'
+                    csvField(geomIndex === 0 && isShapeResultAvailable(geom) ? 'Yes' : 'No')
                 ]);
             });
+        } else if (result) {
+            rows.push([
+                csvField(structure.id),
+                csvField(structure.atoms[result.metalIndex]?.element || ''),
+                result.coordinationNumber ?? '',
+                '',
+                csvField('N/A'),
+                csvField(''),
+                'N/A',
+                csvField(batchResultStatusLabel(result)),
+                csvField(batchResultDetail(result)),
+                csvField('No')
+            ]);
         }
     });
 

@@ -16,7 +16,18 @@ import { runIntensiveAnalysisAsync } from '../services/coordination/intensiveAna
 import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
 import { getCoordinatingAtoms } from '../services/coordination/sphereDetector';
-import { isShapeResultAvailable, isShapeResultRecord } from '../utils/shapeResults';
+import {
+    isShapeResultAvailable,
+    isShapeResultRecord,
+    shapeResultDetail,
+    shapeResultStatusLabel
+} from '../utils/shapeResults';
+import {
+    BATCH_RESULT_STATUS,
+    batchResultDetail,
+    batchResultStatusLabel,
+    createBatchFailureResult
+} from '../utils/batchResults';
 
 export function normalizeProgressFraction(value) {
     if (!Number.isFinite(value)) return 0;
@@ -266,7 +277,13 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
             radius,
             coordAtoms, // Include coordAtoms for batch report
             coordinationNumber: coordAtoms.length || result.metadata?.coordinationNumber || 0,
-            analysisMode: 'intensive'
+            analysisMode: 'intensive',
+            status: bestGeometry
+                ? BATCH_RESULT_STATUS.AVAILABLE
+                : BATCH_RESULT_STATUS.UNAVAILABLE,
+            error: bestGeometry
+                ? null
+                : batchResultDetail({ geometryResults: result.geometryResults })
         }, {
             contextVersion: expectedContextVersion,
             batchRunId: expectedBatchRunId
@@ -345,11 +362,17 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
                     if (!ownsRun()) break;
                     results.push({ structureIndex: i, structureId, success: true, result });
                 } catch (err) {
-                    if (!ownsRun() || err.code === 'ANALYSIS_INVALIDATED') break;
+                    if (!ownsRun() || err?.code === 'ANALYSIS_INVALIDATED') break;
                     console.error(`Error analyzing structure ${i}:`, err);
-                    clearStructureResult(i, { contextVersion, batchRunId });
-                    results.push({ structureIndex: i, structureId, success: false, error: err.message });
-                    onWarning?.(`Structure ${structureId}: ${err.message}`);
+                    const failure = createBatchFailureResult(err);
+                    setStructureResult(i, failure, { contextVersion, batchRunId });
+                    results.push({
+                        structureIndex: i,
+                        structureId,
+                        success: false,
+                        error: failure.error
+                    });
+                    onWarning?.(`Structure ${structureId}: ${failure.error}`);
                 }
             }
 
@@ -379,7 +402,7 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
         }
 
         return results;
-    }, [structures, analyzeStructure, clearStructureResult, onWarning, onError]);
+    }, [structures, analyzeStructure, setStructureResult, onWarning, onError]);
 
     /**
      * Cancel running batch analysis
@@ -425,14 +448,19 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
         structures.forEach((structure, index) => {
             const result = batchResults.get(index);
             if (result) {
+                const bestGeometry = isShapeResultAvailable(result.bestGeometry)
+                    ? result.bestGeometry
+                    : null;
                 summary.push({
                     index,
                     id: structure.id,
-                    bestGeometry: result.bestGeometry?.name || 'N/A',
-                    bestCShM: result.bestGeometry?.shapeMeasure ?? null,
+                    bestGeometry: bestGeometry?.name || 'N/A',
+                    bestCShM: bestGeometry?.shapeMeasure ?? null,
                     coordinationNumber: result.coordinationNumber,
                     metalElement: structure.atoms[result.metalIndex]?.element || 'N/A',
-                    analysisMode: result.analysisMode
+                    analysisMode: result.analysisMode,
+                    status: batchResultStatusLabel(result),
+                    details: batchResultDetail(result)
                 });
             }
         });
@@ -448,7 +476,7 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
 
         structures.forEach((structure, index) => {
             const result = batchResults.get(index);
-            if (result && result.geometryResults) {
+            if (result && Array.isArray(result.geometryResults) && result.geometryResults.length > 0) {
                 result.geometryResults.forEach((geom, geomIndex) => {
                     rows.push({
                         structureId: structure.id,
@@ -459,8 +487,24 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
                         metalElement: structure.atoms[result.metalIndex]?.element || 'N/A',
                         coordinationNumber: result.coordinationNumber,
                         radius: result.radius,
-                        analysisMode: result.analysisMode
+                        analysisMode: result.analysisMode,
+                        status: shapeResultStatusLabel(geom),
+                        details: shapeResultDetail(geom)
                     });
+                });
+            } else if (result) {
+                rows.push({
+                    structureId: structure.id,
+                    structureIndex: index,
+                    geometryRank: null,
+                    geometryName: 'N/A',
+                    shapeMeasure: null,
+                    metalElement: structure.atoms[result.metalIndex]?.element || 'N/A',
+                    coordinationNumber: result.coordinationNumber,
+                    radius: result.radius,
+                    analysisMode: result.analysisMode,
+                    status: batchResultStatusLabel(result),
+                    details: batchResultDetail(result)
                 });
             }
         });

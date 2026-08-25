@@ -6,7 +6,7 @@
  */
 
 export const APP_VERSION = '1.5.0';
-export const BUILD_DATE = 'January 2026';
+export const BUILD_DATE = 'August 2026';
 export const APP_NAME = 'Q-Shape';
 export const APP_FULL_NAME = 'Q-Shape (Quantitative Shape Analyzer)';
 

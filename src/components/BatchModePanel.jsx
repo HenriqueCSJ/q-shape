@@ -10,6 +10,12 @@
 
 import React from 'react';
 import { formatShapeMeasure } from '../utils/geometry';
+import { isShapeResultAvailable } from '../utils/shapeResults';
+import {
+    BATCH_RESULT_STATUS,
+    batchResultDetail,
+    getBatchResultStatus
+} from '../utils/batchResults';
 
 export default function BatchModePanel({
     structures,
@@ -34,7 +40,7 @@ export default function BatchModePanel({
 
             {/* Structure selector */}
             <div>
-                <label style={{
+                <label htmlFor="batch-structure-select" style={{
                     display: 'block',
                     marginBottom: '0.5rem',
                     fontWeight: 600,
@@ -44,6 +50,7 @@ export default function BatchModePanel({
                     Select Structure to View:
                 </label>
                 <select
+                    id="batch-structure-select"
                     value={selectedStructureIndex}
                     onChange={(e) => onSelectStructure(parseInt(e.target.value, 10))}
                     style={{
@@ -58,14 +65,20 @@ export default function BatchModePanel({
                 >
                     {structures.map((structure, index) => {
                         const result = batchResults?.get(index);
-                        const hasResult = !!result;
+                        const resultStatus = getBatchResultStatus(result);
+                        const resultDetail = result ? batchResultDetail(result) : '';
+                        let resultLabel = ' — Not analyzed';
+                        if (resultStatus === BATCH_RESULT_STATUS.ERROR) {
+                            resultLabel = ` — Error: ${resultDetail}`;
+                        } else if (isShapeResultAvailable(result?.bestGeometry)) {
+                            resultLabel = ` — ${result.bestGeometry.name} (CShM: ${formatShapeMeasure(result.bestGeometry.shapeMeasure, 3)})`;
+                        } else if (result) {
+                            resultLabel = ` — N/A${resultDetail ? `: ${resultDetail}` : ''}`;
+                        }
                         return (
                             <option key={structure.id || index} value={index}>
                                 {structure.id}
-                                {hasResult && result.bestGeometry
-                                    ? ` — ${result.bestGeometry.name} (CShM: ${formatShapeMeasure(result.bestGeometry.shapeMeasure, 3)})`
-                                    : ' — Not analyzed'
-                                }
+                                {resultLabel}
                             </option>
                         );
                     })}

@@ -126,6 +126,7 @@ describe('scientific report surfaces', () => {
         expect(html).not.toContain('-0.0000');
 
         generateWideSummaryCSV({ structures, batchResults, fileName: 'batch' });
+        expect(csvContent.split('\n')[0]).toContain('Status,Details');
         expect(csvContent.split('\n')[0]).not.toMatch(/Confidence|confidence/);
         expect(csvContent).not.toContain('-0.0000');
 
@@ -171,6 +172,65 @@ describe('scientific report surfaces', () => {
             batchResults: unavailableResults,
             fileName: 'batch'
         });
-        expect(csvContent).toContain('"structure-1",Fe,2,2.000,"N/A",,N/A,intensive');
+        expect(csvContent).toContain(
+            '"structure-1","Fe",2,2.000,"N/A","",N/A,"N/A","all targets unavailable","intensive"'
+        );
+    });
+
+    test('terminal structure failures survive PDF and both CSV shapes with escaped diagnostics', () => {
+        const externalStructures = [{
+            id: 'complex, "quoted"\nline',
+            atoms: [{ element: 'Fe', x: 0, y: 0, z: 0 }]
+        }];
+        const diagnostic = 'optimizer, said "no"\nretry';
+        const failedResults = new Map([[
+            0,
+            {
+                status: 'error',
+                error: diagnostic,
+                bestGeometry: null,
+                geometryResults: [],
+                coordAtoms: [],
+                metalIndex: 0,
+                coordinationNumber: null,
+                radius: 2,
+                analysisMode: 'intensive'
+            }
+        ]]);
+
+        generateBatchPDFReport({
+            structures: externalStructures,
+            batchResults: failedResults,
+            fileName: 'batch',
+            fileFormat: 'xyz'
+        });
+        const html = reportWrite.mock.calls[0][0];
+        expect(html).toContain('<th>Status</th>');
+        expect(html).toContain('<th>Details</th>');
+        expect(html).toContain('Error');
+        expect(html).toContain('optimizer, said &quot;no&quot;\nretry');
+        expect(html).toContain('complex, &quot;quoted&quot;\nline');
+        expect(html).toContain('<strong>Structures Processed:</strong> 1 of 1');
+
+        generateWideSummaryCSV({
+            structures: externalStructures,
+            batchResults: failedResults,
+            fileName: 'batch'
+        });
+        expect(csvContent.split('\n')[0]).toContain('Status,Details');
+        expect(csvContent).toContain('"complex, ""quoted""\nline"');
+        expect(csvContent).toContain('"optimizer, said ""no""\nretry"');
+        expect(csvContent).toContain('"Error"');
+
+        generateLongDetailedCSV({
+            structures: externalStructures,
+            batchResults: failedResults,
+            fileName: 'batch'
+        });
+        expect(csvContent.split('\n')[0]).toContain('Status,Details');
+        expect(csvContent).toContain('"complex, ""quoted""\nline"');
+        expect(csvContent).toContain('"N/A"');
+        expect(csvContent).toContain('"Error"');
+        expect(csvContent).toContain('"optimizer, said ""no""\nretry"');
     });
 });

@@ -78,6 +78,8 @@ export default function Visualization3D({
             <div className="canvas-container">
                 <canvas
                     ref={canvasRef}
+                    role="img"
+                    aria-label="Interactive 3D molecular structure visualization"
                     style={{
                         width: '100%',
                         height: '100%',

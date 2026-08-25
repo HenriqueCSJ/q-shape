@@ -226,7 +226,7 @@ describe('batch-analysis async ownership', () => {
         expect(latest.batchResults.get(0).bestGeometry.name).toBe('SINGLE-NEW');
     });
 
-    test('a failed rerun removes the previous success from exports', async () => {
+    test('a failed rerun replaces the previous success with an explicit terminal record', async () => {
         runIntensiveAnalysisAsync
             .mockResolvedValueOnce(successfulResult('FIRST', 1))
             .mockRejectedValueOnce(new Error('optimizer failed'));
@@ -240,8 +240,29 @@ describe('batch-analysis async ownership', () => {
         await act(async () => {
             await latest.analyzeAllStructures();
         });
-        expect(latest.batchResults.size).toBe(0);
-        expect(latest.getLongFormatResults()).toHaveLength(0);
+        expect(latest.batchResults.size).toBe(1);
+        expect(latest.batchResults.get(0)).toMatchObject({
+            status: 'error',
+            error: 'optimizer failed',
+            bestGeometry: null,
+            geometryResults: []
+        });
+        expect(latest.isAllAnalyzed).toBe(true);
+        expect(latest.getBatchSummary()).toEqual([expect.objectContaining({
+            id: 'sample',
+            bestGeometry: 'N/A',
+            bestCShM: null,
+            status: 'Error',
+            details: 'optimizer failed'
+        })]);
+        expect(latest.getLongFormatResults()).toEqual([expect.objectContaining({
+            structureId: 'sample',
+            geometryRank: null,
+            geometryName: 'N/A',
+            shapeMeasure: null,
+            status: 'Error',
+            details: 'optimizer failed'
+        })]);
         expect(onWarning).toHaveBeenCalledWith('Structure sample: optimizer failed');
     });
 
@@ -273,6 +294,47 @@ describe('batch-analysis async ownership', () => {
             name: 'FAILED',
             status: 'error'
         });
+    });
+
+    test('continues a mixed batch and retains both the failed and successful structures', async () => {
+        runIntensiveAnalysisAsync
+            .mockRejectedValueOnce('worker disconnected')
+            .mockResolvedValueOnce(successfulResult('SECOND', 0.5));
+        await render([structure('failed'), structure('successful', 'Cu')]);
+
+        let runResults;
+        await act(async () => {
+            runResults = await latest.analyzeAllStructures();
+        });
+
+        expect(runResults).toEqual([
+            expect.objectContaining({
+                structureIndex: 0,
+                success: false,
+                error: 'worker disconnected'
+            }),
+            expect.objectContaining({
+                structureIndex: 1,
+                success: true
+            })
+        ]);
+        expect(latest.batchResults.size).toBe(2);
+        expect(latest.batchResults.get(0)).toMatchObject({
+            status: 'error',
+            error: 'worker disconnected'
+        });
+        expect(latest.batchResults.get(1)).toMatchObject({
+            status: 'available',
+            bestGeometry: { name: 'SECOND', shapeMeasure: 0.5 }
+        });
+        expect(latest.getBatchSummary()).toEqual([
+            expect.objectContaining({ id: 'failed', status: 'Error' }),
+            expect.objectContaining({ id: 'successful', status: 'Available' })
+        ]);
+        expect(latest.getLongFormatResults()).toEqual([
+            expect.objectContaining({ structureId: 'failed', status: 'Error' }),
+            expect.objectContaining({ structureId: 'successful', status: 'Available' })
+        ]);
     });
 
     test('cancellation remains cancelled after the obsolete promise settles', async () => {

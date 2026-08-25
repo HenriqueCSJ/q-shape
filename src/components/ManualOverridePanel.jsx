@@ -119,6 +119,7 @@ export default function ManualOverridePanel({
                     )}
                 </label>
                 <select
+                    aria-label="Manual metal center"
                     value={currentMetal ?? ''}
                     onChange={(e) => {
                         const value = e.target.value;
@@ -218,6 +219,7 @@ export default function ManualOverridePanel({
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <input
+                        aria-label="Manual coordination radius"
                         type="number"
                         value={currentRadius?.toFixed(2) || '3.00'}
                         onChange={(e) => {
@@ -238,6 +240,8 @@ export default function ManualOverridePanel({
                         }}
                     />
                     <button
+                        type="button"
+                        aria-label="Decrease manual coordination radius"
                         onClick={() => onRadiusChange?.(Math.max(1, (currentRadius || 3) - 0.1))}
                         style={{
                             padding: '0.75rem 1rem',
@@ -252,6 +256,8 @@ export default function ManualOverridePanel({
                         −
                     </button>
                     <button
+                        type="button"
+                        aria-label="Increase manual coordination radius"
                         onClick={() => onRadiusChange?.(Math.min(10, (currentRadius || 3) + 0.1))}
                         style={{
                             padding: '0.75rem 1rem',
@@ -296,6 +302,7 @@ export default function ManualOverridePanel({
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <input
+                        aria-label="Manual target coordination number"
                         type="number"
                         value={targetCN}
                         onChange={(e) => setTargetCN(e.target.value)}
