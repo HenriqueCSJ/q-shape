@@ -11,6 +11,10 @@ const worker = require('../scripts/qshape-metamorphic-worker.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const CANDIDATE_COMMIT = '1'.repeat(40);
+const CERTIFIED_DIRECT_REFERENCES_SHA256 =
+    '170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787';
+const CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 =
+    '5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca';
 
 function stable(value) {
     if (Array.isArray(value)) return value.map(stable);
@@ -65,14 +69,6 @@ function inputBundleFixture() {
         expected_matched_target_evaluations_per_program: 3,
         cases: []
     };
-    const references = {
-        schema_version: 2,
-        count: 1,
-        metamorphic_binding: {
-            source_direct_references_sha256: 'a'.repeat(64)
-        },
-        by_cn: []
-    };
     const malformed = {
         schema_version: 1,
         campaign_id: 'qshape-metamorphic-malformed-v1',
@@ -83,9 +79,22 @@ function inputBundleFixture() {
         ]
     };
     writeJson(casesPath, cases);
-    writeJson(referencesPath, references);
     writeJson(malformedPath, malformed);
     const casesFile = readJsonFile(casesPath);
+    const references = {
+        schema_version: 2,
+        count: 1,
+        source_cases_sha256: casesFile.sha256,
+        metamorphic_binding: {
+            campaign_id: cases.campaign_id,
+            source_positive_cases_sha256: casesFile.sha256,
+            source_direct_references_sha256: CERTIFIED_DIRECT_REFERENCES_SHA256,
+            source_direct_package_manifest_sha256:
+                CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256
+        },
+        by_cn: []
+    };
+    writeJson(referencesPath, references);
     const referencesFile = readJsonFile(referencesPath);
     const malformedFile = readJsonFile(malformedPath);
     const contentContract = {
@@ -104,7 +113,9 @@ function inputBundleFixture() {
             sha256: referencesFile.sha256,
             count: references.count,
             source_direct_references_sha256:
-                references.metamorphic_binding.source_direct_references_sha256
+                references.metamorphic_binding.source_direct_references_sha256,
+            source_direct_package_manifest_sha256:
+                references.metamorphic_binding.source_direct_package_manifest_sha256
         },
         malformed_controls: {
             campaign_id: malformed.campaign_id,
@@ -230,4 +241,29 @@ test('runner and in-process worker independently capture one exact effective Nod
         runnerRuntime.identity,
         '0'.repeat(64)
     ), error => error.code === 'RUNTIME_INVALID');
+});
+
+test('runtime identity distinguishes an unset locale variable from an explicit empty value', () => {
+    const lockSha256 = runner.sha256File(path.join(REPO_ROOT, 'package-lock.json'));
+    const hadLanguage = Object.prototype.hasOwnProperty.call(process.env, 'LANGUAGE');
+    const previousLanguage = process.env.LANGUAGE;
+    try {
+        delete process.env.LANGUAGE;
+        const unsetRunner = runner.captureRuntimeIdentity(REPO_ROOT, lockSha256);
+        const unsetWorker = worker.captureWorkerRuntimeIdentity(REPO_ROOT, 'in_process_runner');
+        assert.deepEqual(unsetWorker, unsetRunner);
+        assert.equal(unsetRunner.identity.environment_locale.language, null);
+
+        process.env.LANGUAGE = '';
+        const emptyRunner = runner.captureRuntimeIdentity(REPO_ROOT, lockSha256);
+        const emptyWorker = worker.captureWorkerRuntimeIdentity(REPO_ROOT, 'in_process_runner');
+        assert.deepEqual(emptyWorker, emptyRunner);
+        assert.equal(emptyRunner.identity.environment_locale.language, '');
+        assert.equal(emptyRunner.identity.intl_locale, unsetRunner.identity.intl_locale);
+        assert.equal(emptyRunner.identity.intl_time_zone, unsetRunner.identity.intl_time_zone);
+        assert.notEqual(emptyRunner.identitySha256, unsetRunner.identitySha256);
+    } finally {
+        if (hadLanguage) process.env.LANGUAGE = previousLanguage;
+        else delete process.env.LANGUAGE;
+    }
 });

@@ -9,7 +9,9 @@ const path = require('node:path');
 
 const runner = require('../scripts/run-metamorphic-parity.cjs');
 const malformedControls = require('../scripts/metamorphic-malformed-controls.cjs');
+const referencePreparation = require('../scripts/prepare-metamorphic-references.cjs');
 const {
+    directReferencesPath,
     frozenCasesPath
 } = require('./helpers/metamorphic-fixtures.cjs');
 
@@ -101,27 +103,19 @@ function writeFrozenInputs(parent, cases) {
     const repo = writeCandidateRepo(parent);
     const bundleDirectory = path.join(parent, 'input-bundle');
     fs.mkdirSync(bundleDirectory);
-    const references = runtimeBindings(cases).map(group => ({
-        cn: group.cn,
-        count: group.targets.length,
-        references: group.targets.map(target => ({
-            qshape_code: target.code,
-            qshape_index: target.ordinal
-        }))
-    }));
-    const referenceDocument = {
-        schema_version: 2,
-        campaign_id: cases.campaign_id,
-        source_cases_sha256: runner.sha256File(casesPath),
-        metamorphic_binding: {
-            source_direct_references_sha256: 'a'.repeat(64)
-        },
-        count: references.reduce((sum, group) => sum + group.count, 0),
-        by_cn: references
-    };
+    const casesSha256 = runner.sha256File(casesPath);
+    const directDocument = JSON.parse(fs.readFileSync(directReferencesPath(), 'utf8'));
+    const referenceDocument = referencePreparation.buildMetamorphicReferenceDocument(
+        directDocument,
+        cases,
+        {
+            directReferencesSha256: referencePreparation.DIRECT_REFERENCES_SHA256,
+            casesSha256
+        }
+    );
     const malformedDocument = malformedControls.buildMalformedControlDocument(
         cases,
-        runner.sha256File(casesPath)
+        casesSha256
     );
     const referencesPath = path.join(bundleDirectory, 'references.json');
     const malformedPath = path.join(bundleDirectory, 'malformed-controls.json');
@@ -144,7 +138,10 @@ function writeFrozenInputs(parent, cases) {
         references: {
             sha256: runner.sha256File(referencesPath),
             count: referenceDocument.count,
-            source_direct_references_sha256: 'a'.repeat(64)
+            source_direct_references_sha256:
+                referenceDocument.metamorphic_binding.source_direct_references_sha256,
+            source_direct_package_manifest_sha256:
+                referenceDocument.metamorphic_binding.source_direct_package_manifest_sha256
         },
         malformed_controls: {
             campaign_id: malformedDocument.campaign_id,
@@ -192,6 +189,52 @@ function writeFrozenInputs(parent, cases) {
         inputBundleReceipt: receiptPath,
         repo
     };
+}
+
+function writeInputBundleStatus(bundleDirectory, receipt) {
+    fs.writeFileSync(path.join(bundleDirectory, 'STATUS.md'), [
+        '# Q-Shape metamorphic execution inputs',
+        '',
+        '- Status: preregistered input only.',
+        '- Positive numerical execution started: no.',
+        `- Source commit: \`${receipt.source_commit}\`.`,
+        `- Positive cases SHA-256: \`${receipt.positive_cases.sha256}\`.`,
+        `- Enhanced references SHA-256: \`${receipt.references.sha256}\`.`,
+        `- Malformed controls SHA-256: \`${receipt.malformed_controls.sha256}\`.`,
+        `- Bundle SHA-256: \`${receipt.bundle_sha256}\`.`,
+        '- This directory must never receive SHAPE, Q-Shape, report, log, or verification outputs.',
+        ''
+    ].join('\n'));
+}
+
+function resealReferencesAndReceipt(frozen, mutate) {
+    const references = JSON.parse(fs.readFileSync(frozen.references, 'utf8'));
+    mutate(references);
+    fs.writeFileSync(frozen.references, `${JSON.stringify(references, null, 2)}\n`);
+
+    const receipt = JSON.parse(fs.readFileSync(frozen.inputBundleReceipt, 'utf8'));
+    receipt.references.sha256 = runner.sha256File(frozen.references);
+    receipt.references.source_direct_references_sha256 =
+        references.metamorphic_binding.source_direct_references_sha256;
+    receipt.references.source_direct_package_manifest_sha256 =
+        references.metamorphic_binding.source_direct_package_manifest_sha256;
+    const contentContract = {
+        schema_version: receipt.schema_version,
+        receipt_kind: receipt.receipt_kind,
+        campaign_id: receipt.campaign_id,
+        source_commit: receipt.source_commit,
+        positive_cases: receipt.positive_cases,
+        references: receipt.references,
+        malformed_controls: receipt.malformed_controls
+    };
+    receipt.bundle_sha256 = runner.sha256Buffer(
+        Buffer.from(JSON.stringify(stable(contentContract)), 'utf8')
+    );
+    fs.writeFileSync(
+        frozen.inputBundleReceipt,
+        `${JSON.stringify(stable(receipt), null, 2)}\n`
+    );
+    writeInputBundleStatus(path.dirname(frozen.inputBundleReceipt), receipt);
 }
 
 function basicOptions(output, cases, frozen, overrides = {}) {
@@ -384,6 +427,51 @@ test('preflight hash-binds explicit references and malformed controls before hoo
     assert.deepEqual(trace, []);
     assert.equal(fs.existsSync(output), false);
     fs.rmSync(parent, { recursive: true, force: true });
+});
+
+test('preflight rejects resealed certified-lineage and parent-fingerprint mutations', async () => {
+    const cases = frozenCases();
+    const mutations = [
+        {
+            label: 'direct-references',
+            mutate: references => {
+                references.metamorphic_binding.source_direct_references_sha256 = 'f'.repeat(64);
+            }
+        },
+        {
+            label: 'direct-manifest',
+            mutate: references => {
+                references.metamorphic_binding.source_direct_package_manifest_sha256 = 'f'.repeat(64);
+            }
+        },
+        {
+            label: 'parent-fingerprint',
+            mutate: references => {
+                references.by_cn[0].references[0]
+                    .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+            }
+        }
+    ];
+    for (const mutation of mutations) {
+        const parent = tempOutput(`resealed-${mutation.label}`);
+        try {
+            const output = path.join(parent, 'package');
+            const frozen = writeFrozenInputs(parent, cases);
+            resealReferencesAndReceipt(frozen, mutation.mutate);
+            const trace = [];
+            await assert.rejects(
+                runner.runMetamorphicCampaign(
+                    basicOptions(output, cases, frozen, { scheduleBuilder: tinySchedule(1) }),
+                    fakeDependencies(trace)
+                ),
+                error => error.code === 'REFERENCES_INVALID'
+            );
+            assert.deepEqual(trace, []);
+            assert.equal(fs.existsSync(output), false);
+        } finally {
+            fs.rmSync(parent, { recursive: true, force: true });
+        }
+    }
 });
 
 test('preflight rejects a dirty candidate before creating output or invoking numerical hooks', async () => {
@@ -652,6 +740,57 @@ test('resume preserves failed attempt and allocates a new immutable attempt', as
     assert.equal(resumed.shapeCalls.completed, 2);
     assert.equal(resumed.shapeCalls.failed, 1);
     fs.rmSync(parent, { recursive: true, force: true });
+});
+
+test('adapter-retained process failure is checkpointed as failed and resumes at attempt two', async () => {
+    const cases = frozenCases();
+    const parent = tempOutput('adapter-process-failure');
+    const output = path.join(parent, 'package');
+    const frozen = writeFrozenInputs(parent, cases);
+    const scheduleBuilder = tinySchedule(1);
+    const firstDependencies = fakeDependencies([]);
+    const retainedStderr = 'SHAPE adapter retained process stderr\n';
+    firstDependencies.shapeRunner = async context => {
+        fs.writeFileSync(path.join(context.attemptPath, 'stderr.txt'), retainedStderr, 'utf8');
+        fs.writeFileSync(path.join(context.attemptPath, 'exit-code.txt'), '17\n', 'utf8');
+        const error = new Error('SHAPE process exited with code 17');
+        error.code = 'SHAPE_PROCESS_FAILED';
+        throw error;
+    };
+    try {
+        await assert.rejects(
+            runner.runMetamorphicCampaign(
+                basicOptions(output, cases, frozen, { scheduleBuilder }),
+                firstDependencies
+            ),
+            error => error.code === 'SHAPE_PROCESS_FAILED'
+        );
+        const firstAttemptRoot = path.join(
+            output, 'shape', 'attempts', 's01-c02-b01-r1', 'attempt-01'
+        );
+        const firstCheckpoint = JSON.parse(fs.readFileSync(
+            path.join(firstAttemptRoot, 'checkpoint.json'), 'utf8'
+        ));
+        assert.equal(firstCheckpoint.status, 'failed');
+        assert.equal(firstCheckpoint.error.code, 'SHAPE_PROCESS_FAILED');
+        assert.equal(fs.readFileSync(path.join(firstAttemptRoot, 'stderr.txt'), 'utf8'), retainedStderr);
+        assert.equal(fs.readFileSync(path.join(firstAttemptRoot, 'exit-code.txt'), 'utf8'), '17\n');
+
+        const resumed = await runner.runMetamorphicCampaign(
+            basicOptions(output, cases, frozen, { resume: true, scheduleBuilder }),
+            fakeDependencies([])
+        );
+        const attemptRoot = path.join(output, 'shape', 'attempts', 's01-c02-b01-r1');
+        const checkpoints = ['attempt-01', 'attempt-02'].map(attempt => JSON.parse(
+            fs.readFileSync(path.join(attemptRoot, attempt, 'checkpoint.json'), 'utf8')
+        ));
+        assert.deepEqual(checkpoints.map(checkpoint => checkpoint.status), ['failed', 'complete']);
+        assert.equal(checkpoints.some(checkpoint => checkpoint.status === 'abandoned'), false);
+        assert.equal(resumed.shapeCalls.failed, 1);
+        assert.equal(resumed.shapeCalls.abandoned, 0);
+    } finally {
+        fs.rmSync(parent, { recursive: true, force: true });
+    }
 });
 
 test('resume binds a checkpointless hard-interrupted attempt before allocating the retry', async () => {

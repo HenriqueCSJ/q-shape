@@ -86,11 +86,11 @@ function captureWorkerRuntimeIdentity(repoRoot, processModel = IN_PROCESS_MODEL)
         intl_locale: intl.locale || null,
         intl_time_zone: intl.timeZone || null,
         environment_locale: {
-            lc_all: process.env.LC_ALL || null,
-            lang: process.env.LANG || null,
-            language: process.env.LANGUAGE || null
+            lc_all: process.env.LC_ALL ?? null,
+            lang: process.env.LANG ?? null,
+            language: process.env.LANGUAGE ?? null
         },
-        environment_time_zone: process.env.TZ || null,
+        environment_time_zone: process.env.TZ ?? null,
         dependency_lockfile: {
             path: 'package-lock.json',
             sha256: sha256File(packageLockPath)

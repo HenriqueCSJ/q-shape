@@ -20,6 +20,7 @@ const scheduleModule = require('./metamorphic-schedule.cjs');
 const qWorker = require('./qshape-metamorphic-worker.cjs');
 const analysisModule = require('./metamorphic-parity-analysis.cjs');
 const malformedModule = require('./metamorphic-malformed-controls.cjs');
+const referencePreparationModule = require('./prepare-metamorphic-references.cjs');
 const reportingModule = require('./metamorphic-reporting.cjs');
 const productionAdapters = require('./metamorphic-production-adapters.cjs');
 
@@ -27,6 +28,10 @@ const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
 const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
 const EXECUTION_INPUT_CAMPAIGN_ID = 'qshape-metamorphic-execution-inputs-v1';
 const EXECUTION_INPUT_RECEIPT_KIND = 'frozen-metamorphic-execution-input-bundle';
+const CERTIFIED_DIRECT_REFERENCES_SHA256 =
+    '170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787';
+const CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 =
+    '5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca';
 const RUNTIME_IDENTITY_KIND = 'qshape-node-runtime-v1';
 const QSHAPE_PROCESS_MODEL = 'in_process_runner';
 const CASES_SHA256 = qWorker.CAMPAIGN_CASES_SHA256;
@@ -113,11 +118,11 @@ function captureRuntimeIdentity(repoRoot, dependencyLockfileSha256) {
         intl_locale: intl.locale || null,
         intl_time_zone: intl.timeZone || null,
         environment_locale: {
-            lc_all: process.env.LC_ALL || null,
-            lang: process.env.LANG || null,
-            language: process.env.LANGUAGE || null
+            lc_all: process.env.LC_ALL ?? null,
+            lang: process.env.LANG ?? null,
+            language: process.env.LANGUAGE ?? null
         },
-        environment_time_zone: process.env.TZ || null,
+        environment_time_zone: process.env.TZ ?? null,
         dependency_lockfile: {
             path: 'package-lock.json',
             sha256: dependencyLockfileSha256
@@ -395,7 +400,8 @@ function validateInputBundleReceipt(receiptFile, casesFile, referencesFile, malf
         'campaign_id', 'sha256', 'count', 'matched_target_evaluations_per_program'
     ], 'execution-input positive cases');
     exactObjectKeys(receipt.references, [
-        'sha256', 'count', 'source_direct_references_sha256'
+        'sha256', 'count', 'source_direct_references_sha256',
+        'source_direct_package_manifest_sha256'
     ], 'execution-input references');
     exactObjectKeys(receipt.malformed_controls, [
         'campaign_id', 'sha256', 'count', 'expected_numeric_rows_contract',
@@ -409,8 +415,10 @@ function validateInputBundleReceipt(receiptFile, casesFile, referencesFile, malf
     );
     const expectedRowsTotal = Object.values(expectedRowsByControl)
         .reduce((sum, value) => sum + Number(value), 0);
-    const directReferencesSha256 =
-        referencesFile.document?.metamorphic_binding?.source_direct_references_sha256;
+    const referenceBinding = referencesFile.document?.metamorphic_binding;
+    const directReferencesSha256 = referenceBinding?.source_direct_references_sha256;
+    const directPackageManifestSha256 =
+        referenceBinding?.source_direct_package_manifest_sha256;
     const valid = receipt.schema_version === 2 &&
         receipt.receipt_kind === EXECUTION_INPUT_RECEIPT_KIND &&
         receipt.campaign_id === EXECUTION_INPUT_CAMPAIGN_ID &&
@@ -419,6 +427,7 @@ function validateInputBundleReceipt(receiptFile, casesFile, referencesFile, malf
         receipt.positive_execution_started === false &&
         receipt.output_policy === 'input-only directory; numerical outputs are forbidden' &&
         receipt.positive_cases.campaign_id === casesFile.document.campaign_id &&
+        casesFile.document.campaign_id === CAMPAIGN_ID &&
         receipt.positive_cases.sha256 === casesFile.sha256 &&
         receipt.positive_cases.count === casesFile.document.count &&
         receipt.positive_cases.matched_target_evaluations_per_program ===
@@ -426,7 +435,11 @@ function validateInputBundleReceipt(receiptFile, casesFile, referencesFile, malf
         receipt.references.sha256 === referencesFile.sha256 &&
         receipt.references.count === referencesFile.document.count &&
         receipt.references.source_direct_references_sha256 === directReferencesSha256 &&
-        /^[0-9a-f]{64}$/.test(directReferencesSha256 || '') &&
+        receipt.references.source_direct_package_manifest_sha256 === directPackageManifestSha256 &&
+        referenceBinding?.campaign_id === CAMPAIGN_ID &&
+        referenceBinding?.source_positive_cases_sha256 === casesFile.sha256 &&
+        directReferencesSha256 === CERTIFIED_DIRECT_REFERENCES_SHA256 &&
+        directPackageManifestSha256 === CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 &&
         receipt.malformed_controls.campaign_id === malformedControlsFile.document.campaign_id &&
         receipt.malformed_controls.sha256 === malformedControlsFile.sha256 &&
         receipt.malformed_controls.count === malformedControlsFile.document.count &&
@@ -934,6 +947,14 @@ function preflight(options) {
     if (referencesFile.document.source_cases_sha256 !== casesFile.sha256) {
         fail('Frozen reference document is bound to a different cases SHA-256', 'REFERENCES_HASH_MISMATCH');
     }
+    try {
+        referencePreparationModule.validateMetamorphicReferenceDocument(
+            referencesFile.document,
+            casesFile.document
+        );
+    } catch (error) {
+        fail(`Frozen certified reference lineage is invalid: ${error.message}`, 'REFERENCES_INVALID');
+    }
     const malformedControlsFile = readJson(options.malformedControls, 'Frozen malformed controls');
     if (options.requireFrozenCensus !== false) malformedModule.validateMalformedControlDocument(malformedControlsFile.document);
     else validateMalformedControlDocument(malformedControlsFile.document, casesFile.sha256);
@@ -1422,9 +1443,14 @@ async function runMetamorphicCampaign(options = {}, dependencies = {}) {
             } catch (error) {
                 state.shape_calls.failed += 1;
                 try {
-                    writeExclusive(path.join(attemptPath, 'stderr.txt'), toBuffer(error.stack || error.message));
+                    const stderrPath = path.join(attemptPath, 'stderr.txt');
+                    if (!fs.existsSync(stderrPath)) {
+                        writeExclusive(stderrPath, toBuffer(error.stack || error.message));
+                    }
+                } catch (_stderrWriteError) { /* preserve adapter evidence and the primary error */ }
+                try {
                     writeJsonExclusive(path.join(attemptPath, 'checkpoint.json'), failureCheckpoint(invocation, attemptPath, error));
-                } catch (_writeError) { /* preserve the primary execution error */ }
+                } catch (_checkpointWriteError) { /* preserve the primary execution error */ }
                 throw error;
             }
         };

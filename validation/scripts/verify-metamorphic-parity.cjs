@@ -14,6 +14,10 @@ const EXECUTION_INPUT_RECEIPT_KIND = 'frozen-metamorphic-execution-input-bundle'
 const RUNTIME_IDENTITY_KIND = 'qshape-node-runtime-v1';
 const QSHAPE_PROCESS_MODEL = 'in_process_runner';
 const CASES_SHA256 = '102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd';
+const CERTIFIED_DIRECT_REFERENCES_SHA256 =
+    '170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787';
+const CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 =
+    '5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca';
 const MAIN_REGISTRY_SHA256 = '06da4f20f3d1f92f9074bcb05860f316f497dae759f15cbdaf374dd56b727966';
 const ADVERSARIAL_REGISTRY_SHA256 = '2db4dfd689b403206bfd54b6b766866ae1770156844e02a0d96b4ea596bc7744';
 const REFERENCE_COUNT = 87;
@@ -1291,6 +1295,9 @@ function flattenReferences(referenceDocument) {
         for (const reference of group.references) {
             requireThat(reference.qshape_point_group && reference.qshape_chirality,
                 `${reference.qshape_code} lacks Q-Shape point-group/chirality binding`);
+            requireThat(/^[0-9a-f]{64}$/.test(
+                reference.metamorphic_parent_reference_fingerprint_sha256 || ''
+            ), `${reference.qshape_code} lacks metamorphic parent fingerprint binding`);
             requireThat(Number.isInteger(reference.qshape_center_index_zero_based),
                 `${reference.qshape_code} lacks center index`);
             requireThat(Array.isArray(reference.qshape_reference_coordinate_roundtrip_tokens) &&
@@ -1325,6 +1332,8 @@ function flattenReferences(referenceDocument) {
                 name: reference.qshape_name,
                 pointGroup: reference.qshape_point_group,
                 chirality: reference.qshape_chirality,
+                retainedParentFingerprint:
+                    reference.metamorphic_parent_reference_fingerprint_sha256,
                 centerIndex: reference.qshape_center_index_zero_based,
                 coordinates,
                 coordinateRoundtripTokens: reference.qshape_reference_coordinate_roundtrip_tokens,
@@ -1440,6 +1449,29 @@ function verifyFrozenInputs(caseDocument, referenceDocument, caseBytes = null) {
         'case array count mismatch');
 
     const references = flattenReferences(referenceDocument);
+    requireThat(referenceDocument.source_cases_sha256 === CASES_SHA256,
+        'reference top-level cases binding mismatch');
+    requireThat(referenceDocument.metamorphic_binding?.campaign_id === CAMPAIGN_ID &&
+        referenceDocument.metamorphic_binding.source_positive_cases_sha256 === CASES_SHA256 &&
+        referenceDocument.metamorphic_binding.source_direct_references_sha256 ===
+            CERTIFIED_DIRECT_REFERENCES_SHA256 &&
+        referenceDocument.metamorphic_binding.source_direct_package_manifest_sha256 ===
+            CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256,
+    'reference certified lineage binding mismatch');
+    const caseFingerprints = new Map();
+    for (const item of caseDocument.cases) {
+        const key = `${item.cn}\u0000${item.parent_reference_code}\u0000${item.parent_reference_index}`;
+        if (!caseFingerprints.has(key)) caseFingerprints.set(key, new Set());
+        caseFingerprints.get(key).add(item.parent_reference_fingerprint_sha256);
+    }
+    for (const reference of references) {
+        const reconstructed = referenceFingerprint(reference);
+        const key = `${reference.cn}\u0000${reference.code}\u0000${reference.index}`;
+        const frozenCaseFingerprints = caseFingerprints.get(key);
+        requireThat(reference.retainedParentFingerprint === reconstructed &&
+            frozenCaseFingerprints?.size === 1 && frozenCaseFingerprints.has(reconstructed),
+        `${reference.code} retained parent fingerprint binding mismatch`);
+    }
     const observedIds = new Set();
     let caseOffset = 0;
     let expectedPairs = 0;
@@ -1639,7 +1671,8 @@ function validateRetainedInputBundleReceipt(receiptFile, casesFile, referencesFi
         'campaign_id', 'sha256', 'count', 'matched_target_evaluations_per_program'
     ], 'execution-input positive-case fields');
     exactSet(Object.keys(receipt.references || {}), [
-        'sha256', 'count', 'source_direct_references_sha256'
+        'sha256', 'count', 'source_direct_references_sha256',
+        'source_direct_package_manifest_sha256'
     ], 'execution-input reference fields');
     exactSet(Object.keys(receipt.malformed_controls || {}), [
         'campaign_id', 'sha256', 'count', 'expected_numeric_rows_contract',
@@ -1652,8 +1685,10 @@ function validateRetainedInputBundleReceipt(receiptFile, casesFile, referencesFi
         malformedFile.value.controls.map(control => [control.control_id, control.expected_numeric_rows])
     );
     const expectedRowsTotal = Object.values(expectedRowsByControl).reduce((sum, value) => sum + value, 0);
-    const directReferencesSha256 =
-        referencesFile.value?.metamorphic_binding?.source_direct_references_sha256;
+    const referenceBinding = referencesFile.value?.metamorphic_binding;
+    const directReferencesSha256 = referenceBinding?.source_direct_references_sha256;
+    const directPackageManifestSha256 =
+        referenceBinding?.source_direct_package_manifest_sha256;
     requireThat(receipt.schema_version === 2 &&
         receipt.receipt_kind === EXECUTION_INPUT_RECEIPT_KIND &&
         receipt.campaign_id === EXECUTION_INPUT_CAMPAIGN_ID &&
@@ -1670,7 +1705,12 @@ function validateRetainedInputBundleReceipt(receiptFile, casesFile, referencesFi
         receipt.references.sha256 === sha256(referencesFile.raw) &&
         receipt.references.count === referencesFile.value.count &&
         receipt.references.source_direct_references_sha256 === directReferencesSha256 &&
-        /^[0-9a-f]{64}$/.test(directReferencesSha256 || '') &&
+        receipt.references.source_direct_package_manifest_sha256 === directPackageManifestSha256 &&
+        referencesFile.value.source_cases_sha256 === CASES_SHA256 &&
+        referenceBinding?.campaign_id === CAMPAIGN_ID &&
+        referenceBinding?.source_positive_cases_sha256 === CASES_SHA256 &&
+        directReferencesSha256 === CERTIFIED_DIRECT_REFERENCES_SHA256 &&
+        directPackageManifestSha256 === CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 &&
         receipt.malformed_controls.campaign_id === CONTROL_CAMPAIGN_ID &&
         receipt.malformed_controls.sha256 === sha256(malformedFile.raw) &&
         receipt.malformed_controls.count === malformedFile.value.count &&

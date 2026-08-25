@@ -53,7 +53,10 @@ allowed only under the exact retained runtime and lockfile identity. The sealed
 package retains both captures, the manifest binding, and the runtime identity in
 every Q-Shape payload so that the independent verifier can reconstruct the
 complete linkage without requiring the verifier itself to run under that Node
-binary.
+binary. The identity distinguishes unset environment variables from explicitly
+empty values and binds the exact Node executable bytes, Node and V8 versions,
+platform, architecture, resolved `Intl` locale/time zone, `LC_ALL`, `LANG`,
+`LANGUAGE`, `TZ`, and `package-lock.json` bytes.
 
 ## 3. Evidence strata
 
@@ -187,7 +190,15 @@ numeric-row contracts; the candidate source commit; and a deterministic bundle
 hash. The runner requires this receipt through the explicit
 `--input-bundle-receipt` flag, requires its `source_commit` to equal candidate
 `HEAD`, rejects any noncanonical or extra bundle content before creating a run
-directory, and retains an immutable receipt copy in the evidence package.
+directory, and retains an immutable receipt copy in the evidence package. Both
+the runner and the independent verifier anchor the enhanced references to the
+certified direct-reference SHA-256
+`170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787`
+and its certified package-manifest SHA-256
+`5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca`.
+They also reconstruct every retained parent-reference fingerprint from the
+reference coordinate bytes and require that fingerprint to match all 33 frozen
+positive cases for the same CN/code/index binding.
 
 ### 3.3 External chemical holdout
 

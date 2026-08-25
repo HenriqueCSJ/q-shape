@@ -7,6 +7,7 @@ const path = require('node:path');
 
 const {
     buildMetamorphicReferenceDocument,
+    DIRECT_PACKAGE_MANIFEST_SHA256,
     DIRECT_REFERENCES_SHA256
 } = require('./prepare-metamorphic-references.cjs');
 const {
@@ -81,7 +82,8 @@ function buildExecutionInputBundle(directBytes, casesBytes, sourceCommit) {
         references: {
             sha256: sha256(referenceBytes),
             count: references.count,
-            source_direct_references_sha256: directSha256
+            source_direct_references_sha256: directSha256,
+            source_direct_package_manifest_sha256: DIRECT_PACKAGE_MANIFEST_SHA256
         },
         malformed_controls: {
             campaign_id: malformedControls.campaign_id,

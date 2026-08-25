@@ -3,13 +3,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const Module = require('node:module');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const generator = require('../scripts/metamorphic-cases.cjs');
+const freezer = require('../scripts/freeze-metamorphic-execution-inputs.cjs');
+const referencePreparation = require('../scripts/prepare-metamorphic-references.cjs');
 const reporting = require('../scripts/metamorphic-reporting.cjs');
 const verifier = require('../scripts/verify-metamorphic-parity.cjs');
+const { directReferencesPath } = require('./helpers/metamorphic-fixtures.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const VERIFIER_PATH = path.resolve(
@@ -42,39 +46,17 @@ const PRODUCTION_CANDIDATE_SOURCE_PATHS = Object.freeze([
     'validation/scripts/verify-metamorphic-parity.cjs'
 ]);
 
-function roundTripToken(value) {
-    return Object.is(value, -0) ? '-0' : value.toPrecision(17);
-}
-
-function buildReferenceDocument(inventory) {
-    return {
-        schema_version: 2,
-        count: inventory.reduce((sum, group) => sum + group.count, 0),
-        by_cn: inventory.map(group => ({
-            cn: group.cn,
-            count: group.count,
-            references: group.targets.map(target => ({
-                qshape_index: target.index,
-                qshape_code: target.code,
-                qshape_name: target.name,
-                qshape_point_group: target.pointGroup,
-                qshape_chirality: target.chirality,
-                qshape_center_index_zero_based: target.coordinates.length - 1,
-                qshape_reference_coordinate_roundtrip_tokens: target.coordinates.map(point =>
-                    point.map(roundTripToken)
-                ),
-                qshape_reference_coordinate_float64_hex: target.coordinates.map(point =>
-                    point.map(verifier.float64Hex)
-                )
-            }))
-        }))
-    };
-}
-
 const generated = generator.generateMetamorphicCases(REPO_ROOT);
 const caseText = `${JSON.stringify(generated.document, null, 2)}\n`;
 const caseBytes = Buffer.from(caseText, 'utf8');
-const references = buildReferenceDocument(generated.inventory);
+const references = referencePreparation.buildMetamorphicReferenceDocument(
+    JSON.parse(fs.readFileSync(directReferencesPath(), 'utf8')),
+    generated.document,
+    {
+        directReferencesSha256: referencePreparation.DIRECT_REFERENCES_SHA256,
+        casesSha256: generator.PREREGISTERED_DOCUMENT_SHA256
+    }
+);
 
 function stableJson(value) {
     if (Array.isArray(value)) return value.map(stableJson);
@@ -82,6 +64,16 @@ function stableJson(value) {
         return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableJson(value[key])]));
     }
     return value;
+}
+
+function loadFrozenPackageInputValidator() {
+    const source = `${fs.readFileSync(VERIFIER_PATH, 'utf8')}\n` +
+        'module.exports.__lineageTest = { validateFrozenPackageInputs };\n';
+    const fixtureModule = new Module(`${VERIFIER_PATH}.lineage-test.cjs`, module);
+    fixtureModule.filename = VERIFIER_PATH;
+    fixtureModule.paths = Module._nodeModulePaths(path.dirname(VERIFIER_PATH));
+    fixtureModule._compile(source, VERIFIER_PATH);
+    return fixtureModule.exports.__lineageTest.validateFrozenPackageInputs;
 }
 
 test('production verifier imports only Node core and no campaign implementation', () => {
@@ -168,6 +160,123 @@ test('independent verifier reconstructs all frozen inputs and the exact pair cen
     });
 });
 
+test('certified lineage and retained parent fingerprints reject resealed mutations', () => {
+    const directLineage = structuredClone(references);
+    directLineage.metamorphic_binding.source_direct_references_sha256 = 'f'.repeat(64);
+    assert.notEqual(
+        verifier.sha256(Buffer.from(JSON.stringify(directLineage))),
+        verifier.sha256(Buffer.from(JSON.stringify(references)))
+    );
+    assert.throws(
+        () => verifier.verifyFrozenInputs(generated.document, directLineage),
+        /certified lineage binding mismatch/
+    );
+
+    const manifestLineage = structuredClone(references);
+    manifestLineage.metamorphic_binding.source_direct_package_manifest_sha256 = 'f'.repeat(64);
+    assert.throws(
+        () => verifier.verifyFrozenInputs(generated.document, manifestLineage),
+        /certified lineage binding mismatch/
+    );
+
+    const parentFingerprint = structuredClone(references);
+    parentFingerprint.by_cn[0].references[0]
+        .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+    assert.throws(
+        () => verifier.verifyFrozenInputs(generated.document, parentFingerprint),
+        /retained parent fingerprint binding mismatch/
+    );
+});
+
+test('independent package verifier rejects a fingerprint mutation after every enclosing hash is resealed', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qshape-meta-fingerprint-reseal-'));
+    const frozenRoot = path.join(root, 'inputs', 'frozen');
+    const commit = '1'.repeat(40);
+    try {
+        const bundle = freezer.buildExecutionInputBundle(
+            fs.readFileSync(directReferencesPath()),
+            caseBytes,
+            commit
+        );
+        const mutatedReferences = JSON.parse(bundle.files['references.json'].toString('utf8'));
+        mutatedReferences.by_cn[0].references[0]
+            .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+        const referencesBytes = Buffer.from(`${JSON.stringify(mutatedReferences, null, 2)}\n`);
+
+        const receipt = structuredClone(bundle.receipt);
+        receipt.references.sha256 = verifier.sha256(referencesBytes);
+        const receiptContract = {
+            schema_version: receipt.schema_version,
+            receipt_kind: receipt.receipt_kind,
+            campaign_id: receipt.campaign_id,
+            source_commit: receipt.source_commit,
+            positive_cases: receipt.positive_cases,
+            references: receipt.references,
+            malformed_controls: receipt.malformed_controls
+        };
+        receipt.bundle_sha256 = verifier.sha256(Buffer.from(
+            JSON.stringify(stableJson(receiptContract)), 'utf8'
+        ));
+        const receiptBytes = Buffer.from(
+            `${JSON.stringify(stableJson(receipt), null, 2)}\n`, 'utf8'
+        );
+        const malformedBytes = bundle.files['malformed-controls.json'];
+        const registry = {
+            schema_version: 1,
+            campaign_id: generated.document.campaign_id,
+            cases: { path: 'cases.json', sha256: generator.PREREGISTERED_DOCUMENT_SHA256 },
+            references: { path: 'references.json', sha256: verifier.sha256(referencesBytes) },
+            malformed_controls: {
+                path: 'malformed-controls.json',
+                sha256: verifier.sha256(malformedBytes)
+            },
+            input_bundle_receipt: {
+                path: 'input-bundle-receipt.json',
+                sha256: verifier.sha256(receiptBytes),
+                bundle_sha256: receipt.bundle_sha256
+            }
+        };
+        const recipes = {
+            schema_version: 1,
+            campaign_id: generated.document.campaign_id,
+            main_recipe_registry: generated.document.main_recipe_registry,
+            adversarial_positive_recipe_registry:
+                generated.document.adversarial_positive_recipe_registry,
+            main_recipe_registry_sha256: generated.document.main_recipe_registry_sha256,
+            adversarial_positive_recipe_registry_sha256:
+                generated.document.adversarial_positive_recipe_registry_sha256
+        };
+        const files = new Map([
+            ['inputs/frozen/cases.json', caseBytes],
+            ['inputs/frozen/references.json', referencesBytes],
+            ['inputs/frozen/malformed-controls.json', malformedBytes],
+            ['inputs/frozen/input-bundle-receipt.json', receiptBytes],
+            ['inputs/frozen/registry.json', Buffer.from(`${JSON.stringify(registry, null, 2)}\n`)],
+            ['recipes.json', Buffer.from(`${JSON.stringify(recipes, null, 2)}\n`)]
+        ]);
+        for (const [relativePath, bytes] of files) {
+            const destination = path.join(root, ...relativePath.split('/'));
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.writeFileSync(destination, bytes);
+        }
+        const manifest = {
+            cases_sha256: generator.PREREGISTERED_DOCUMENT_SHA256,
+            references_sha256: verifier.sha256(referencesBytes),
+            malformed_controls_sha256: verifier.sha256(malformedBytes),
+            input_bundle_sha256: receipt.bundle_sha256,
+            input_bundle_receipt_sha256: verifier.sha256(receiptBytes),
+            candidate_source: { repo_commit: commit }
+        };
+        const validateFrozenPackageInputs = loadFrozenPackageInputValidator();
+        assert.throws(
+            () => validateFrozenPackageInputs(root, new Set(files.keys()), manifest),
+            /retained parent fingerprint binding mismatch/
+        );
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test('frozen-byte and semantic case mutations are rejected independently', () => {
     assert.throws(
         () => verifier.verifyFrozenInputs(generated.document, references, Buffer.from(`${caseText} `)),
@@ -195,7 +304,7 @@ test('reference coordinate bits and center binding are mandatory', () => {
     badCenter.by_cn[0].references[0].qshape_center_index_zero_based = 0;
     assert.throws(
         () => verifier.verifyFrozenInputs(generated.document, badCenter),
-        /case reconstruction mismatch/
+        /fingerprint binding mismatch|case reconstruction mismatch/
     );
 });
 

@@ -16,6 +16,10 @@ const VERIFIER_PATH = path.resolve(__dirname, '..', 'scripts', 'verify-metamorph
 const CAMPAIGN_ID = 'qshape-metamorphic-adversarial-v1';
 const CONTROL_CAMPAIGN_ID = 'qshape-metamorphic-malformed-v1';
 const CASES_SHA256 = '102895a86a32a9b44410d72781ba9373e887b49686e247b3c9a2f6c047aaffcd';
+const CERTIFIED_DIRECT_REFERENCES_SHA256 =
+    '170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787';
+const CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256 =
+    '5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca';
 const SHAPE_SHA256 = '1592122408e7f5486fd9665e96e129dda9390b1b0ac76da4d348e3070c1bb4cb';
 const Q_STREAMS = Object.freeze([
     'q_primary_input_derived_r1',
@@ -293,7 +297,14 @@ test('independent verifier reconstructs the retained input-bundle receipt and ca
     };
     const references = {
         count: 1,
-        metamorphic_binding: { source_direct_references_sha256: 'a'.repeat(64) }
+        source_cases_sha256: CASES_SHA256,
+        metamorphic_binding: {
+            campaign_id: CAMPAIGN_ID,
+            source_positive_cases_sha256: CASES_SHA256,
+            source_direct_references_sha256: CERTIFIED_DIRECT_REFERENCES_SHA256,
+            source_direct_package_manifest_sha256:
+                CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256
+        }
     };
     const malformed = {
         campaign_id: CONTROL_CAMPAIGN_ID,
@@ -321,7 +332,9 @@ test('independent verifier reconstructs the retained input-bundle receipt and ca
         references: {
             sha256: sha256(referencesRaw),
             count: 1,
-            source_direct_references_sha256: 'a'.repeat(64)
+            source_direct_references_sha256: CERTIFIED_DIRECT_REFERENCES_SHA256,
+            source_direct_package_manifest_sha256:
+                CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256
         },
         malformed_controls: {
             campaign_id: CONTROL_CAMPAIGN_ID,
@@ -379,6 +392,36 @@ test('independent verifier reconstructs the retained input-bundle receipt and ca
         files.cases, files.references, files.malformed,
         { ...manifest, input_bundle_receipt_sha256: sha256(noncanonicalReceiptRaw) }
     ), /not canonical/i);
+
+    for (const field of [
+        'source_direct_references_sha256',
+        'source_direct_package_manifest_sha256'
+    ]) {
+        const mutatedReferences = structuredClone(references);
+        mutatedReferences.metamorphic_binding[field] = 'f'.repeat(64);
+        const mutatedReferencesRaw = Buffer.from(`${JSON.stringify(mutatedReferences, null, 2)}\n`);
+        const mutatedContract = structuredClone(contract);
+        mutatedContract.references.sha256 = sha256(mutatedReferencesRaw);
+        mutatedContract.references[field] = 'f'.repeat(64);
+        const mutatedBundleSha256 = sha256(Buffer.from(JSON.stringify(stable(mutatedContract))));
+        const mutatedReceipt = {
+            ...structuredClone(receipt),
+            ...mutatedContract,
+            bundle_sha256: mutatedBundleSha256
+        };
+        const mutatedReceiptRaw = Buffer.from(stableJson(mutatedReceipt));
+        assert.throws(() => privateVerifier.validateRetainedInputBundleReceipt(
+            { value: mutatedReceipt, raw: mutatedReceiptRaw },
+            files.cases,
+            { value: mutatedReferences, raw: mutatedReferencesRaw },
+            files.malformed,
+            {
+                ...manifest,
+                input_bundle_sha256: mutatedBundleSha256,
+                input_bundle_receipt_sha256: sha256(mutatedReceiptRaw)
+            }
+        ), /does not exactly bind/i);
+    }
 });
 
 test('manifest expected verified counts are bound exactly to the independent census', () => {

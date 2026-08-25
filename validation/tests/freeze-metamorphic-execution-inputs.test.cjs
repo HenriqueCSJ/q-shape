@@ -40,6 +40,10 @@ test('execution-input bundle is deterministic, input-only, and hash-binds all th
     assert.equal(first.receipt.positive_execution_started, false);
     assert.equal(first.receipt.positive_cases.count, 2871);
     assert.equal(first.receipt.references.count, 87);
+    assert.equal(
+        first.receipt.references.source_direct_package_manifest_sha256,
+        '5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca'
+    );
     assert.equal(first.receipt.malformed_controls.count, 7);
     assert.equal(first.receipt.malformed_controls.expected_numeric_rows_contract, 'per-control');
     assert.deepEqual(first.receipt.malformed_controls.expected_numeric_rows_by_control, {
