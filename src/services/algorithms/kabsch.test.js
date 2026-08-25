@@ -133,6 +133,13 @@ describe('Kabsch Algorithm', () => {
     });
 
     describe('kabschAlignment - Edge Cases', () => {
+        test('rejects point sets that are not arrays', () => {
+            const valid = [[0, 0, 0], [1, 0, 0]];
+
+            expect(() => kabschAlignment(null, valid)).toThrow(TypeError);
+            expect(() => kabschAlignment(valid, 'not-a-point-set')).toThrow(TypeError);
+        });
+
         test('rejects empty point sets', () => {
             const P = [];
             const Q = [];
@@ -170,6 +177,52 @@ describe('Kabsch Algorithm', () => {
             expect(() => kabschAlignment(coincident, coincident))
                 .toThrow(/insufficient spatial extent/);
         });
+
+        test('rejects finite coordinates whose normalization scale underflows or overflows', () => {
+            const underflow = [[0, 0, 0], [Number.MIN_VALUE, 0, 0]];
+            const overflow = [[0, 0, 0], [Number.MAX_VALUE, 0, 0]];
+
+            expect(() => kabschAlignment(underflow, underflow, true))
+                .toThrow(/normalization scale is non-finite or zero/);
+            expect(() => kabschAlignment(overflow, overflow, true))
+                .toThrow(/normalization scale is non-finite or zero/);
+        });
+
+        test('rejects a non-finite rotation matrix produced by the numerical kernel', () => {
+            const originalSet = THREE.Matrix4.prototype.set;
+            const setSpy = jest.spyOn(THREE.Matrix4.prototype, 'set')
+                .mockImplementation(function (...values) {
+                    const result = originalSet.apply(this, values);
+                    this.elements[0] = NaN;
+                    return result;
+                });
+
+            try {
+                expect(() => kabschAlignment(
+                    [[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+                    [[0, 0, 0], [0, 1, 0], [-1, 0, 0]]
+                )).toThrow(/non-finite rotation matrix/);
+            } finally {
+                setSpy.mockRestore();
+            }
+        });
+
+        test.each([NaN, 0])(
+            'rejects an invalid rotation determinant (%p)',
+            determinant => {
+                const determinantSpy = jest.spyOn(THREE.Matrix4.prototype, 'determinant')
+                    .mockReturnValue(determinant);
+
+                try {
+                    expect(() => kabschAlignment(
+                        [[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+                        [[0, 0, 0], [0, 1, 0], [-1, 0, 0]]
+                    )).toThrow(/invalid rotation determinant/);
+                } finally {
+                    determinantSpy.mockRestore();
+                }
+            }
+        );
 
         test('should handle collinear points', () => {
             const P = [[0, 0, 0], [1, 0, 0], [2, 0, 0]];
