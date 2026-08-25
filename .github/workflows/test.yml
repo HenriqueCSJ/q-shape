@@ -19,6 +19,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: Verify exact source checkout
+      shell: bash
+      env:
+        EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v7

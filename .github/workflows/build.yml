@@ -13,6 +13,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: Verify exact source checkout
+      shell: bash
+      env:
+        EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
     - name: Setup Node.js
       uses: actions/setup-node@v7
@@ -30,7 +38,7 @@ jobs:
       run: npm run build
       env:
         CI: true
-        REACT_APP_GIT_SHA: ${{ github.sha }}
+        REACT_APP_GIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     - name: Check build size
       run: |
