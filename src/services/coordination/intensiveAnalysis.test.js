@@ -71,17 +71,25 @@ describe('intensive-analysis failure contract', () => {
         expect(progress.at(-1)).toMatchObject({ stage: 'error' });
     });
 
-    test('requires the exact finite reference set for the coordination number', () => {
+    test('requires the exact reference set and normalizes unavailable rows', () => {
         const valid = validCn2Results();
         const nonFinite = valid.map(item => ({ ...item }));
         nonFinite[0].shapeMeasure = Number.NaN;
-        expect(() => validateIntensiveGeometryResults(nonFinite, 2))
-            .toThrow('Invalid intensive geometry result at index 0');
+        expect(validateIntensiveGeometryResults(nonFinite, 2)[0]).toMatchObject({
+            name: nonFinite[1].name,
+            status: 'available'
+        });
+        expect(validateIntensiveGeometryResults(nonFinite, 2).at(-1)).toMatchObject({
+            name: nonFinite[0].name,
+            status: 'invalid'
+        });
 
         const outOfRange = valid.map(item => ({ ...item }));
         outOfRange[0].shapeMeasure = 100.01;
-        expect(() => validateIntensiveGeometryResults(outOfRange, 2))
-            .toThrow('Invalid intensive geometry result at index 0');
+        expect(validateIntensiveGeometryResults(outOfRange, 2).at(-1)).toMatchObject({
+            name: outOfRange[0].name,
+            status: 'invalid'
+        });
 
         const duplicate = valid.map(item => ({ ...item }));
         duplicate[1].name = duplicate[0].name;
@@ -95,6 +103,33 @@ describe('intensive-analysis failure contract', () => {
 
         expect(validateIntensiveGeometryResults(valid, 2))
             .toHaveLength(Object.keys(REFERENCE_GEOMETRIES[2]).length);
+    });
+
+    test('retains an explicit per-geometry failure and chooses the best finite result', async () => {
+        const partial = validCn2Results();
+        partial[0] = {
+            ...partial[0],
+            shapeMeasure: null,
+            status: 'error',
+            error: 'synthetic target failure'
+        };
+        buildGeneralGeometry.mockResolvedValue(partial);
+
+        const result = await runIntensiveAnalysisAsync(atoms, 0, 2);
+
+        expect(result.geometryResults).toHaveLength(partial.length);
+        expect(result.geometryResults.at(-1)).toMatchObject({
+            name: partial[0].name,
+            status: 'error',
+            error: 'synthetic target failure'
+        });
+        expect(result.metadata).toMatchObject({
+            bestGeometry: partial[1].name,
+            bestCShM: partial[1].shapeMeasure,
+            availableGeometryCount: partial.length - 1,
+            unavailableGeometryCount: 1,
+            analysisComplete: false
+        });
     });
 
     test('uses the same greater-than-0.1 angstrom sphere rule as standard mode', async () => {

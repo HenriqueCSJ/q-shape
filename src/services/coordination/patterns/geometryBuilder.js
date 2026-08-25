@@ -8,6 +8,7 @@
 import { REFERENCE_GEOMETRIES } from '../../../constants/referenceGeometries/index.js';
 import { PATTERN_DETECTION } from '../../../constants/algorithmConstants.js';
 import calculateShapeMeasure from '../../shapeAnalysis/shapeCalculator';
+import { prepareGeometryResults, SHAPE_RESULT_STATUS } from '../../../utils/shapeResults';
 
 /**
  * Build geometry analysis for sandwich structures
@@ -272,21 +273,35 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
         const name = geometryNames[i];
         const refCoords = geometries[name];
 
-        const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
-            actualCoords,
-            refCoords,
-            mode,
-            null
-        );
+        try {
+            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+                actualCoords,
+                refCoords,
+                mode,
+                null
+            );
 
-        results.push({
-            name,
-            shapeMeasure: measure,
-            refCoords,  // ADD: Needed for polyhedron rendering
-            alignedCoords,
-            rotationMatrix,
-            pattern: 'general'
-        });
+            results.push({
+                name,
+                shapeMeasure: measure,
+                refCoords,  // ADD: Needed for polyhedron rendering
+                alignedCoords,
+                rotationMatrix,
+                pattern: 'general'
+            });
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            results.push({
+                name,
+                shapeMeasure: null,
+                refCoords,
+                alignedCoords: [],
+                rotationMatrix: null,
+                pattern: 'general',
+                status: SHAPE_RESULT_STATUS.ERROR,
+                error: `CShM calculation failed for ${name}: ${detail}`
+            });
+        }
 
         // Report progress and yield to event loop every iteration
         if (onProgress) {
@@ -298,8 +313,7 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
         }
     }
 
-    results.sort((a, b) => a.shapeMeasure - b.shapeMeasure);
-    return results;
+    return prepareGeometryResults(results);
 }
 
 /**

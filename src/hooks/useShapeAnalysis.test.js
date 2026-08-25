@@ -5,6 +5,7 @@ import {
 } from './useShapeAnalysis';
 import {
     isShapeResultAvailable,
+    isShapeResultRecord,
     summarizeGeometryResults
 } from '../utils/shapeResults';
 
@@ -119,5 +120,16 @@ describe('fail-closed per-target result handling', () => {
         expect(summary.availableResults).toHaveLength(2);
         expect(summary.unavailableResults).toHaveLength(2);
         expect(summary.isComplete).toBe(false);
+    });
+
+    test('distinguishes explicit unavailable rows from malformed result objects', () => {
+        expect(isShapeResultRecord({ name: 'valid', shapeMeasure: 0.5 })).toBe(true);
+        expect(isShapeResultRecord({
+            name: 'failed',
+            shapeMeasure: null,
+            status: 'error',
+            error: 'synthetic failure'
+        })).toBe(true);
+        expect(isShapeResultRecord({ name: 'silent-failure', shapeMeasure: NaN })).toBe(false);
     });
 });

@@ -722,15 +722,18 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
     const summaryRows = [];
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
-        if (result && result.bestGeometry) {
+        if (result) {
+            const bestGeometry = isShapeResultAvailable(result.bestGeometry)
+                ? result.bestGeometry
+                : null;
             summaryRows.push(`
                 <tr>
                     <td>${index + 1}</td>
                     <td><strong>${escapeHtml(structure.id)}</strong></td>
                     <td>${structure.atoms[result.metalIndex]?.element || 'N/A'}</td>
                     <td style="text-align: center;">${result.coordinationNumber || 'N/A'}</td>
-                    <td>${result.bestGeometry.name}</td>
-                    <td style="font-family: monospace;">${formatShapeMeasure(result.bestGeometry.shapeMeasure)}</td>
+                    <td>${bestGeometry ? escapeHtml(bestGeometry.name) : 'N/A'}</td>
+                    <td style="font-family: monospace;">${formatShapeMeasure(bestGeometry?.shapeMeasure)}</td>
                 </tr>
             `);
         }
@@ -1038,15 +1041,18 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
     const rows = [];
     structures.forEach((structure, index) => {
         const result = batchResults.get(index);
-        if (result && result.bestGeometry) {
+        if (result) {
+            const bestGeometry = isShapeResultAvailable(result.bestGeometry)
+                ? result.bestGeometry
+                : null;
             rows.push([
                 `"${structure.id}"`,
                 structure.atoms[result.metalIndex]?.element || '',
                 result.coordinationNumber || '',
                 result.radius?.toFixed(3) || '',
-                `"${result.bestGeometry.name}"`,
-                POINT_GROUPS[result.bestGeometry.name] || '',
-                formatShapeMeasure(result.bestGeometry.shapeMeasure),
+                `"${bestGeometry?.name || 'N/A'}"`,
+                bestGeometry ? POINT_GROUPS[bestGeometry.name] || '' : '',
+                formatShapeMeasure(bestGeometry?.shapeMeasure),
                 result.analysisMode || 'default'
             ]);
         }

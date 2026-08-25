@@ -136,4 +136,41 @@ describe('scientific report surfaces', () => {
         expect(csvContent).toContain('synthetic target failure');
         expect(csvContent).not.toContain('-0.0000');
     });
+
+    test('batch summaries retain a structure when every geometry is unavailable', () => {
+        const unavailableResults = new Map([[
+            0,
+            {
+                bestGeometry: null,
+                geometryResults: [{
+                    name: 'L-2',
+                    shapeMeasure: null,
+                    status: 'error',
+                    error: 'all targets unavailable'
+                }],
+                coordAtoms: [],
+                metalIndex: 0,
+                coordinationNumber: 2,
+                radius: 2,
+                analysisMode: 'intensive'
+            }
+        ]]);
+
+        generateBatchPDFReport({
+            structures,
+            batchResults: unavailableResults,
+            fileName: 'batch',
+            fileFormat: 'xyz'
+        });
+        const html = reportWrite.mock.calls[0][0];
+        expect(html).toMatch(/<td><strong>structure-1<\/strong><\/td>[\s\S]*?<td>N\/A<\/td>[\s\S]*?<td style="font-family: monospace;">N\/A<\/td>/);
+        expect(html).toContain('all targets unavailable');
+
+        generateWideSummaryCSV({
+            structures,
+            batchResults: unavailableResults,
+            fileName: 'batch'
+        });
+        expect(csvContent).toContain('"structure-1",Fe,2,2.000,"N/A",,N/A,intensive');
+    });
 });

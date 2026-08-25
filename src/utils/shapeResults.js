@@ -13,6 +13,21 @@ export function isShapeResultAvailable(result) {
         isValidShapeMeasure(result.shapeMeasure);
 }
 
+/**
+ * Accept only a complete reporting record: either a usable CShM result or an
+ * explicitly retained unavailable row with a diagnostic.
+ */
+export function isShapeResultRecord(result) {
+    if (!result || typeof result !== 'object' ||
+        typeof result.name !== 'string' || result.name.length === 0) {
+        return false;
+    }
+    if (isShapeResultAvailable(result)) return true;
+    return (result.status === SHAPE_RESULT_STATUS.INVALID ||
+        result.status === SHAPE_RESULT_STATUS.ERROR) &&
+        typeof result.error === 'string' && result.error.trim().length > 0;
+}
+
 export function normalizeShapeResult(result, fallbackName = 'Unknown geometry') {
     const source = result && typeof result === 'object' ? result : {};
     const name = typeof source.name === 'string' && source.name.length > 0

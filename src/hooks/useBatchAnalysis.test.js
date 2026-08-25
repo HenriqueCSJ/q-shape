@@ -245,6 +245,36 @@ describe('batch-analysis async ownership', () => {
         expect(onWarning).toHaveBeenCalledWith('Structure sample: optimizer failed');
     });
 
+    test('retains explicit unavailable geometry rows while selecting a finite best result', async () => {
+        runIntensiveAnalysisAsync.mockResolvedValue({
+            geometryResults: [
+                { name: 'VALID', shapeMeasure: 0.75, status: 'available', error: null },
+                {
+                    name: 'FAILED',
+                    shapeMeasure: null,
+                    status: 'error',
+                    error: 'synthetic target failure'
+                }
+            ],
+            ligandGroups: { rings: [], monodentate: [1, 2] },
+            metadata: { coordinationNumber: 2, unavailableGeometryCount: 1 }
+        });
+        await render([structure('sample')]);
+
+        await act(async () => {
+            await latest.analyzeAllStructures();
+        });
+
+        expect(latest.batchResults.get(0)).toMatchObject({
+            bestGeometry: { name: 'VALID', shapeMeasure: 0.75 }
+        });
+        expect(latest.batchResults.get(0).geometryResults).toHaveLength(2);
+        expect(latest.batchResults.get(0).geometryResults[1]).toMatchObject({
+            name: 'FAILED',
+            status: 'error'
+        });
+    });
+
     test('cancellation remains cancelled after the obsolete promise settles', async () => {
         const work = deferred();
         runIntensiveAnalysisAsync.mockReturnValue(work.promise);

@@ -15,7 +15,7 @@ import { useThreeScene } from './hooks/useThreeScene';
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
 import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateLongDetailedCSV } from './services/reportGenerator';
-import { isShapeResultAvailable } from './utils/shapeResults';
+import { isShapeResultAvailable, isShapeResultRecord } from './utils/shapeResults';
 
 // Components
 import FileUploadSection from './components/FileUploadSection';
@@ -206,11 +206,13 @@ export default function CoordinationGeometryAnalyzer() {
             const serviceError = results?.metadata?.error;
             if (!results || !Array.isArray(results.geometryResults) ||
                 results.geometryResults.length === 0 ||
-                results.geometryResults.some(item =>
-                    !item || typeof item.name !== 'string' || !Number.isFinite(item.shapeMeasure)
-                ) || !results.ligandGroups || !results.metadata || serviceError) {
+                results.geometryResults.some(item => !isShapeResultRecord(item)) ||
+                !results.ligandGroups || !results.metadata || serviceError) {
                 throw new Error(serviceError || 'Intensive analysis returned no valid geometry results');
             }
+
+            const bestIntensiveGeometry =
+                results.geometryResults.find(isShapeResultAvailable) || null;
 
             setIntensiveMetadata({
                 ligandGroups: results.ligandGroups,
@@ -229,7 +231,7 @@ export default function CoordinationGeometryAnalyzer() {
             if (batchMode) {
                 setStructureResult(selectedStructureIndex, {
                     geometryResults: results.geometryResults,
-                    bestGeometry: results.geometryResults[0] || null,
+                    bestGeometry: bestIntensiveGeometry,
                     ligandGroups: results.ligandGroups,
                     metadata: results.metadata,
                     metalIndex: effectiveMetal,

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shape-deviation parameter, and geometry “confidence %” outputs.
 - Centralized CShM validation and formatting so non-finite and negative values
   are reported as invalid and JavaScript negative zero is displayed as zero.
+- Preserved unavailable per-geometry rows in standard, intensive, batch, HTML,
+  and CSV paths instead of discarding otherwise valid analysis results.
 - Retained only direct bond-length and ligand-metal-ligand angle summaries.
 
 Entries below describe the behavior of their historical releases; removed

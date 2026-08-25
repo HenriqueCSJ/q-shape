@@ -16,6 +16,11 @@ import { buildGeneralGeometry } from './patterns/geometryBuilder';
 import { getCoordinatingAtoms } from './sphereDetector';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 import { formatShapeMeasure } from '../../utils/geometry';
+import {
+    isShapeResultAvailable,
+    isShapeResultRecord,
+    prepareGeometryResults
+} from '../../utils/shapeResults';
 
 /**
  * Get coordinated atom indices within specified radius of metal center
@@ -39,9 +44,7 @@ export function validateIntensiveGeometryResults(results, coordinationNumber) {
     }
     const observedNames = new Set();
     for (const [index, result] of results.entries()) {
-        if (!result || typeof result.name !== 'string' ||
-            !Number.isFinite(result.shapeMeasure) ||
-            result.shapeMeasure < 0 || result.shapeMeasure > 100) {
+        if (!result || typeof result.name !== 'string' || result.name.length === 0) {
             throw new Error(`Invalid intensive geometry result at index ${index}`);
         }
         if (observedNames.has(result.name)) {
@@ -56,7 +59,12 @@ export function validateIntensiveGeometryResults(results, coordinationNumber) {
             `Intensive geometry set mismatch; missing=[${missing.join(',')}], extra=[${extra.join(',')}]`
         );
     }
-    return results;
+    const prepared = prepareGeometryResults(results);
+    const malformedIndex = prepared.findIndex(result => !isShapeResultRecord(result));
+    if (malformedIndex >= 0) {
+        throw new Error(`Invalid intensive geometry result at index ${malformedIndex}`);
+    }
+    return prepared;
 }
 
 /**
@@ -138,8 +146,14 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         reportProgress('complete', 1.0, 'Analysis complete!');
 
         const elapsed = Date.now() - startTime;
+        const availableResults = results.filter(isShapeResultAvailable);
+        const bestResult = availableResults[0] || null;
 
-        console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${results[0].name} (CShM = ${formatShapeMeasure(results[0].shapeMeasure)})`);
+        if (bestResult) {
+            console.log(`Intensive analysis complete in ${elapsed / 1000}s. Best geometry: ${bestResult.name} (CShM = ${formatShapeMeasure(bestResult.shapeMeasure)})`);
+        } else {
+            console.warn(`Intensive analysis completed in ${elapsed / 1000}s with no available CShM result`);
+        }
 
         return {
             geometryResults: results,
@@ -152,8 +166,11 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 intensiveMode: true,
                 abInitio: true, // Pure ab initio - no pattern matching
                 geometryCount: results.length,
-                bestGeometry: results[0].name,
-                bestCShM: results[0].shapeMeasure,
+                bestGeometry: bestResult?.name || null,
+                bestCShM: bestResult?.shapeMeasure ?? null,
+                availableGeometryCount: availableResults.length,
+                unavailableGeometryCount: results.length - availableResults.length,
+                analysisComplete: availableResults.length === results.length,
                 elapsedSeconds: elapsed / 1000,
                 timestamp: Date.now()
             }

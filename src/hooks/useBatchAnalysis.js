@@ -16,6 +16,7 @@ import { runIntensiveAnalysisAsync } from '../services/coordination/intensiveAna
 import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
 import { getCoordinatingAtoms } from '../services/coordination/sphereDetector';
+import { isShapeResultAvailable, isShapeResultRecord } from '../utils/shapeResults';
 
 export function normalizeProgressFraction(value) {
     if (!Number.isFinite(value)) return 0;
@@ -243,13 +244,13 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
 
         if (!result || !Array.isArray(result.geometryResults) ||
             result.geometryResults.length === 0 || result.metadata?.error ||
-            result.geometryResults.some(item =>
-                !item || typeof item.name !== 'string' || !Number.isFinite(item.shapeMeasure)
-            )) {
+            result.geometryResults.some(item => !isShapeResultRecord(item))) {
             throw new Error(
                 result?.metadata?.error || 'Intensive analysis returned no valid geometry results'
             );
         }
+
+        const bestGeometry = result.geometryResults.find(isShapeResultAvailable) || null;
 
         // Compute coordinating atoms for this structure
         // This is needed for the batch report to show full details
@@ -258,7 +259,7 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
         // Store result with coordAtoms included
         setStructureResult(structureIndex, {
             geometryResults: result.geometryResults,
-            bestGeometry: result.geometryResults[0] || null,
+            bestGeometry,
             ligandGroups: result.ligandGroups,
             metadata: result.metadata,
             metalIndex,
