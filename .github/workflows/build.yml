@@ -40,6 +40,12 @@ jobs:
         CI: true
         REACT_APP_GIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
+    - name: Verify embedded source identity
+      shell: bash
+      env:
+        EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: grep --recursive --include='*.js' --fixed-strings --quiet "$EXPECTED_SHA" build/static/js
+
     - name: Check build size
       run: |
         du -sh build/
