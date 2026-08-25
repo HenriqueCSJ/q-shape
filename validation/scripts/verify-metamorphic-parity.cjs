@@ -1345,6 +1345,24 @@ function flattenReferences(referenceDocument) {
     return references;
 }
 
+function certifiedDirectReferenceProjectionBytes(referenceDocument) {
+    const projected = JSON.parse(JSON.stringify(referenceDocument));
+    delete projected.source_cases_sha256;
+    delete projected.metamorphic_binding;
+    requireThat(Array.isArray(projected.by_cn),
+        'references by_cn must be an array for certified direct projection');
+    for (const group of projected.by_cn) {
+        requireThat(Array.isArray(group.references),
+            `reference group CN${group?.cn ?? '<missing>'} lacks references for certified direct projection`);
+        for (const reference of group.references) {
+            delete reference.qshape_point_group;
+            delete reference.qshape_chirality;
+            delete reference.metamorphic_parent_reference_fingerprint_sha256;
+        }
+    }
+    return Buffer.from(`${JSON.stringify(projected, null, 2)}\n`, 'utf8');
+}
+
 function referenceFingerprint(reference) {
     const contract = {
         cn: reference.cn,
@@ -1458,6 +1476,9 @@ function verifyFrozenInputs(caseDocument, referenceDocument, caseBytes = null) {
         referenceDocument.metamorphic_binding.source_direct_package_manifest_sha256 ===
             CERTIFIED_DIRECT_PACKAGE_MANIFEST_SHA256,
     'reference certified lineage binding mismatch');
+    requireThat(sha256(certifiedDirectReferenceProjectionBytes(referenceDocument)) ===
+        CERTIFIED_DIRECT_REFERENCES_SHA256,
+    'reference certified direct projection SHA-256 mismatch');
     const caseFingerprints = new Map();
     for (const item of caseDocument.cases) {
         const key = `${item.cn}\u0000${item.parent_reference_code}\u0000${item.parent_reference_index}`;

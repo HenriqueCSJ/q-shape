@@ -196,6 +196,11 @@ certified direct-reference SHA-256
 `170c444f035f4a67dc5388a03a23b27ba2ed1a96e3a1ec2e7f95c4d203f49787`
 and its certified package-manifest SHA-256
 `5ae614626fef9d60991d7c51804913e166d9b99c3163f10847a66f0b105260ca`.
+They remove only the explicitly added metamorphic fields, serialize the
+remaining complete direct-reference document as two-space JSON plus one final
+newline, and require its SHA-256 to equal the certified direct-reference hash;
+this binds every original mapping, index, SHAPE identifier, metadata field, and
+coordinate token rather than trusting the declared lineage hash.
 They also reconstruct every retained parent-reference fingerprint from the
 reference coordinate bytes and require that fingerprint to match all 33 frozen
 positive cases for the same CN/code/index binding.

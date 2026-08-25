@@ -9,6 +9,7 @@ const test = require('node:test');
 const {
     DIRECT_REFERENCES_SHA256,
     buildMetamorphicReferenceDocument,
+    directReferenceProjectionBytes,
     main,
     sha256Buffer,
     validateMetamorphicReferenceDocument
@@ -40,6 +41,7 @@ test('enhanced reference inventory is deterministic and independently reconstruc
 
     assert.deepEqual(first, second);
     assert.equal(validateMetamorphicReferenceDocument(first, cases), true);
+    assert.equal(sha256Buffer(directReferenceProjectionBytes(first)), DIRECT_REFERENCES_SHA256);
     assert.equal(first.count, 87);
     assert.equal(first.by_cn.length, 11);
     assert.ok(first.by_cn.flatMap(group => group.references)
@@ -52,6 +54,17 @@ test('enhanced reference inventory is deterministic and independently reconstruc
         matched_pairs_per_program: 28545,
         input_reconstruction_status: 'pass'
     });
+});
+
+test('enhanced inventory projects byte-exactly to the certified complete direct document', () => {
+    const { direct, cases } = sourceDocuments();
+    const enhanced = buildMetamorphicReferenceDocument(direct, cases);
+    const mutated = structuredClone(enhanced);
+    mutated.by_cn[0].references[0].shape_code = 'tampered-shape-code';
+    assert.throws(
+        () => validateMetamorphicReferenceDocument(mutated, cases),
+        /certified direct-reference projection SHA-256 mismatch/
+    );
 });
 
 test('inconsistent point-group provenance is rejected before output is constructed', () => {

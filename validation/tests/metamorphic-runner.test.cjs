@@ -429,7 +429,7 @@ test('preflight hash-binds explicit references and malformed controls before hoo
     fs.rmSync(parent, { recursive: true, force: true });
 });
 
-test('preflight rejects resealed certified-lineage and parent-fingerprint mutations', async () => {
+test('preflight rejects resealed certified-lineage, direct-mapping, and parent-fingerprint mutations', async () => {
     const cases = frozenCases();
     const mutations = [
         {
@@ -449,6 +449,12 @@ test('preflight rejects resealed certified-lineage and parent-fingerprint mutati
             mutate: references => {
                 references.by_cn[0].references[0]
                     .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+            }
+        },
+        {
+            label: 'shape-code',
+            mutate: references => {
+                references.by_cn[0].references[0].shape_code = 'tampered-shape-code';
             }
         }
     ];

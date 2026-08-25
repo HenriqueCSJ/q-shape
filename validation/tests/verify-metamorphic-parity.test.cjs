@@ -188,9 +188,8 @@ test('certified lineage and retained parent fingerprints reject resealed mutatio
     );
 });
 
-test('independent package verifier rejects a fingerprint mutation after every enclosing hash is resealed', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qshape-meta-fingerprint-reseal-'));
-    const frozenRoot = path.join(root, 'inputs', 'frozen');
+function assertResealedPackageReferenceMutationRejected(label, mutate, expectedError) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), `qshape-meta-${label}-reseal-`));
     const commit = '1'.repeat(40);
     try {
         const bundle = freezer.buildExecutionInputBundle(
@@ -199,8 +198,7 @@ test('independent package verifier rejects a fingerprint mutation after every en
             commit
         );
         const mutatedReferences = JSON.parse(bundle.files['references.json'].toString('utf8'));
-        mutatedReferences.by_cn[0].references[0]
-            .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+        mutate(mutatedReferences);
         const referencesBytes = Buffer.from(`${JSON.stringify(mutatedReferences, null, 2)}\n`);
 
         const receipt = structuredClone(bundle.receipt);
@@ -270,11 +268,24 @@ test('independent package verifier rejects a fingerprint mutation after every en
         const validateFrozenPackageInputs = loadFrozenPackageInputValidator();
         assert.throws(
             () => validateFrozenPackageInputs(root, new Set(files.keys()), manifest),
-            /retained parent fingerprint binding mismatch/
+            expectedError
         );
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
+}
+
+test('independent package verifier rejects a fingerprint mutation after every enclosing hash is resealed', () => {
+    assertResealedPackageReferenceMutationRejected('fingerprint', mutatedReferences => {
+        mutatedReferences.by_cn[0].references[0]
+            .metamorphic_parent_reference_fingerprint_sha256 = 'f'.repeat(64);
+    }, /retained parent fingerprint binding mismatch/);
+});
+
+test('independent package verifier rejects a shape-code mutation after every enclosing hash is resealed', () => {
+    assertResealedPackageReferenceMutationRejected('shape-code', mutatedReferences => {
+        mutatedReferences.by_cn[0].references[0].shape_code = 'tampered-shape-code';
+    }, /certified direct projection SHA-256 mismatch/);
 });
 
 test('frozen-byte and semantic case mutations are rejected independently', () => {
@@ -304,7 +315,7 @@ test('reference coordinate bits and center binding are mandatory', () => {
     badCenter.by_cn[0].references[0].qshape_center_index_zero_based = 0;
     assert.throws(
         () => verifier.verifyFrozenInputs(generated.document, badCenter),
-        /fingerprint binding mismatch|case reconstruction mismatch/
+        /certified direct projection SHA-256 mismatch|fingerprint binding mismatch|case reconstruction mismatch/
     );
 });
 

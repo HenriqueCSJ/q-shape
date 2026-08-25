@@ -30,6 +30,27 @@ function clone(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+function projectDirectReferenceDocument(document) {
+    const projected = clone(document);
+    delete projected.source_cases_sha256;
+    delete projected.metamorphic_binding;
+    assert(Array.isArray(projected.by_cn), 'references by_cn must be an array for direct projection');
+    for (const group of projected.by_cn) {
+        assert(Array.isArray(group.references),
+            `reference group CN${group?.cn ?? '<missing>'} lacks references for direct projection`);
+        for (const reference of group.references) {
+            delete reference.qshape_point_group;
+            delete reference.qshape_chirality;
+            delete reference.metamorphic_parent_reference_fingerprint_sha256;
+        }
+    }
+    return projected;
+}
+
+function directReferenceProjectionBytes(document) {
+    return Buffer.from(`${JSON.stringify(projectDirectReferenceDocument(document), null, 2)}\n`, 'utf8');
+}
+
 function parentKey(cn, code, index) {
     return `${cn}\u0000${code}\u0000${index}`;
 }
@@ -141,6 +162,8 @@ function validateMetamorphicReferenceDocument(document, casesDocument = null) {
         'direct references hash binding mismatch');
     assert(document?.metamorphic_binding?.source_direct_package_manifest_sha256 ===
         DIRECT_PACKAGE_MANIFEST_SHA256, 'direct manifest hash binding mismatch');
+    assert(sha256Buffer(directReferenceProjectionBytes(document)) === DIRECT_REFERENCES_SHA256,
+        'certified direct-reference projection SHA-256 mismatch');
 
     const inventory = normalizeReferenceDocument(document);
     assert(inventory.reduce((sum, group) => sum + group.count, 0) === EXPECTED_REFERENCE_COUNT,
@@ -224,7 +247,9 @@ module.exports = {
     DIRECT_REFERENCES_SHA256,
     buildMetamorphicReferenceDocument,
     buildParentBindings,
+    directReferenceProjectionBytes,
     main,
+    projectDirectReferenceDocument,
     sha256Buffer,
     validateMetamorphicReferenceDocument
 };
