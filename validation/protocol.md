@@ -1,10 +1,12 @@
 # Q-Shape numerical validation protocol
 
-Status: working integrated protocol. The direct and metamorphic qualification
-inputs are prespecified and frozen; the external chemical holdout is still a
-working stratum, and the browser/user-validation inputs are not yet frozen.
-Passing software tests or the direct campaign below is necessary but is not, by
-itself, validation on independent chemical structures.
+Status: working integrated protocol for the `1.6.0-rc.1` successor lineage.
+Direct, metamorphic, browser, holdout, and independent-user artifacts frozen for
+earlier commits remain immutable historical evidence and do not transfer to this
+candidate. Every scientific stratum must be rebound to the final successor SHA
+before execution. Passing software tests or an earlier direct campaign is
+necessary engineering/history evidence but is not, by itself, validation of
+this candidate on independent chemical structures.
 
 ## 1. Validation question and claim boundary
 

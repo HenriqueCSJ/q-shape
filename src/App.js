@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import './App.css';
 
 // Constants
-import { APP_VERSION, BUILD_DATE, APP_FULL_NAME, getCitationString, CITATION } from './constants/appMetadata';
+import { APP_VERSION, APP_BUILD_SHA, BUILD_DATE, APP_FULL_NAME, getCitationString, CITATION } from './constants/appMetadata';
 
 // Custom Hooks
 import useFileUpload from './hooks/useFileUpload';
@@ -432,7 +432,8 @@ export default function CoordinationGeometryAnalyzer() {
                 geometryResults,
                 additionalMetrics,
                 warnings,
-                fileName: currentStructure?.id || fileName,
+                fileName,
+                fileFormat,
                 analysisMode: analysisParams.mode,
                 intensiveMetadata,
                 imgData,
@@ -442,7 +443,7 @@ export default function CoordinationGeometryAnalyzer() {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    }, [atoms, effectiveMetal, bestGeometry, fileName, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
+    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
     // Batch print-ready report
     const handleGenerateBatchReport = useCallback(() => {
@@ -514,7 +515,7 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version {APP_VERSION} | Built: {BUILD_DATE}
+            Version {APP_VERSION} | Built: {BUILD_DATE} | Source: {APP_BUILD_SHA}
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
             Cite this: {getCitationString()} <a href={CITATION.url} target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>{CITATION.url}</a>

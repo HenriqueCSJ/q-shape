@@ -357,28 +357,13 @@ export default function CoordinationSummary({
                     fontSize: '0.9rem'
                 }}>
                     <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>🔬</span> Ab Initio Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
+                        <span>🔬</span> Extended-Search Analysis (CN={intensiveMetadata.metadata?.coordinationNumber || 'N/A'})
                     </div>
 
-                    {(() => {
-                        const rings = intensiveMetadata.ligandGroups?.rings?.length || 0;
-                        const mono = intensiveMetadata.ligandGroups?.monodentate?.length || 0;
-                        let structureType = '';
-
-                        if (rings === 1 && mono > 0) {
-                            structureType = 'Piano Stool Structure';
-                        } else if (rings === 2) {
-                            structureType = 'Sandwich Structure';
-                        } else if (rings === 1 && mono === 0) {
-                            structureType = 'Macrocyclic Structure';
-                        }
-
-                        return structureType ? (
-                            <div style={{ color: '#15803d', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                                {structureType}
-                            </div>
-                        ) : null;
-                    })()}
+                    <div style={{ color: '#166534', marginBottom: '0.5rem', fontStyle: 'italic' }}>
+                        Planar-cycle descriptors are heuristic and informational only; they do not assign
+                        chemical hapticity or alter the atoms used for CShM.
+                    </div>
 
                     <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
                         {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
@@ -387,7 +372,9 @@ export default function CoordinationSummary({
                     {intensiveMetadata.ligandGroups?.rings?.length > 0 && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a' }}>
                             {intensiveMetadata.ligandGroups.rings.map((ring, i) => (
-                                <div key={i}>Ring {i + 1}: {ring?.hapticity || 'Unknown'} ({ring?.size || 0} atoms)</div>
+                                <div key={i}>
+                                    Candidate {i + 1}: {ring?.ringSizeLabel || `${ring?.size || 0}-membered cycle candidate`}
+                                </div>
                             ))}
                         </div>
                     )}

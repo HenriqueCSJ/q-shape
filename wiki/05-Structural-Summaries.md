@@ -38,4 +38,4 @@ avoid presenting them as validated physical observables.
 
 *Previous: [Reference Geometries](04-Reference-Geometries.md)*
 
-*Next: [Ring Detection & Hapticity](06-Ring-Detection-Hapticity.md)*
+*Next: [Heuristic Planar-Cycle Descriptors](06-Ring-Detection-Hapticity.md)*

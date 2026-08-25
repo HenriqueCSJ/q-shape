@@ -1,5 +1,7 @@
 # CoSyMlib Official Reference Geometries - Final Results
 
+> **Historical working note — not current release evidence.** This document records an earlier development proposal or exploratory result. It has not been rebound to the `1.6.0-rc.1` source commit and must not be used to claim current behavior, SHAPE parity, accuracy, or scientific validation. In particular, the production CShM path uses individual coordinating atoms; ring centroids are informational descriptors only.
+
 ## Executive Summary
 
 Successfully integrated **official CoSyMlib reference geometries** extracted via `cosym --shp_references_n 8`. The CoSyMlib coordinates use a scale factor of 1.0606 instead of unit normalization, which we corrected.

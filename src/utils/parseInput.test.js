@@ -80,6 +80,22 @@ Fe 0 0 0`;
         expect(result.error).toContain('Invalid atom count');
     });
 
+    it('should reject an XYZ atom count with a trailing suffix', () => {
+        const result = parseInput('2junk\nTest\nFe 0 0 0\nN 1 0 0', 'test.xyz');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Invalid atom count');
+    });
+
+    it('should reject a coordinate token with a trailing suffix but accept an exponent', () => {
+        const malformed = parseInput('1\nTest\nFe 1.0abc 0 0', 'bad.xyz');
+        expect(malformed.valid).toBe(false);
+        expect(malformed.error).toContain('Frame 1 rejected');
+
+        const exponent = parseInput('1\nTest\nFe -1.2e+3 0 0', 'exponent.xyz');
+        expect(exponent.valid).toBe(true);
+        expect(exponent.structures[0].atoms[0].x).toBe(-1200);
+    });
+
     it('should fail when atom count exceeds data lines', () => {
         const content = `10
 Test
@@ -191,7 +207,7 @@ N2 N 0.0 2.0 0.0`;
         expect(result.structures[0].atoms.length).toBe(3);
     });
 
-    it('should parse CIF with fractional coordinates and unit cell', () => {
+    it('should reject fractional-coordinate CIF until symmetry expansion is implemented', () => {
         const content = `data_NaCl
 _cell_length_a 5.64
 _cell_length_b 5.64
@@ -211,12 +227,58 @@ Cl1 Cl 0.5 0.5 0.5`;
 
         const result = parseInput(content, 'nacl.cif');
 
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Fractional-coordinate CIF is unsupported');
+        expect(result.error).toContain('symmetry and periodic-image expansion');
+    });
+
+    it('should expose the no-symmetry boundary for Cartesian-coordinate CIF', () => {
+        const content = `data_cartesian
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_Cartn_x
+_atom_site_Cartn_y
+_atom_site_Cartn_z
+Fe1 Fe 0.0 0.0 0.0
+N1 N 2.0 0.0 0.0`;
+
+        const result = parseInput(content, 'cartesian.cif');
         expect(result.valid).toBe(true);
-        expect(result.structures.length).toBe(1);
-        expect(result.structures[0].atoms.length).toBe(2);
-        // Check that fractional coords were converted to Cartesian
-        expect(result.structures[0].atoms[0].x).toBeCloseTo(0, 2);
-        expect(result.structures[0].atoms[1].x).toBeCloseTo(2.82, 1);
+        expect(result.warnings).toContain(
+            'Basic Cartesian-coordinate CIF import: coordinates are used exactly as listed; crystallographic symmetry and periodic images are not expanded.'
+        );
+    });
+
+    it('should reject an entire Cartesian CIF block containing an invalid atom row', () => {
+        const content = `data_invalid
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_Cartn_x
+_atom_site_Cartn_y
+_atom_site_Cartn_z
+Fe1 Fe 0.0 0.0 0.0
+N1 N ? 2.0 0.0`;
+
+        const result = parseInput(content, 'invalid.cif');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Cartesian atom-site loop rejected: 1 invalid row');
+    });
+
+    it('should reject Cartesian CIF numeric tokens with trailing text', () => {
+        const content = `data_invalid_suffix
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_Cartn_x
+_atom_site_Cartn_y
+_atom_site_Cartn_z
+Fe1 Fe 1.0abc 0.0 0.0`;
+
+        const result = parseInput(content, 'invalid-suffix.cif');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Cartesian atom-site loop rejected: 1 invalid row');
     });
 
     it('should handle multiple data blocks', () => {
@@ -291,6 +353,49 @@ CL 0 2 0`;
         expect(result.structures[0].atoms[0].element).toBe('Fe');
         expect(result.structures[0].atoms[1].element).toBe('N');
         expect(result.structures[0].atoms[2].element).toBe('Cl');
+    });
+
+    it('should reject markup-like element tokens before they enter the structure model', () => {
+        const content = `2
+Test
+Fe 0 0 0
+<svg/onload=alert(1)> 1 0 0`;
+
+        const result = parseInput(content, 'test.xyz');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Frame 1 rejected: 1 of 2 atom lines were invalid');
+    });
+
+    it('should retain ordinary charged element tokens while removing the charge suffix', () => {
+        const content = `2
+Charged labels
+Fe2+ 0 0 0
+Cl- 1 0 0`;
+
+        const result = parseInput(content, 'charged.xyz');
+        expect(result.valid).toBe(true);
+        expect(result.structures[0].atoms.map(atom => atom.element)).toEqual(['Fe', 'Cl']);
+    });
+
+    it('should reject malformed or repeated charge suffixes', () => {
+        const content = `2
+Malformed charge
+Fe++--123 0 0 0
+Cl- 1 0 0`;
+
+        const result = parseInput(content, 'malformed-charge.xyz');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Frame 1 rejected: 1 of 2 atom lines were invalid');
+    });
+
+    it('should reject a frame containing only invalid element tokens', () => {
+        const content = `1
+Test
+<img/src=x/onerror=alert(1)> 0 0 0`;
+
+        const result = parseInput(content, 'test.xyz');
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Frame 1 rejected: 1 of 1 atom lines were invalid');
     });
 
     it('should warn about large coordinates', () => {

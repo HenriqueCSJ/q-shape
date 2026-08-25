@@ -1,5 +1,7 @@
 # Piano Stool (Half-Sandwich) Complex Support
 
+> **Historical working note — not current release evidence.** This document records an earlier development proposal or exploratory result. It has not been rebound to the `1.6.0-rc.1` source commit and must not be used to claim current behavior, SHAPE parity, accuracy, or scientific validation. In particular, the production CShM path uses individual coordinating atoms; ring centroids are informational descriptors only.
+
 ## Overview
 
 Q-Shape now includes specialized support for **piano stool complexes** (also called half-sandwich complexes), a common class of organometallic compounds featuring one hapto ligand and multiple monodentate ligands arranged in a characteristic "three-legged stool" geometry.

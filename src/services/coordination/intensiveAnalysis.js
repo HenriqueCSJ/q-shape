@@ -1,12 +1,12 @@
 /**
  * Intensive Analysis Service
  *
- * Ab initio geometry analysis using intensive CShM optimization:
+ * Extended-search geometry analysis using reference-geometry CShM optimization:
  * 1. Identifies all coordinating atoms within radius
  * 2. Evaluates ALL reference geometries for that coordination number
  * 3. Uses intensive CShM optimization for accurate results
  *
- * This is a purely ab initio approach - no pattern matching, no geometry filtering,
+ * This evaluates the complete same-CN reference census without pattern-based filtering,
  * no special cases. All atoms are treated equally and the best geometry is found
  * through comprehensive CShM evaluation.
  */
@@ -116,21 +116,21 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         reportProgress('rings', 0.2, 'Detecting ligand groups (for info only)...');
 
         // Detect ligand groups for informational purposes only
-        // This doesn't affect the ab initio CShM calculation
+        // This doesn't affect the reference-geometry CShM calculation
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        reportProgress('geometry', 0.3, 'Starting ab initio CShM analysis...');
+        reportProgress('geometry', 0.3, 'Starting extended-search CShM analysis...');
 
         // Extract centered coordinates - use ALL coordinating atoms
         const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
 
-        console.log(`Running ab initio analysis: evaluating ALL geometries for CN=${CN}`);
+        console.log(`Running extended search: evaluating all reference geometries for CN=${CN}`);
 
         // Allow UI to update
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        // *** AB INITIO APPROACH ***
+        // Complete same-CN reference census; no pattern-based prefilter.
         // Evaluate ALL reference geometries for this CN
         // No pattern detection, no geometry filtering, no special cases
         const results = validateIntensiveGeometryResults(await buildGeneralGeometry(
@@ -164,7 +164,7 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 radius,
                 coordinationNumber: CN,
                 intensiveMode: true,
-                abInitio: true, // Pure ab initio - no pattern matching
+                fullReferenceCensus: true,
                 geometryCount: results.length,
                 bestGeometry: bestResult?.name || null,
                 bestCShM: bestResult?.shapeMeasure ?? null,
@@ -212,8 +212,8 @@ export function runIntensiveAnalysis(atoms, metalIndex, radius) {
                 totalGroups: 1,
                 ringCount: 0,
                 summary: `${coordIndices.length} ligand(s)`,
-                hasSandwichStructure: false,
-                detectedHapticities: []
+                hasMultipleLargeRings: false,
+                candidateRingSizeLabels: []
             },
             metadata: {
                 metalElement: atoms[metalIndex].element,

@@ -4,8 +4,9 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18209621.svg)](https://doi.org/10.5281/zenodo.18209621)
+[![Candidate](https://img.shields.io/badge/candidate-1.6.0--rc.1-orange.svg?style=flat-square)](validation/protocol.md)
+[![Archived release](https://img.shields.io/badge/archived%20release-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
+[![Archived v1.5.0 DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18209621.svg)](https://doi.org/10.5281/zenodo.18209621)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
 [![Tests](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml/badge.svg)](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml)
@@ -13,7 +14,7 @@
 
 **🔬 Advanced Coordination Geometry Analysis for Inorganic Chemistry**
 
-[**Try it Now**](https://henriquecsj.github.io/q-shape) · [**Report Bug**](https://github.com/HenriqueCSJ/q-shape/issues) · [**Request Feature**](https://github.com/HenriqueCSJ/q-shape/issues)
+[**Archived v1.5.0 web app**](https://henriquecsj.github.io/q-shape) · [**Report Bug**](https://github.com/HenriqueCSJ/q-shape/issues) · [**Request Feature**](https://github.com/HenriqueCSJ/q-shape/issues)
 
 </div>
 
@@ -38,7 +39,7 @@
 
 ### Analysis Capabilities
 
-✅ **92 Reference Geometries** - Complete SHAPE 2.1 coverage plus high-CN fullerenes
+✅ **92 Reference Geometries Implemented** - CN 2-12 plus high-CN fullerenes; release-candidate qualification is tracked separately
 ✅ **Continuous Shape Measures (CShM)** - Quantify deviation from ideal geometry
 ✅ **Auto-Detection** - Automatically identifies metal centers and coordination spheres
 ✅ **Smart Radius Control** - Fine-tune coordination sphere or find optimal radius by CN
@@ -49,7 +50,8 @@
 ### Multi-Structure Batch Analysis (v1.5.0)
 
 ✅ **Batch Processing** - Analyze multiple structures from a single file
-✅ **Multi-Structure XYZ/CIF Support** - Load files with multiple conformers or structures
+✅ **Multi-Structure XYZ Support** - Load multi-frame XYZ files
+⚠️ **Basic Cartesian CIF Import** - Explicit Cartesian atom-site rows only; no fractional-coordinate, symmetry, or periodic-image expansion
 ✅ **Batch Summary Table** - Visual overview of all analyzed structures at a glance
 ✅ **Batch Analysis** - Run intensive analysis on all structures with progress tracking
 ✅ **Batch Print Reports** - Print-ready HTML reports with per-structure details; save as PDF from the browser print dialog
@@ -58,28 +60,28 @@
 
 ### Analysis Modes
 
-**Standard Mode** (~5-10 seconds)
-- Fast analysis using optimized algorithms
-- Sufficient for most coordination complexes
-- Ideal for routine characterization work
+**Standard Mode**
+- Uses the default bounded search configuration
+- Evaluates the references available for the selected coordination number
 
-**Intensive Mode** (~20-30 seconds)
-- Extended optimization with global search
-- Recommended for highly distorted or ambiguous geometries
+**Extended-Search Mode**
+- Uses a larger bounded search configuration and may take longer
+- Does not guarantee a global minimum; compare retained same-CN results directly
 
 ---
 
 ## Quick Start
 
-### Online Version (Recommended)
+### Deployed archived version
 
-Visit **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-shape)**
+The current public site is the archived **v1.5.0** application, not this
+`1.6.0-rc.1` candidate: **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-shape)**.
 
 > 🔒 **Privacy Notice:** Q-Shape runs entirely in your browser. **No data is uploaded or transmitted**. Your molecular structures remain completely private on your device.
 
 ### Basic Workflow
 
-1. **Upload** your XYZ or CIF file with the file picker
+1. **Upload** an XYZ file, or a basic CIF containing explicit Cartesian atom-site coordinates
 2. **Select** metal center (auto-detected or manual selection)
 3. **Adjust** coordination sphere radius if needed
 4. **Run** analysis (standard or intensive mode)
@@ -88,7 +90,7 @@ Visit **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-
 
 ### Batch Analysis Workflow (v1.5.0)
 
-1. **Upload** a multi-structure XYZ or CIF file
+1. **Upload** a multi-frame XYZ file or a multi-block basic Cartesian-coordinate CIF
 2. **Review** the batch summary table showing all structures
 3. **Run Batch Analysis** to analyze all structures with intensive mode
 4. **Navigate** between structures using the structure selector
@@ -118,22 +120,34 @@ into qualitative classes, probabilities, or confidence estimates.
 
 ### Algorithms
 
-Q-Shape implements state-of-the-art computational methods:
+Q-Shape currently implements the following computational methods:
 
 - **Kabsch Algorithm**: Optimal rotation via Singular Value Decomposition
 - **Hungarian Algorithm**: Optimal atom-to-vertex assignment (munkres-js library)
-- **Multi-Stage Optimization**: Iterative refinement for global minimum
+- **Multi-Stage Optimization**: Bounded deterministic search and iterative refinement for the lowest value found
 - **Simulated Annealing**: Escape local minima in intensive mode
 
 ### Validation
 
-Q-Shape has been validated against SHAPE 2.1 (Fortran reference implementation):
-- **Mean absolute error**: < 0.01 CShM units
-- **Correlation**: R² > 0.9999
-- **Test coverage**: CN=2-12 with real coordination complexes
+The `1.6.0-rc.1` lineage is a **pre-release validation candidate**, not a
+validated release. The authoritative [validation protocol](validation/protocol.md)
+keeps engineering tests separate from scientific parity. Current boundaries:
+
+- automated unit, validation, coverage, and build checks test the code but do
+  not by themselves establish SHAPE parity;
+- completed direct-parity evidence belongs to an earlier candidate and cannot
+  be transferred silently to this lineage;
+- final metamorphic, external chemical holdout, browser, and independent-user
+  campaigns remain incomplete or unexecuted for this candidate;
+- a final archival DOI will be minted only after the release identity and its
+  required validation evidence are fixed.
 
 <details>
-<summary><strong>SHAPE v2.1 Parity Test Results (Click to expand)</strong></summary>
+<summary><strong>Historical v1.5 exploratory SHAPE comparisons (not release-candidate qualification)</strong></summary>
+
+The values below are retained for historical transparency. They do not validate
+`1.6.0-rc.1`, do not replace the frozen campaigns, and must not be summarized as
+holdout or full-census evidence.
 
 #### CN=2 - CuCl₂ (Bent Dihalide)
 | Geometry | Q-Shape | SHAPE | Rel.Err |
@@ -315,40 +329,42 @@ npm run build
 
 ### System Requirements
 
-- **Node.js**: 16.0+
-- **npm**: 8.0+
+- **Node.js**: 18.x or 20.x (current CI matrix)
+- **npm**: 10.8.2 (pinned by the lockfile workflow)
 - **Browser**: Modern browser with WebGL support
-- **Memory**: 4GB+ RAM recommended
 
 ---
 
 ## Performance
 
-### Analysis Time
-
-| Coordination Number | Standard Mode | Intensive Mode |
-|---------------------|---------------|----------------|
-| CN 4 | ~2 seconds | ~8 seconds |
-| CN 6 | ~5 seconds | ~20 seconds |
-| CN 8 | ~18 seconds | ~55 seconds |
-| CN 12 | ~65 seconds | ~200 seconds |
-
-*Times measured on M1 MacBook Pro. Performance varies with hardware and browser.*
+No runtime or memory benchmark is currently frozen for `1.6.0-rc.1`.
+Performance depends on coordination number, selected mode, browser, and
+hardware; quantitative claims will be added only from a version-bound protocol.
 
 ### Browser Compatibility
 
-| Browser | Status | Notes |
-|---------|--------|-------|
-| Chrome 90+ | ✅ Recommended | Best performance |
-| Firefox 88+ | ✅ Excellent | Fully supported |
-| Safari 14+ | ✅ Good | Slightly slower |
-| Edge 90+ | ✅ Excellent | Chromium-based |
+The build targets current mainstream browser families through `browserslist`,
+but the frozen cross-browser qualification campaign has not yet been executed
+for this release candidate. Until that campaign passes, compatibility is a
+target rather than a validated support claim.
+
+| Browser family | Build target | Candidate qualification |
+|----------------|--------------|-------------------------|
+| Chromium / Chrome | Yes | Pending |
+| Chromium / Edge | Yes | Pending |
+| Firefox | Yes | Pending |
+| WebKit / Safari | Yes | Pending |
 
 ---
 
 ## Citation
 
-If you use Q-Shape in your research, please cite:
+The DOI below identifies the archived **v1.5.0** release only. It must not be
+used to identify `1.6.0-rc.1`. Until the final candidate receives its own
+persistent archive, cite the repository, the displayed candidate version, and
+the exact Git commit used.
+
+For the archived v1.5.0 release, cite:
 
 **APA:**
 ```
@@ -358,7 +374,7 @@ Zenodo. https://doi.org/10.5281/zenodo.18209621
 
 **BibTeX:**
 ```bibtex
-@software{qshape2025,
+@software{qshape2026,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
   version = {1.5.0},

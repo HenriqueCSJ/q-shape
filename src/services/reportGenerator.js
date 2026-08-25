@@ -17,7 +17,7 @@ import {
     batchResultStatusLabel
 } from '../utils/batchResults';
 import { calculateAdditionalMetrics } from './shapeAnalysis/structuralMetrics';
-import { APP_VERSION, APP_FULL_NAME, getCitationString, CITATION } from '../constants/appMetadata';
+import { APP_VERSION, APP_BUILD_SHA, APP_FULL_NAME, getCitationString, CITATION } from '../constants/appMetadata';
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
@@ -25,9 +25,9 @@ import { APP_VERSION, APP_FULL_NAME, getCitationString, CITATION } from '../cons
  * @param {string} str - String to escape
  * @returns {string} Escaped string safe for HTML insertion
  */
-function escapeHtml(str) {
-    if (typeof str !== 'string') return str;
-    return str
+function escapeHtml(value) {
+    const text = value == null ? '' : String(value);
+    return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -35,9 +35,22 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+function safeRasterDataUrl(value) {
+    const text = value == null ? '' : String(value);
+    return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]*={0,2}$/.test(text)
+        ? text
+        : '';
+}
+
+function safeFileFormat(value) {
+    const normalized = String(value || '').toLowerCase();
+    return normalized === 'xyz' || normalized === 'cif' ? normalized : 'unknown';
+}
+
 function csvField(value) {
     const text = value == null ? '' : String(value);
-    return `"${text.replace(/"/g, '""')}"`;
+    const spreadsheetSafe = /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+    return `"${spreadsheetSafe.replace(/"/g, '""')}"`;
 }
 
 /**
@@ -52,7 +65,9 @@ function csvField(value) {
  * @param {Array} params.geometryResults - All geometry analysis results
  * @param {Object} params.additionalMetrics - Bond statistics
  * @param {Array} params.warnings - Analysis warnings
- * @param {string} params.fileName - Structure file name
+ * @param {string} params.fileName - Source file base name
+ * @param {string} params.fileFormat - Source format
+ * @param {string} params.structureId - Structure/frame identifier
  * @param {string} params.analysisMode - 'default' or 'intensive'
  * @param {Object} params.intensiveMetadata - Intensive analysis metadata
  * @param {string} params.imgData - Base64 encoded 3D visualization image
@@ -68,9 +83,11 @@ export function generatePDFReport({
     additionalMetrics,
     warnings,
     fileName,
+    fileFormat,
     analysisMode,
     intensiveMetadata,
-    imgData
+    imgData,
+    structureId
 }) {
     if (!atoms.length || selectedMetal == null || !bestGeometry) {
         throw new Error('Missing required data for report generation');
@@ -426,30 +443,32 @@ footer strong {
 </div>
 
 <header>
-  <h1>🔬 ${APP_FULL_NAME}</h1>
+  <h1>🔬 ${escapeHtml(APP_FULL_NAME)}</h1>
   <p><strong>Coordination Geometry Analysis Report</strong></p>
-  <p><strong>File:</strong> ${escapeHtml(fileName)}.xyz</p>
+  <p><strong>Source file:</strong> ${escapeHtml(fileName)}${fileFormat ? `.${safeFileFormat(fileFormat)}` : ''}</p>
+  <p><strong>Structure:</strong> ${escapeHtml(structureId || fileName)}</p>
   <p><strong>Generated on:</strong> ${date}</p>
-  <p><strong>Analysis Mode:</strong> ${analysisMode === 'intensive' ? 'Intensive (High Precision) with Kabsch Alignment' : 'Standard with Improved Kabsch Alignment'}</p>
+  <p><strong>Source commit:</strong> ${escapeHtml(APP_BUILD_SHA)}</p>
+  <p><strong>Analysis Mode:</strong> ${analysisMode === 'intensive' ? 'Extended Search with Kabsch Alignment' : 'Standard Search with Kabsch Alignment'}</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
-    Cite this: ${getCitationString()}
-    <a href="${CITATION.url}" style="color: #4f46e5;">${CITATION.url}</a>
+    Cite this: ${escapeHtml(getCitationString())}
+    <a href="${escapeHtml(CITATION.url)}" style="color: #4f46e5;">${escapeHtml(CITATION.url)}</a>
   </p>
 </header>
 
 <main>
   <div class="info-box">
     <h3>🔬 Q-Shape Analysis Overview</h3>
-    <p><strong>${APP_FULL_NAME}</strong> provides advanced coordination geometry analysis using Continuous Shape Measures (CShM) methodology.</p>
-    <p>This report analyzes your structure against <strong>${totalAvailableGeometries} reference geometries</strong> across all coordination numbers (CN=2-60).</p>
-    <p>For CN=${coordAtoms.length}, ${cnGeometries} reference geometries were evaluated using optimized Kabsch alignment and Hungarian algorithm.</p>
+    <p><strong>${escapeHtml(APP_FULL_NAME)}</strong> provides advanced coordination geometry analysis using Continuous Shape Measures (CShM) methodology.</p>
+    <p>The installed Q-Shape inventory contains <strong>${totalAvailableGeometries} reference geometries</strong> across its supported coordination numbers.</p>
+    <p>This analysis evaluated <strong>${cnGeometries} same-CN reference geometries</strong> for CN=${coordAtoms.length} using Kabsch alignment and assignment optimization.</p>
   </div>
 
   <h2>📊 Analysis Summary</h2>
   <div class="summary-grid">
     <div class="summary-item">
       <strong>Metal Center</strong>
-      <span>${metal.element} (#${selectedMetal + 1})</span>
+      <span>${escapeHtml(metal.element)} (#${selectedMetal + 1})</span>
     </div>
     <div class="summary-item">
       <strong>Coordination Number</strong>
@@ -461,11 +480,11 @@ footer strong {
     </div>
     <div class="summary-item">
       <strong>Best Match Geometry</strong>
-      <span>${name}</span>
+      <span>${escapeHtml(name)}</span>
     </div>
     <div class="summary-item">
       <strong>Point Group</strong>
-      <span style="color:#6366f1; font-family: monospace; font-weight: 600;">${POINT_GROUPS[name] || '—'}</span>
+      <span style="color:#6366f1; font-family: monospace; font-weight: 600;">${escapeHtml(POINT_GROUPS[name] || '—')}</span>
     </div>
     <div class="summary-item">
       <strong>CShM Value</strong>
@@ -506,46 +525,42 @@ footer strong {
   ` : ''}
 
   ${intensiveMetadata && intensiveMetadata.metadata && intensiveMetadata.ligandGroups ? `
-  <h2>🔬 Pattern-Based Intensive Analysis</h2>
+  <h2>🔬 Extended-Search Analysis</h2>
   <div class="info-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #10b981;">
-    <h3 style="margin-top: 0; color: #15803d;">Detected Structural Pattern</h3>
+    <h3 style="margin-top: 0; color: #15803d;">Heuristic descriptor summary</h3>
+    <p><strong>Coordination Number:</strong> ${escapeHtml(intensiveMetadata.metadata.coordinationNumber)}</p>
 
-    ${intensiveMetadata.metadata.patternDetected ? `
-    <div style="padding: 1rem; background: white; border-radius: 8px; margin: 1rem 0;">
-      <p style="margin: 0.5rem 0;"><strong>Pattern:</strong> <span style="text-transform: capitalize;">${intensiveMetadata.metadata.patternDetected.replace('_', ' ')}</span></p>
-      <p style="margin: 0.5rem 0;"><strong>Coordination Number:</strong> ${intensiveMetadata.metadata.coordinationNumber}</p>
-    </div>
-    ` : ''}
-
-    <h4>Ligand Groups Analysis</h4>
-    <p><strong>${intensiveMetadata.ligandGroups.summary}</strong></p>
+    <h4>Heuristic Planar-Cycle Summary</h4>
+    <p><em>Informational only. These descriptors do not change the coordinating atoms used in the CShM calculation and are not validated chemical hapticity assignments.</em></p>
+    <p><strong>${escapeHtml(intensiveMetadata.ligandGroups.summary)}</strong></p>
 
     ${intensiveMetadata.ligandGroups.rings && intensiveMetadata.ligandGroups.rings.length > 0 ? `
     <div style="margin-top: 1rem;">
-      <p style="font-weight: 600; color: #15803d;">Detected Rings:</p>
+      <p style="font-weight: 600; color: #15803d;">Planar-cycle candidates:</p>
       <ul style="list-style: none; padding-left: 1rem;">
         ${intensiveMetadata.ligandGroups.rings.map((ring, i) => `
         <li style="margin: 0.5rem 0;">
-          <strong>Ring ${i + 1}:</strong> ${ring.hapticity || 'Unknown'} (${ring.size} atoms, ${ring.distanceToMetal ? ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
+          <strong>Candidate ${i + 1}:</strong> ${escapeHtml(ring.ringSizeLabel || `${ring.size}-membered cycle candidate`)} (${escapeHtml(ring.size)} atoms, ${ring.distanceToMetal ? ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
         </li>
         `).join('')}
       </ul>
     </div>
     ` : ''}
 
-    ${intensiveMetadata.ligandGroups.hasSandwichStructure ? `
+    ${intensiveMetadata.ligandGroups.hasMultipleLargeRings ? `
     <div style="margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 8px; border-left: 4px solid #3b82f6;">
-      <p style="margin: 0; font-weight: 700; color: #1e40af;">🥪 Sandwich Structure Detected</p>
+      <p style="margin: 0; font-weight: 700; color: #1e40af;">Multiple large planar-cycle candidates</p>
       <p style="margin: 0.5rem 0 0; color: #1e3a8a; font-size: 0.9rem;">
-        This complex features parallel π-coordinated rings characteristic of sandwich compounds like ferrocene.
-        The intensive analysis treats ring centroids as coordination sites for accurate geometry determination.
+        This size-based annotation does not verify ring parallelism, the position of the metal between rings,
+        or chemical hapticity. The CShM calculation uses the individual coordinating atoms selected by the
+        coordination radius, not ring centroids.
       </p>
     </div>
     ` : ''}
 
     ${intensiveMetadata.metadata.bestGeometry ? `
     <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px;">
-      <p style="margin: 0;"><strong>Best Geometry:</strong> ${intensiveMetadata.metadata.bestGeometry}</p>
+      <p style="margin: 0;"><strong>Best Geometry:</strong> ${escapeHtml(intensiveMetadata.metadata.bestGeometry)}</p>
       <p style="margin: 0.5rem 0 0;"><strong>CShM Value:</strong> ${formatShapeMeasure(intensiveMetadata.metadata.bestCShM)}</p>
     </div>
     ` : ''}
@@ -553,7 +568,7 @@ footer strong {
   ` : ''}
 
   <h2>🎨 3D Visualization Snapshot</h2>
-  <img src="${imgData}" alt="3D rendering of the coordination complex">
+  <img src="${escapeHtml(safeRasterDataUrl(imgData))}" alt="3D rendering of the coordination complex">
 
   <h2>📋 Geometry Analysis Results</h2>
   <table>
@@ -571,10 +586,10 @@ footer strong {
       ${geometryResults.map((r, i) => `
       <tr class="${i === 0 && isShapeResultAvailable(r) ? 'best-result' : ''}">
         <td>${i + 1}</td>
-        <td><strong>${r.name}</strong></td>
-        <td style="font-family: monospace; font-weight: 600; color: #6366f1;">${POINT_GROUPS[r.name] || '—'}</td>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td style="font-family: monospace; font-weight: 600; color: #6366f1;">${escapeHtml(POINT_GROUPS[r.name] || '—')}</td>
         <td style="font-family: monospace; font-weight: 600;">${formatShapeMeasure(r.shapeMeasure)}</td>
-        <td>${shapeResultStatusLabel(r)}</td>
+        <td>${escapeHtml(shapeResultStatusLabel(r))}</td>
         <td>${escapeHtml(shapeResultDetail(r))}</td>
       </tr>
       `).join('')}
@@ -595,7 +610,7 @@ footer strong {
       ${coordAtoms.map((c, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><strong>${c.atom.element}</strong></td>
+        <td><strong>${escapeHtml(c.atom.element)}</strong></td>
         <td style="font-family: monospace;">${c.distance.toFixed(4)}</td>
         <td style="font-family: monospace; font-size: 0.9em;">${c.atom.x.toFixed(4)}, ${c.atom.y.toFixed(4)}, ${c.atom.z.toFixed(4)}</td>
       </tr>
@@ -614,18 +629,19 @@ footer strong {
 </main>
 
 <footer>
-  <p>Report generated by <strong>${APP_FULL_NAME} v${APP_VERSION}</strong></p>
-  <p style="margin-top: 1rem;">Comprehensive analysis with ${totalAvailableGeometries} reference geometries • Optimized Kabsch alignment with Jacobi SVD • Enhanced Hungarian algorithm</p>
+  <p>Report generated by <strong>${escapeHtml(APP_FULL_NAME)} v${escapeHtml(APP_VERSION)}</strong></p>
+  <p>Source commit: <strong>${escapeHtml(APP_BUILD_SHA)}</strong></p>
+  <p style="margin-top: 1rem;">Same-CN evaluation of ${cnGeometries} reference geometries • Kabsch alignment • Assignment optimization</p>
   <p style="margin-top: 1rem; font-size: 0.85em;">
-    ${getCitationString()}
-    <a href="${CITATION.url}" style="color: #4f46e5;">${CITATION.url}</a>
+    ${escapeHtml(getCitationString())}
+    <a href="${escapeHtml(CITATION.url)}" style="color: #4f46e5;">${escapeHtml(CITATION.url)}</a>
   </p>
   <p style="margin-top: 0.5rem; font-size: 0.85em; color: #64748b;">
     Based on Continuous Shape Measures methodology: Pinsky & Avnir (1998), Alvarez et al. (2002)
   </p>
 
   <div class="university-section">
-    <img src="${process.env.PUBLIC_URL}/UFRRJ.png" alt="UFRRJ Logo" onerror="this.style.display='none'">
+    <img src="${escapeHtml(process.env.PUBLIC_URL || '')}/UFRRJ.png" alt="UFRRJ Logo" onerror="this.style.display='none'">
     <div class="university-info">
       <p style="font-weight: bold; color: #1e293b;">Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
       <p>Departamento de Química Fundamental</p>
@@ -638,6 +654,7 @@ footer strong {
 
     const reportWindow = window.open("", "_blank");
     if (reportWindow) {
+        reportWindow.opener = null;
         reportWindow.document.write(html);
         reportWindow.document.close();
     } else {
@@ -695,10 +712,11 @@ export function generateCSVReport({ geometryResults, fileName }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
 }
 
 /**
- * Generate Batch Print Report - v1.5.0
+ * Generate Batch Print Report
  *
  * Creates a comprehensive print-ready HTML report for multiple structures with:
  * - Batch summary table
@@ -737,7 +755,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     <td>${index + 1}</td>
                     <td><strong>${escapeHtml(structure.id)}</strong></td>
                     <td>${escapeHtml(structure.atoms[result.metalIndex]?.element || 'N/A')}</td>
-                    <td style="text-align: center;">${result.coordinationNumber ?? 'N/A'}</td>
+                    <td style="text-align: center;">${escapeHtml(result.coordinationNumber ?? 'N/A')}</td>
                     <td>${bestGeometry ? escapeHtml(bestGeometry.name) : 'N/A'}</td>
                     <td style="font-family: monospace;">${formatShapeMeasure(bestGeometry?.shapeMeasure)}</td>
                     <td>${escapeHtml(status)}</td>
@@ -812,8 +830,8 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     ` : `
                     <!-- Q-Shape Analysis Info Box -->
                     <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                        <p style="margin: 0 0 0.5rem 0;"><strong>Q-Shape</strong> analyzed this structure against <strong>${totalAvailableGeometries} reference geometries</strong>.</p>
-                        <p style="margin: 0;">For CN=${coordAtoms.length}, <strong>${cnGeometries} reference geometries</strong> were evaluated using Kabsch alignment and Hungarian algorithm.</p>
+                        <p style="margin: 0 0 0.5rem 0;">The installed Q-Shape inventory contains <strong>${totalAvailableGeometries} reference geometries</strong>.</p>
+                        <p style="margin: 0;">This structure was evaluated against <strong>${cnGeometries} same-CN reference geometries</strong> for CN=${coordAtoms.length} using Kabsch alignment and assignment optimization.</p>
                     </div>
                     `}
 
@@ -829,7 +847,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             </div>
                             <div class="summary-item">
                                 <strong>Coordination Number</strong>
-                                <span>${result.coordinationNumber || coordAtoms.length || 'N/A'}</span>
+                                <span>${escapeHtml(result.coordinationNumber || coordAtoms.length || 'N/A')}</span>
                             </div>
                             <div class="summary-item">
                                 <strong>Coordination Radius</strong>
@@ -897,26 +915,27 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     </div>
                     ` : ''}
 
-                    ${result.ligandGroups && (result.ligandGroups.ringCount > 0 || result.ligandGroups.hasSandwichStructure) ? `
+                    ${result.ligandGroups && (result.ligandGroups.ringCount > 0 || result.ligandGroups.hasMultipleLargeRings) ? `
                     <!-- Ligand Groups Analysis -->
                     <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                        <h4 style="margin: 0 0 0.75rem 0; color: #1e40af;">🔬 Ligand Groups Analysis</h4>
-                        <p style="margin: 0 0 0.5rem 0;"><strong>${result.ligandGroups.summary}</strong></p>
+                        <h4 style="margin: 0 0 0.75rem 0; color: #1e40af;">🔬 Heuristic Planar-Cycle Summary</h4>
+                        <p style="margin: 0 0 0.5rem 0;"><em>Informational only; not a validated chemical hapticity or sandwich assignment.</em></p>
+                        <p style="margin: 0 0 0.5rem 0;"><strong>${escapeHtml(result.ligandGroups.summary)}</strong></p>
                         ${result.ligandGroups.rings && result.ligandGroups.rings.length > 0 ? `
                         <div style="margin-top: 0.5rem;">
-                            <p style="font-weight: 600; color: #1e40af; margin: 0 0 0.25rem 0;">Detected Rings:</p>
+                            <p style="font-weight: 600; color: #1e40af; margin: 0 0 0.25rem 0;">Planar-cycle candidates:</p>
                             <ul style="list-style: none; padding-left: 1rem; margin: 0;">
                                 ${result.ligandGroups.rings.map((ring, i) => `
                                 <li style="margin: 0.25rem 0;">
-                                    <strong>Ring ${i + 1}:</strong> ${ring.hapticity || 'Unknown'} (${ring.size} atoms${ring.distanceToMetal ? ', ' + ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
+                                    <strong>Candidate ${i + 1}:</strong> ${escapeHtml(ring.ringSizeLabel || `${ring.size}-membered cycle candidate`)} (${escapeHtml(ring.size)} atoms${ring.distanceToMetal ? ', ' + ring.distanceToMetal.toFixed(3) + ' Å from metal' : ''})
                                 </li>
                                 `).join('')}
                             </ul>
                         </div>
                         ` : ''}
-                        ${result.ligandGroups.hasSandwichStructure ? `
+                        ${result.ligandGroups.hasMultipleLargeRings ? `
                         <div style="margin-top: 0.5rem; padding: 0.5rem; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 6px; border-left: 3px solid #10b981;">
-                            <p style="margin: 0; font-weight: 700; color: #15803d;">🥪 Sandwich Structure Detected</p>
+                            <p style="margin: 0; font-weight: 700; color: #15803d;">Multiple large planar-cycle candidates; sandwich topology not verified</p>
                         </div>
                         ` : ''}
                     </div>
@@ -938,7 +957,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                             ${coordAtoms.map((c, i) => `
                             <tr>
                                 <td>${i + 1}</td>
-                                <td><strong>${c.atom?.element || '?'}</strong></td>
+                                <td><strong>${escapeHtml(c.atom?.element || '?')}</strong></td>
                                 <td style="font-family: monospace;">${c.distance?.toFixed(4) || 'N/A'}</td>
                                 <td style="font-family: monospace; font-size: 0.9em;">${c.atom?.x?.toFixed(4) || '?'}, ${c.atom?.y?.toFixed(4) || '?'}, ${c.atom?.z?.toFixed(4) || '?'}</td>
                             </tr>
@@ -987,13 +1006,14 @@ ${getBatchReportStyles()}
 <header>
   <h1>🔬 Q-Shape Batch Analysis Report</h1>
   <p><strong>Coordination Geometry Analysis - Multi-Structure Report</strong></p>
-  <p><strong>File:</strong> ${escapeHtml(fileName)}.${fileFormat || 'xyz'}</p>
+  <p><strong>File:</strong> ${escapeHtml(fileName)}.${safeFileFormat(fileFormat)}</p>
   <p><strong>Generated:</strong> ${date}</p>
+  <p><strong>Source commit:</strong> ${escapeHtml(APP_BUILD_SHA)}</p>
   <p><strong>Structures Processed:</strong> ${processedCount} of ${structures.length}</p>
-  <p><strong>Analysis Mode:</strong> Intensive (High Precision) with Kabsch Alignment</p>
+  <p><strong>Analysis Mode:</strong> Extended Search with Kabsch Alignment</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
-    Cite this: ${getCitationString()}
-    <a href="${CITATION.url}" style="color: #4f46e5;">${CITATION.url}</a>
+    Cite this: ${escapeHtml(getCitationString())}
+    <a href="${escapeHtml(CITATION.url)}" style="color: #4f46e5;">${escapeHtml(CITATION.url)}</a>
   </p>
 </header>
 
@@ -1022,18 +1042,19 @@ ${getBatchReportStyles()}
 </main>
 
 <footer>
-  <p>Report generated by <strong>${APP_FULL_NAME} v${APP_VERSION}</strong></p>
-  <p style="margin-top: 1rem;">Comprehensive analysis with optimized Kabsch alignment with Jacobi SVD • Enhanced Hungarian algorithm</p>
+  <p>Report generated by <strong>${escapeHtml(APP_FULL_NAME)} v${escapeHtml(APP_VERSION)}</strong></p>
+  <p>Source commit: <strong>${escapeHtml(APP_BUILD_SHA)}</strong></p>
+  <p style="margin-top: 1rem;">Same-CN CShM evaluations • Kabsch alignment • Assignment optimization</p>
   <p style="margin-top: 1rem; font-size: 0.85em;">
-    ${getCitationString()}
-    <a href="${CITATION.url}" style="color: #4f46e5;">${CITATION.url}</a>
+    ${escapeHtml(getCitationString())}
+    <a href="${escapeHtml(CITATION.url)}" style="color: #4f46e5;">${escapeHtml(CITATION.url)}</a>
   </p>
   <p style="margin-top: 0.5rem; font-size: 0.85em; color: #64748b;">
     Based on Continuous Shape Measures methodology: Pinsky & Avnir (1998), Alvarez et al. (2002)
   </p>
 
   <div class="university-section" style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
-    <img src="${process.env.PUBLIC_URL}/UFRRJ.png" alt="UFRRJ Logo" style="width: 60px; height: 60px;" onerror="this.style.display='none'">
+    <img src="${escapeHtml(process.env.PUBLIC_URL || '')}/UFRRJ.png" alt="UFRRJ Logo" style="width: 60px; height: 60px;" onerror="this.style.display='none'">
     <div style="text-align: left;">
       <p style="margin: 0.25rem 0; font-weight: bold; color: #1e293b;">Universidade Federal Rural do Rio de Janeiro (UFRRJ)</p>
       <p style="margin: 0.25rem 0;">Departamento de Química Fundamental</p>
@@ -1046,6 +1067,7 @@ ${getBatchReportStyles()}
 
     const reportWindow = window.open("", "_blank");
     if (reportWindow) {
+        reportWindow.opener = null;
         reportWindow.document.write(html);
         reportWindow.document.close();
     } else {
@@ -1054,7 +1076,7 @@ ${getBatchReportStyles()}
 }
 
 /**
- * Generate Wide Summary CSV - v1.5.0
+ * Generate Wide Summary CSV
  *
  * Creates a CSV with one row per structure (best match + key metrics)
  *
@@ -1108,7 +1130,7 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
 }
 
 /**
- * Generate Long Detailed CSV - v1.5.0
+ * Generate Long Detailed CSV
  *
  * Creates a CSV with one row per (structure, geometry) pair - all results for all geometries
  *
@@ -1179,12 +1201,14 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
 function downloadCSV(content, filename) {
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    link.href = url;
     link.download = filename.replace(/[<>:"/\\|?*]/g, '_');
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
 }
 
 /**

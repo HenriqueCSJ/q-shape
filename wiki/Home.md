@@ -45,11 +45,11 @@ Q-Shape is a web-based tool for analyzing the geometry of coordination complexes
 
 ### Special Cases
 
-6. **[Ring Detection & Hapticity](06-Ring-Detection-Hapticity.md)**
+6. **[Heuristic Planar-Cycle Descriptors](06-Ring-Detection-Hapticity.md)**
    - π-coordination handling
    - Aromatic ring detection
-   - Centroid representation
-   - Sandwich complex analysis
+   - Informational centroid and cycle-size descriptors
+   - No chemical hapticity or sandwich-topology assignment
 
 ---
 
@@ -84,7 +84,7 @@ $$R = V \cdot U^T \quad \text{where} \quad H = U \Sigma V^T$$
 │  1. COORDINATION SPHERE DETECTION                               │
 │     - Identify metal center                                      │
 │     - Find coordinating atoms within radius                      │
-│     - Detect rings and hapticity                                 │
+│     - Flag planar-cycle candidates (informational heuristic)     │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
@@ -188,36 +188,30 @@ $$R = V \cdot U^T \quad \text{where} \quad H = U \Sigma V^T$$
 ### Technology Stack
 
 - **Frontend**: React.js, Three.js (3D visualization)
-- **Algorithms**: Pure JavaScript (no external math libraries)
+- **Algorithms**: JavaScript, including `munkres-js` for assignment
 - **SVD**: Custom Jacobi SVD implementation
-- **Workers**: Web Workers for background calculations
 
 ### Performance
 
-| Metric | Value |
-|--------|-------|
-| CShM per geometry | ~10 ms |
-| Full CN=6 analysis | ~50 ms |
-| Full CN=12 analysis | ~150 ms |
-| Memory footprint | < 50 MB |
+No release-candidate runtime or memory benchmark is currently frozen. Runtime
+depends on coordination number, selected mode, browser, and hardware; benchmark
+claims will be added only from a version-bound protocol.
 
-### Browser Support
+### Browser qualification
 
-- Chrome 88+
-- Firefox 85+
-- Safari 14+
-- Edge 88+
+The build targets current mainstream browser families, but the frozen
+cross-browser campaign for `1.6.0-rc.1` is pending. See the
+[validation protocol](../validation/protocol.md) for the claim boundary.
 
 ---
 
 ## Contributing
 
-Q-Shape is designed for publication in peer-reviewed scientific journals. All algorithms and implementations follow best practices for:
-
-- **Numerical accuracy**: Double precision throughout
-- **Reproducibility**: Deterministic algorithms (no random initialization)
-- **Traceability**: Full provenance of reference geometries
-- **Documentation**: Complete scientific documentation
+Q-Shape is being prepared for peer-reviewed publication. Contributions should
+preserve explicit numerical domains, deterministic test fixtures where
+applicable, source-linked reference data, and the separation between
+engineering tests and scientific validation. The current candidate does not
+claim complete provenance, browser qualification, or scientific parity.
 
 ---
 
@@ -227,4 +221,4 @@ Q-Shape is open source software for academic and research use.
 
 ---
 
-*Last updated: December 2025*
+*Last updated: August 2026*

@@ -1,11 +1,9 @@
 /**
- * Ring and Hapticity Detection Service
+ * Heuristic Planar-Cycle Descriptor Service
  *
- * Detects cyclic ligands (η³, η⁵, η⁶, etc.) in coordination complexes
- * and calculates their centroids for accurate geometry analysis.
- *
- * This is essential for analyzing sandwich compounds (ferrocene, benzene complexes)
- * and other π-coordinated ligands that traditional point-based algorithms fail to handle.
+ * Flags planar cycles using a fixed-distance graph and calculates informational
+ * centroids. It does not assign ligand identity, chemical hapticity, or
+ * sandwich/piano-stool topology, and it does not alter production CShM inputs.
  */
 
 import { RING_DETECTION } from '../../constants/algorithmConstants.js';
@@ -195,28 +193,23 @@ function findRings(atoms, coordIndices, maxRingSize = RING_DETECTION.MAX_RING_SI
 }
 
 /**
- * Detect hapticity mode based on ring size and geometry
+ * Describe a planar-cycle candidate from ring size and composition.
+ * This is a heuristic label, not a chemical hapticity assignment.
  * @param {number} ringSize - Number of atoms in ring
  * @param {Array} ringAtoms - Atoms in the ring
- * @returns {string} Hapticity notation (e.g., 'η5', 'η6')
+ * @returns {string} Informational ring-size label
  */
-function detectHapticity(ringSize, ringAtoms) {
-    // Check if all atoms are carbon (common for organic ligands)
+function describeRingSizeCandidate(ringSize, ringAtoms) {
     const allCarbon = ringAtoms.every(atom => atom.element === 'C');
 
     if (ringSize === 5 && allCarbon) {
-        return 'η⁵-Cp'; // Cyclopentadienyl
+        return '5-membered carbon cycle candidate';
     } else if (ringSize === 6 && allCarbon) {
-        return 'η⁶-C₆'; // Benzene or similar
+        return '6-membered carbon cycle candidate';
     } else if (ringSize === 4 && allCarbon) {
-        return 'η⁴-C₄'; // Butadiene
-    } else if (ringSize === 3) {
-        return 'η³-allyl'; // Allyl or similar
-    } else if (ringSize === 7) {
-        return 'η⁷-C₇'; // Cycloheptatrienyl (tropylium)
-    } else {
-        return `η${ringSize}`; // Generic hapticity notation
+        return '4-membered carbon cycle candidate';
     }
+    return `${ringSize}-membered cycle candidate`;
 }
 
 /**
@@ -233,11 +226,11 @@ export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize 
     // Filter by minimum ring size
     const validRings = rings.filter(ring => ring.length >= minRingSize);
 
-    // Calculate centroids and hapticity for each ring
+    // Calculate informational descriptors for each planar-cycle candidate.
     const ligandGroups = validRings.map(ring => {
         const ringAtoms = ring.map(idx => atoms[idx]);
         const centroid = calculateCentroid(ringAtoms);
-        const hapticity = detectHapticity(ring.length, ringAtoms);
+        const ringSizeLabel = describeRingSizeCandidate(ring.length, ringAtoms);
 
         // Calculate distance from metal to centroid
         const distToMetal = distance(atoms[metalIndex], centroid);
@@ -247,7 +240,7 @@ export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize 
             indices: ring,
             atoms: ringAtoms,
             centroid,
-            hapticity,
+            ringSizeLabel,
             distanceToMetal: distToMetal,
             size: ring.length
         };
@@ -262,7 +255,7 @@ export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize 
             indices: [idx],
             atoms: [atoms[idx]],
             centroid: atoms[idx], // Atom itself is the "centroid"
-            hapticity: 'η¹',
+            ringSizeLabel: 'single coordinating atom',
             distanceToMetal: distance(atoms[metalIndex], atoms[idx]),
             size: 1
         }));
@@ -272,15 +265,16 @@ export function detectLigandGroups(atoms, metalIndex, coordIndices, minRingSize 
         monodentate,
         totalGroups: ligandGroups.length + monodentate.length,
         ringCount: ligandGroups.length,
-        summary: `${ligandGroups.length} ring(s) + ${monodentate.length} monodentate ligand(s)`,
-        hasSandwichStructure: ligandGroups.length >= 2 &&
-                              ligandGroups.every(g => g.size >= 5),
-        detectedHapticities: [...new Set(ligandGroups.map(g => g.hapticity))]
+        summary: `${ligandGroups.length} planar-cycle candidate(s) + ${monodentate.length} other coordinating atom(s)`,
+        hasMultipleLargeRings: ligandGroups.length >= 2 &&
+                               ligandGroups.every(g => g.size >= 5),
+        candidateRingSizeLabels: [...new Set(ligandGroups.map(g => g.ringSizeLabel))]
     };
 }
 
 /**
- * Create centroid-based pseudo-atoms for CShM analysis
+ * Create centroid pseudo-atoms for legacy callers and diagnostics.
+ * The production CShM path does not call this helper.
  * @param {Object} ligandGroups - Output from detectLigandGroups
  * @returns {Array} Array of centroid "atoms" for analysis
  */
@@ -290,13 +284,14 @@ export function createCentroidAtoms(ligandGroups) {
     // Add ring centroids
     ligandGroups.rings.forEach((group, idx) => {
         centroidAtoms.push({
-            element: `${group.hapticity}`, // Label with hapticity
+            element: 'X',
             x: group.centroid.x,
             y: group.centroid.y,
             z: group.centroid.z,
             isRingCentroid: true,
             originalIndices: group.indices,
-            ringSize: group.size
+            ringSize: group.size,
+            ringSizeLabel: group.ringSizeLabel
         });
     });
 

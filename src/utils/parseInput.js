@@ -19,6 +19,17 @@ import {
     PARSE_CONFIG
 } from '../types/structureTypes.js';
 
+const FINITE_NUMBER_TOKEN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+function parseFiniteNumberToken(value, allowCifUncertainty = false) {
+    if (typeof value !== 'string') return NaN;
+    let token = value.trim();
+    if (allowCifUncertainty) token = token.replace(/\(\d+\)$/, '');
+    if (!FINITE_NUMBER_TOKEN.test(token)) return NaN;
+    const parsed = Number(token);
+    return Number.isFinite(parsed) ? parsed : NaN;
+}
+
 /**
  * Main entry point for file parsing
  *
@@ -119,9 +130,9 @@ export function parseXYZMultiFrame(content, filename) {
 
             // Parse atom count
             const countLine = lines[lineIndex].trim();
-            const atomCount = parseInt(countLine, 10);
+            const atomCount = /^[1-9]\d*$/.test(countLine) ? Number(countLine) : NaN;
 
-            if (!Number.isFinite(atomCount) || atomCount <= 0) {
+            if (!Number.isSafeInteger(atomCount) || atomCount <= 0) {
                 if (structures.length === 0) {
                     // First frame must be valid
                     return createErrorResult(
@@ -189,9 +200,16 @@ export function parseXYZMultiFrame(content, filename) {
 
                 const [elementRaw, xStr, yStr, zStr] = parts;
                 const element = normalizeElement(elementRaw);
-                const x = parseFloat(xStr);
-                const y = parseFloat(yStr);
-                const z = parseFloat(zStr);
+                const x = parseFiniteNumberToken(xStr);
+                const y = parseFiniteNumberToken(yStr);
+                const z = parseFiniteNumberToken(zStr);
+
+                if (!element) {
+                    frameWarnings.push(
+                        `Line ${lineIndex + i + 1}: Invalid element token "${elementRaw}"`
+                    );
+                    continue;
+                }
 
                 if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
                     frameWarnings.push(
@@ -221,11 +239,14 @@ export function parseXYZMultiFrame(content, filename) {
             lineIndex += atomCount;
 
             // Validate we got atoms
-            if (atoms.length === 0) {
+            if (atoms.length !== atomCount) {
+                const invalidAtomCount = atomCount - atoms.length;
+                const rejection = `Frame ${frameIndex + 1} rejected: ${invalidAtomCount} of ` +
+                    `${atomCount} atom lines were invalid`;
                 if (structures.length === 0) {
-                    return createErrorResult('No valid atoms found in first frame');
+                    return createErrorResult(rejection);
                 }
-                frameWarnings.push(`Frame ${frameIndex + 1} has no valid atoms - skipped`);
+                warnings.push(...frameWarnings, `${rejection}. Frame skipped.`);
                 frameIndex++;
                 continue;
             }
@@ -278,8 +299,9 @@ export function parseXYZMultiFrame(content, filename) {
 /**
  * Parse CIF content
  *
- * NOTE: This is a placeholder implementation. Full CIF parsing requires gemmi-wasm.
- * For now, we provide a basic parser that handles simple CIF files.
+ * This deliberately fail-closed basic importer accepts only explicit Cartesian
+ * atom-site loops. Fractional coordinates require crystallographic symmetry and
+ * periodic-image expansion, which are not implemented in this candidate.
  *
  * @param {string} content - Raw CIF content
  * @param {string} filename - Source filename
@@ -384,43 +406,47 @@ function parseCIFBlock(block, filename, blockIndex) {
 
         // Extract unit cell parameters
         const unitCell = extractUnitCell(lines);
-        if (!unitCell) {
-            warnings.push('No unit cell parameters found - assuming orthogonal cell');
+
+        const cartesianResult = extractCartesianAtoms(lines);
+        const fractionalResult = extractFractionalAtoms(lines);
+
+        if (!cartesianResult.foundCoordinateLoop && fractionalResult.foundCoordinateLoop) {
+            return {
+                valid: false,
+                warnings,
+                error: 'Fractional-coordinate CIF is unsupported: symmetry and periodic-image expansion are not implemented. Convert the complete molecular environment to explicit Cartesian coordinates before analysis.'
+            };
         }
 
-        // Try to extract atom coordinates
-        let atoms = [];
-
-        // Try _atom_site_fract_* first (fractional coordinates)
-        const fractAtoms = extractFractionalAtoms(lines);
-        if (fractAtoms.length > 0) {
-            if (unitCell) {
-                atoms = convertFractionalToCartesian(fractAtoms, unitCell);
-            } else {
-                // Without unit cell, fractional coords would be cramped
-                warnings.push('Fractional coordinates without unit cell - coordinates may be incorrect');
-                // Use as-is (will be cramped, but at least parseable)
-                atoms = fractAtoms.map(a => ({
-                    element: a.element,
-                    x: a.x,
-                    y: a.y,
-                    z: a.z
-                }));
-            }
-        }
-
-        // If no fractional atoms, try _atom_site_Cartn_* (Cartesian coordinates)
-        if (atoms.length === 0) {
-            atoms = extractCartesianAtoms(lines);
-        }
-
-        if (atoms.length === 0) {
+        if (!cartesianResult.foundCoordinateLoop) {
             return {
                 valid: false,
                 warnings,
                 error: 'No atom coordinates found in block'
             };
         }
+
+        if (cartesianResult.invalidRows.length > 0) {
+            return {
+                valid: false,
+                warnings,
+                error: `Cartesian atom-site loop rejected: ${cartesianResult.invalidRows.length} invalid row(s): ` +
+                    cartesianResult.invalidRows.join('; ')
+            };
+        }
+
+        const atoms = cartesianResult.atoms;
+        if (atoms.length === 0) {
+            return {
+                valid: false,
+                warnings,
+                error: 'Cartesian atom-site loop contains no atom rows'
+            };
+        }
+
+        warnings.push(
+            'Basic Cartesian-coordinate CIF import: coordinates are used exactly as listed; crystallographic symmetry and periodic images are not expanded.'
+        );
 
         // Generate structure ID
         const id = blockIndex === 0 && block.name
@@ -460,19 +486,19 @@ function parseCIFBlock(block, filename, blockIndex) {
  * @returns {UnitCell|null}
  */
 function extractUnitCell(lines) {
-    const a = parseFloat(extractValue(lines, '_cell_length_a'));
-    const b = parseFloat(extractValue(lines, '_cell_length_b'));
-    const c = parseFloat(extractValue(lines, '_cell_length_c'));
-    const alpha = parseFloat(extractValue(lines, '_cell_angle_alpha'));
-    const beta = parseFloat(extractValue(lines, '_cell_angle_beta'));
-    const gamma = parseFloat(extractValue(lines, '_cell_angle_gamma'));
+    const a = parseFiniteNumberToken(extractValue(lines, '_cell_length_a'), true);
+    const b = parseFiniteNumberToken(extractValue(lines, '_cell_length_b'), true);
+    const c = parseFiniteNumberToken(extractValue(lines, '_cell_length_c'), true);
+    const alpha = parseFiniteNumberToken(extractValue(lines, '_cell_angle_alpha'), true);
+    const beta = parseFiniteNumberToken(extractValue(lines, '_cell_angle_beta'), true);
+    const gamma = parseFiniteNumberToken(extractValue(lines, '_cell_angle_gamma'), true);
 
-    if (Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c)) {
+    if ([a, b, c, alpha, beta, gamma].every(Number.isFinite)) {
         return {
             a, b, c,
-            alpha: Number.isFinite(alpha) ? alpha : 90,
-            beta: Number.isFinite(beta) ? beta : 90,
-            gamma: Number.isFinite(gamma) ? gamma : 90
+            alpha,
+            beta,
+            gamma
         };
     }
 
@@ -492,8 +518,7 @@ function extractValue(lines, key) {
         if (trimmed.toLowerCase().startsWith(key.toLowerCase())) {
             const parts = trimmed.split(/\s+/);
             if (parts.length >= 2) {
-                // Remove uncertainty notation like 1.234(5)
-                return parts[1].replace(/\([^)]*\)/g, '');
+                return parts[1];
             }
         }
     }
@@ -504,7 +529,7 @@ function extractValue(lines, key) {
  * Extract fractional coordinates from CIF loop
  *
  * @param {string[]} lines - CIF lines
- * @returns {Array<{element: string, x: number, y: number, z: number}>}
+ * @returns {{atoms: Array<{element: string, x: number, y: number, z: number}>, foundCoordinateLoop: boolean, invalidRows: string[]}}
  */
 function extractFractionalAtoms(lines) {
     return extractAtomLoop(lines, [
@@ -518,7 +543,7 @@ function extractFractionalAtoms(lines) {
  * Extract Cartesian coordinates from CIF loop
  *
  * @param {string[]} lines - CIF lines
- * @returns {Array<{element: string, x: number, y: number, z: number}>}
+ * @returns {{atoms: Array<{element: string, x: number, y: number, z: number}>, foundCoordinateLoop: boolean, invalidRows: string[]}}
  */
 function extractCartesianAtoms(lines) {
     return extractAtomLoop(lines, [
@@ -533,101 +558,75 @@ function extractCartesianAtoms(lines) {
  *
  * @param {string[]} lines - CIF lines
  * @param {string[]} coordKeys - Keys for x, y, z coordinates
- * @returns {Array<{element: string, x: number, y: number, z: number}>}
+ * @returns {{atoms: Array<{element: string, x: number, y: number, z: number}>, foundCoordinateLoop: boolean, invalidRows: string[]}}
  */
 function extractAtomLoop(lines, coordKeys) {
     const atoms = [];
-    let inLoop = false;
-    let inAtomSiteLoop = false;
-    const columns = [];
-    let elementCol = -1;
-    let symbolCol = -1;
-    let xCol = -1;
-    let yCol = -1;
-    let zCol = -1;
+    const invalidRows = [];
+    let foundCoordinateLoop = false;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
+        if (line.toLowerCase() !== 'loop_') continue;
 
-        if (line.toLowerCase() === 'loop_') {
-            inLoop = true;
-            inAtomSiteLoop = false;
-            columns.length = 0;
-            elementCol = -1;
-            symbolCol = -1;
-            xCol = yCol = zCol = -1;
+        const columns = [];
+        let cursor = i + 1;
+        while (cursor < lines.length && lines[cursor].trim().startsWith('_')) {
+            columns.push(lines[cursor].trim().split(/\s+/)[0].toLowerCase());
+            cursor++;
+        }
+
+        const symbolCol = columns.indexOf('_atom_site_type_symbol');
+        const elementCol = columns.indexOf('_atom_site_label');
+        const xCol = columns.indexOf(coordKeys[0].toLowerCase());
+        const yCol = columns.indexOf(coordKeys[1].toLowerCase());
+        const zCol = columns.indexOf(coordKeys[2].toLowerCase());
+
+        if (xCol === -1 || yCol === -1 || zCol === -1) {
+            i = cursor - 1;
             continue;
         }
 
-        if (inLoop && line.startsWith('_')) {
-            columns.push(line.toLowerCase());
-
-            if (line.toLowerCase().includes('_atom_site_')) {
-                inAtomSiteLoop = true;
+        foundCoordinateLoop = true;
+        for (; cursor < lines.length; cursor++) {
+            const row = lines[cursor].trim();
+            const lowerRow = row.toLowerCase();
+            if (row === '' || row.startsWith('#')) continue;
+            if (row.startsWith('_') || lowerRow === 'loop_' || lowerRow === 'stop_' ||
+                lowerRow.startsWith('data_') || lowerRow.startsWith('save_')) {
+                break;
             }
 
-            // Track column indices
-            const colIndex = columns.length - 1;
-            const lowerLine = line.toLowerCase();
-
-            if (lowerLine === '_atom_site_type_symbol') {
-                symbolCol = colIndex;
-            } else if (lowerLine === '_atom_site_label') {
-                elementCol = colIndex;
-            } else if (lowerLine === coordKeys[0].toLowerCase()) {
-                xCol = colIndex;
-            } else if (lowerLine === coordKeys[1].toLowerCase()) {
-                yCol = colIndex;
-            } else if (lowerLine === coordKeys[2].toLowerCase()) {
-                zCol = colIndex;
-            }
-
-            continue;
-        }
-
-        if (inLoop && inAtomSiteLoop && !line.startsWith('_') && line !== '' && !line.startsWith('#')) {
-            // Check if we have coordinate columns
-            if (xCol === -1 || yCol === -1 || zCol === -1) {
+            const parts = parseLoopLine(row);
+            if (parts.length !== columns.length) {
+                invalidRows.push(`line ${cursor + 1} has ${parts.length} fields; expected ${columns.length}`);
                 continue;
             }
 
-            // Parse data line
-            const parts = parseLoopLine(line);
-            if (parts.length >= columns.length) {
-                // Get element from type_symbol or extract from label
-                let element = '';
-                if (symbolCol >= 0 && parts[symbolCol]) {
-                    element = normalizeElement(parts[symbolCol]);
-                } else if (elementCol >= 0 && parts[elementCol]) {
-                    // Extract element from label like "Fe1", "N2", etc.
-                    const match = parts[elementCol].match(/^([A-Za-z]+)/);
-                    if (match) {
-                        element = normalizeElement(match[1]);
-                    }
-                }
-
-                if (!element) {
-                    continue;
-                }
-
-                // Parse coordinates (remove uncertainty notation)
-                const x = parseFloat(parts[xCol].replace(/\([^)]*\)/g, ''));
-                const y = parseFloat(parts[yCol].replace(/\([^)]*\)/g, ''));
-                const z = parseFloat(parts[zCol].replace(/\([^)]*\)/g, ''));
-
-                if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-                    atoms.push({ element, x, y, z });
-                }
+            let element = '';
+            if (symbolCol >= 0 && parts[symbolCol]) {
+                element = normalizeElement(parts[symbolCol]);
+            } else if (elementCol >= 0 && parts[elementCol]) {
+                const match = parts[elementCol].match(/^([A-Za-z]+)/);
+                if (match) element = normalizeElement(match[1]);
             }
+
+            const x = parseFiniteNumberToken(parts[xCol], true);
+            const y = parseFiniteNumberToken(parts[yCol], true);
+            const z = parseFiniteNumberToken(parts[zCol], true);
+
+            if (!element || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+                invalidRows.push(`line ${cursor + 1} has an invalid element or coordinate token`);
+                continue;
+            }
+
+            atoms.push({ element, x, y, z });
         }
 
-        // End of loop if we hit another loop_ or data_ or end of relevant data
-        if (inAtomSiteLoop && (line.toLowerCase() === 'loop_' || line.toLowerCase().startsWith('data_'))) {
-            break;
-        }
+        i = cursor - 1;
     }
 
-    return atoms;
+    return { atoms, foundCoordinateLoop, invalidRows };
 }
 
 /**
@@ -670,55 +669,6 @@ function parseLoopLine(line) {
 }
 
 /**
- * Convert fractional to Cartesian coordinates
- *
- * Uses the standard crystallographic transformation matrix.
- *
- * @param {Array<{element: string, x: number, y: number, z: number}>} fractAtoms - Fractional coords
- * @param {UnitCell} cell - Unit cell parameters
- * @returns {Array<{element: string, x: number, y: number, z: number}>}
- */
-function convertFractionalToCartesian(fractAtoms, cell) {
-    const { a, b, c, alpha, beta, gamma } = cell;
-
-    // Convert angles to radians
-    const alphaRad = (alpha * Math.PI) / 180;
-    const betaRad = (beta * Math.PI) / 180;
-    const gammaRad = (gamma * Math.PI) / 180;
-
-    // Calculate transformation matrix components
-    const cosAlpha = Math.cos(alphaRad);
-    const cosBeta = Math.cos(betaRad);
-    const cosGamma = Math.cos(gammaRad);
-    const sinGamma = Math.sin(gammaRad);
-
-    // Volume factor
-    const v = Math.sqrt(
-        1 - cosAlpha * cosAlpha - cosBeta * cosBeta - cosGamma * cosGamma +
-        2 * cosAlpha * cosBeta * cosGamma
-    );
-
-    // Transformation matrix (fractional to Cartesian)
-    // Standard crystallographic convention
-    const m11 = a;
-    const m12 = b * cosGamma;
-    const m13 = c * cosBeta;
-    const m21 = 0;
-    const m22 = b * sinGamma;
-    const m23 = c * (cosAlpha - cosBeta * cosGamma) / sinGamma;
-    const m31 = 0;
-    const m32 = 0;
-    const m33 = c * v / sinGamma;
-
-    return fractAtoms.map(atom => ({
-        element: atom.element,
-        x: m11 * atom.x + m12 * atom.y + m13 * atom.z,
-        y: m21 * atom.x + m22 * atom.y + m23 * atom.z,
-        z: m31 * atom.x + m32 * atom.y + m33 * atom.z
-    }));
-}
-
-/**
  * Normalize element symbol
  *
  * @param {string} element - Raw element string
@@ -728,8 +678,12 @@ function normalizeElement(element) {
     if (!element || typeof element !== 'string') {
         return '';
     }
-    // Remove any charge notation like Fe2+, N3-
-    const cleaned = element.replace(/[0-9+-]+$/, '');
+    // Accept only a bounded chemical-symbol token, optionally followed by one
+    // conventional charge suffix such as Fe2+, N3-, Na+, or Cu+2. Arbitrary
+    // markup, control syntax, and repeated/mixed signs are rejected.
+    const match = element.match(/^([A-Za-z]{1,3})(?:(?:[0-9]+[+-])|(?:[+-][0-9]*))?$/);
+    if (!match) return '';
+    const cleaned = match[1];
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
 }
 

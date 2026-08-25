@@ -44,8 +44,8 @@ describe('intensive-analysis failure contract', () => {
             totalGroups: 2,
             ringCount: 0,
             summary: '2 monodentate',
-            hasSandwichStructure: false,
-            detectedHapticities: []
+            hasMultipleLargeRings: false,
+            candidateRingSizeLabels: []
         });
     });
 

@@ -1,21 +1,30 @@
-# Ring Detection and Hapticity Analysis
+# Heuristic Planar-Cycle Descriptors
+
+> **Current boundary:** this feature is an informational geometric heuristic.
+> It does not establish chemical hapticity, ligand identity, sandwich topology,
+> or a centroid-based CShM representation.
 
 ## 1. Introduction
 
 ### 1.1 The Problem with π-Coordinated Ligands
 
-Traditional coordination geometry analysis treats each atom as an individual ligand position. This approach fails for:
+π-coordinated systems require care because an atom-based coordination sphere
+and a ligand-site chemical interpretation are not equivalent. Examples include:
 
 - **Sandwich compounds** (ferrocene, bis-benzene chromium)
 - **Half-sandwich complexes** (piano-stool)
 - **π-allyl complexes**
 - **Cyclopentadienyl (Cp) ligands**
 
-In these systems, the metal interacts with the π-electron system of an aromatic or conjugated ring, not individual atoms.
+Q-Shape currently performs its CShM calculation on the individual atoms inside
+the selected radius. Its separate cycle heuristic can flag planar cycles for
+inspection, but it does not solve the chemical assignment problem.
 
 ### 1.2 Hapticity Notation
 
-**Hapticity** (η, "eta") describes the number of contiguous atoms in a ligand coordinated to a metal:
+**Hapticity** (η, "eta") is a chemical description of the number of contiguous
+atoms in a ligand coordinated to a metal. The table is background terminology,
+not a list of assignments made or validated by Q-Shape:
 
 | Notation | Name | Example |
 |----------|------|---------|
@@ -28,9 +37,14 @@ In these systems, the metal interacts with the π-electron system of an aromatic
 | η⁷ | Heptahapto | Cycloheptatrienyl |
 | η⁸ | Octahapto | Cyclooctatetraene |
 
-### 1.3 Solution: Centroid Representation
+### 1.3 Current implementation boundary
 
-For η^n coordination, the ring is represented by its **centroid** (geometric center):
+Q-Shape detects candidate cycles and computes their centroids and
+metal-centroid distances as **informational descriptors**.
+The production CShM calculation does not replace a ring with its centroid: it
+uses every individual coordinating atom selected by the coordination radius.
+Consequently, an informational centroid must not be interpreted as a second
+"centroid mode" or as an effective coordination number used by CShM.
 
 ```
     Original:                     Centroid Model:
@@ -58,15 +72,15 @@ The ring detection process consists of:
 
 1. **Bond Network Construction** - Build adjacency graph
 2. **Cycle Finding** - DFS-based ring enumeration
-3. **Planarity Checking** - Validate aromatic character
-4. **Hapticity Determination** - Assign η mode
+3. **Planarity Checking** - Apply a fixed coplanarity tolerance
+4. **Candidate Labeling** - Report cycle size/composition as a heuristic descriptor
 
 ### 2.2 Bond Network Construction
 
 Atoms are considered bonded if their distance is below a threshold:
 
 ```javascript
-const BOND_THRESHOLD = 1.60;  // Ångströms (typical C-C = 1.40 Å)
+const BOND_THRESHOLD = 1.80;  // Å; uniform heuristic, not a bond assignment
 
 function buildAdjacencyList(atoms, coordIndices) {
     const adjList = new Map();
@@ -101,7 +115,8 @@ function buildAdjacencyList(atoms, coordIndices) {
 | C-O (single) | 1.43 |
 | C-O (double) | 1.23 |
 
-The threshold of 1.60 Å captures most organic bonding interactions.
+The fixed 1.80 Å threshold creates a candidate adjacency graph. It does not use
+element-pair covalent radii or establish a chemical bond/aromaticity model.
 
 ### 2.4 Depth-First Search for Cycles
 
@@ -158,10 +173,11 @@ function findRings(adjList, coordIndices, maxRingSize = 8) {
 
 ### 3.1 Algorithm
 
-A ring is considered aromatic/planar if all atoms lie within a tolerance of a common plane:
+A cycle candidate passes the coplanarity screen if all atoms lie within a fixed
+tolerance of a plane derived from its first three atoms:
 
 ```javascript
-const PLANARITY_TOLERANCE = 0.15;  // Ångströms
+const PLANARITY_TOLERANCE = 0.30;  // Ångströms
 
 function isPlanar(atoms, tolerance = PLANARITY_TOLERANCE) {
     if (atoms.length < 3) return false;
@@ -197,40 +213,16 @@ The distance from point P to the plane:
 
 $$\text{dist}(P) = |a \cdot P_x + b \cdot P_y + c \cdot P_z - d|$$
 
-## 4. Hapticity Determination
+## 4. Candidate cycle-size labeling
 
-### 4.1 Ring Size to Hapticity Mapping
+For each planar cycle found by the fixed-distance graph heuristic, Q-Shape
+records its atom count and whether all members are carbon. Example labels are
+“5-membered carbon cycle candidate” and “6-membered carbon cycle candidate.”
 
-```javascript
-function detectHapticity(ringSize, ringAtoms, metalPosition) {
-    const centroid = calculateCentroid(ringAtoms);
-    const metalDist = distance(centroid, metalPosition);
-
-    // Classify based on ring size
-    switch (ringSize) {
-        case 3: return { mode: 'η³', type: 'allyl' };
-        case 4: return { mode: 'η⁴', type: 'cyclobutadiene' };
-        case 5: return { mode: 'η⁵', type: 'cyclopentadienyl' };
-        case 6: return { mode: 'η⁶', type: 'benzene' };
-        case 7: return { mode: 'η⁷', type: 'cycloheptatrienyl' };
-        case 8: return { mode: 'η⁸', type: 'cyclooctatetraene' };
-        default: return { mode: `η${ringSize}`, type: 'general' };
-    }
-}
-```
-
-### 4.2 Common π-Coordinated Ligands
-
-| Ring Size | Ligand | Common Complexes |
-|-----------|--------|------------------|
-| 3 | π-allyl | Pd(allyl) catalysts |
-| 4 | Cyclobutadiene | Cyclobutadieneiron tricarbonyl |
-| 5 | Cp (cyclopentadienyl) | Ferrocene, metallocenes |
-| 5 | Cp* (pentamethyl-Cp) | [Cp*RhCl₂]₂ |
-| 6 | Benzene | Cr(C₆H₆)₂ |
-| 6 | p-cymene | Ru(p-cymene) catalysts |
-| 7 | Tropylium | [Mo(C₇H₇)(CO)₃]⁺ |
-| 8 | COT | U(COT)₂ (uranocene) |
+Cycle size and composition alone do not establish ligand identity or hapticity.
+The implementation does not evaluate bonding, electron count, contiguous
+metal-ligand interactions, crystallographic disorder, or an independent
+chemical model. Therefore it must not convert these labels to η assignments.
 
 ## 5. Centroid Calculation
 
@@ -260,90 +252,21 @@ function calculateCentroid(atoms) {
 }
 ```
 
-### 5.2 Ring Normal Vector
+### 5.2 Planarity-screen boundary
 
-The normal to the ring plane (useful for determining slip distortions):
+The current heuristic uses a plane derived from the first three cycle atoms and
+a fixed tolerance to screen candidate cycles. It records a centroid and a
+metal-centroid distance. It does not expose a validated ring normal, slip
+distortion, or tilt-angle analysis.
 
-```javascript
-function calculateRingNormal(atoms) {
-    // Cross product of two in-plane vectors
-    const v1 = subtract(atoms[1], atoms[0]);
-    const v2 = subtract(atoms[2], atoms[0]);
-    const normal = cross(v1, v2);
+## 6. Multiple-large-cycle annotation
 
-    return normalize(normal);
-}
-```
+The implementation sets `hasMultipleLargeRings` when it finds at least two
+planar-cycle candidates and every candidate contains at least five atoms. This
+is only a size/count flag. It does **not** calculate inter-ring parallelism,
+verify that the metal lies between cycles, or assign a sandwich topology.
 
-### 5.3 Tilt Angle
-
-The angle between ring plane and metal-centroid vector:
-
-$$\theta_{tilt} = 90° - \arccos\left(\frac{\mathbf{n} \cdot \mathbf{v}_{M-C}}{|\mathbf{n}| |\mathbf{v}_{M-C}|}\right)$$
-
-Where **n** is the ring normal and **v**ₘ₋ᴄ is metal-to-centroid vector.
-
-## 6. Sandwich Complex Detection
-
-### 6.1 Criteria
-
-A sandwich complex is detected when:
-1. Two or more rings are present
-2. Rings are parallel (normal vectors aligned)
-3. Metal is positioned between rings
-
-```javascript
-function detectSandwichStructure(rings, metal) {
-    if (rings.length < 2) return false;
-
-    // Check for parallel rings on opposite sides of metal
-    for (let i = 0; i < rings.length; i++) {
-        for (let j = i + 1; j < rings.length; j++) {
-            const n1 = calculateRingNormal(rings[i].atoms);
-            const n2 = calculateRingNormal(rings[j].atoms);
-
-            const parallelism = Math.abs(dot(n1, n2));
-
-            // Rings parallel if dot product near ±1
-            if (parallelism > 0.95) {
-                const c1 = rings[i].centroid;
-                const c2 = rings[j].centroid;
-
-                // Metal between centroids?
-                const v1 = subtract(metal, c1);
-                const v2 = subtract(metal, c2);
-
-                if (dot(v1, v2) < 0) {
-                    // Opposite sides = sandwich!
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-```
-
-### 6.2 Example: Ferrocene
-
-```
-Structure:          Detection Output:
-
-    Cp ring 1           Ring 1: η⁵-Cp
-       ●                  centroid: (0, 0, 1.66)
-      /|\                 indices: [0,1,2,3,4]
-      ●
-       |               Metal: Fe at (0, 0, 0)
-      Fe
-       |               Ring 2: η⁵-Cp
-      ●                  centroid: (0, 0, -1.66)
-     /|\                 indices: [5,6,7,8,9]
-      ●
-    Cp ring 2         Sandwich: true
-```
-
-## 7. Ligand Group Classification
+## 7. Heuristic output structure
 
 ### 7.1 Output Structure
 
@@ -354,68 +277,43 @@ Structure:          Detection Output:
             indices: [0, 1, 2, 3, 4],     // Atom indices in ring
             atoms: [...],                  // Atom objects
             centroid: { x, y, z },        // Ring center
-            normal: { x, y, z },          // Plane normal
             size: 5,                       // Ring size
-            hapticity: 'η⁵',              // Hapticity mode
-            type: 'cyclopentadienyl',     // Ligand type
-            metalDist: 1.66               // Metal-centroid distance (Å)
+            ringSizeLabel: '5-membered carbon cycle candidate',
+            distanceToMetal: 1.66          // Metal-centroid distance (Å)
         },
         // ... more rings
     ],
-    monodentate: [5, 6, 7],              // Non-ring coordinating atoms
-    totalGroups: 3,                       // Rings + monodentate count
-    ringCount: 2,                         // Number of rings detected
-    summary: '2×η⁵-Cp + 3 monodentate',  // Human-readable summary
-    hasSandwichStructure: true,           // Sandwich detection
-    detectedHapticities: ['η⁵', 'η⁵']    // List of all hapticities
+    monodentate: [...],                    // Legacy field: other coordinating atoms
+    totalGroups: 3,
+    ringCount: 2,
+    summary: '2 planar-cycle candidate(s) + 3 other coordinating atom(s)',
+    hasMultipleLargeRings: true,           // Size/count flag only
+    candidateRingSizeLabels: ['5-membered carbon cycle candidate']
 }
 ```
 
-### 7.2 Effective Coordination Number
+### 7.2 Coordination number used by CShM
 
-For geometry analysis, rings can be represented by their centroids:
-
-| Structure | Atom Count | Effective CN |
-|-----------|------------|--------------|
-| Ferrocene | 10 (2×Cp) | 2 (centroids) |
-| [Ru(η⁶-benzene)Cl₂(P)]₂ | 6 + 2 + 2 | 4 (centroid + 2Cl + P) |
-| [Fe(η⁵-Cp)(CO)₃]⁺ | 5 + 3 | 4 (centroid + 3×CO) |
+The CShM coordination number is the number of individual coordinating atoms
+inside the selected radius. Rings are not collapsed to one site. For example,
+a bis-cyclopentadienyl coordination sphere contributes ten carbon sites, not
+two centroid sites, to the current calculation.
 
 ## 8. Integration with CShM
 
-### 8.1 Centroid-Based Analysis
+### 8.1 All-atom analysis
 
-When rings are detected, Q-Shape provides two analysis modes:
+Ring detection is reported alongside the CShM results, but it does not alter
+the coordinate array passed to the shape calculation. Q-Shape currently has one
+production representation for this calculation: the individual coordinating
+atoms. A centroid-replacement method would be a distinct scientific method and
+would require its own implementation, reference definitions, and validation.
 
-1. **All-Atom Mode**: Standard CShM on all coordinating atoms
-2. **Centroid Mode**: Replace rings with centroids, then CShM
+### 8.2 No topology inference
 
-```javascript
-function analyzeWithCentroids(atoms, metalIndex, rings) {
-    const coordPoints = [];
-
-    // Add ring centroids
-    rings.forEach(ring => {
-        coordPoints.push(ring.centroid);
-    });
-
-    // Add monodentate atoms
-    ligandGroups.monodentate.forEach(idx => {
-        coordPoints.push(atoms[idx]);
-    });
-
-    // Calculate CShM on effective coordination sphere
-    return calculateShapeMeasure(coordPoints, referenceGeometry);
-}
-```
-
-### 8.2 Geometry Matching for Sandwich Compounds
-
-| Complex Type | All-Atom CN | Effective CN | Best Match |
-|--------------|-------------|--------------|------------|
-| Ferrocene | 10 | 2 | Linear |
-| Bis-benzene Cr | 12 | 2 | Linear |
-| Half-sandwich + 3L | 5 + 3 = 8 | 4 | Tetrahedral/See-saw |
+Q-Shape reports candidate cycles for inspection. It does not label a structure
+as sandwich, piano-stool, macrocyclic, or haptic from this heuristic, and it
+does not reduce the CShM coordination number.
 
 ## 9. Algorithm Parameters
 
@@ -423,11 +321,10 @@ function analyzeWithCentroids(atoms, metalIndex, rings) {
 
 ```javascript
 const RING_DETECTION = {
-    BOND_THRESHOLD: 1.60,         // Max C-C distance (Å)
+    BOND_THRESHOLD: 1.80,         // Uniform adjacency threshold (Å)
     MAX_RING_SIZE: 8,             // Largest ring to detect
     MIN_RING_SIZE: 3,             // Smallest ring (allyl)
-    PLANARITY_TOLERANCE: 0.15,    // Max out-of-plane deviation (Å)
-    CENTROID_METAL_MAX_DIST: 3.0  // Max metal-centroid distance (Å)
+    PLANARITY_TOLERANCE: 0.30     // Max out-of-plane deviation (Å)
 };
 ```
 
@@ -436,7 +333,7 @@ const RING_DETECTION = {
 For structures with many coordinating atoms (CN > 12):
 - Ring detection adds ~O(N²) overhead
 - DFS pruning limits ring enumeration
-- Results are cached for repeated analysis
+- No production caching guarantee is currently claimed
 
 ## 10. References
 

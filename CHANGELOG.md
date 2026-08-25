@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No entries yet.
+
+## [1.6.0-rc.1] - 2026-08-25
+
+Pre-release validation candidate. This version is not a validated scientific
+release; its scientific qualification campaigns remain bound to the exact
+candidate commit and are tracked separately from engineering tests.
+
+### Security
+
+- Escaped structure-derived content in HTML reports and restricted embedded
+  snapshots to raster `data:` URLs.
+- Rejected invalid XYZ element/charge tokens and entire XYZ frames containing
+  invalid atom rows instead of analysing a silently shortened structure.
+- Neutralized spreadsheet-formula prefixes in CSV exports and revoked temporary
+  object URLs after download.
+
+### Changed
+
+- Separated the `1.6.0-rc.1` identity from the archived v1.5.0 DOI and displayed
+  the exact source commit in candidate builds and reports.
+- Replaced unsupported validation, browser-support, global-minimum, precision,
+  and centroid-based calculation claims with explicit candidate boundaries.
+- Enabled warning-sensitive production builds in continuous integration.
+
 ### Corrected
 
 - Removed the heuristic Overall Quality Score and all of its UI/report consumers.
@@ -18,14 +43,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and CSV paths instead of discarding otherwise valid analysis results.
 - Retained only direct bond-length and ligand-metal-ligand angle summaries.
 
-Entries below describe the behavior of their historical releases; removed
-features are not part of the current unreleased code.
+Entries below are historical release notes. They are not evidence of current
+behavior or scientific validation; where an older claim conflicts with the
+audited implementation, the boundary is stated explicitly.
 
-## [1.5.0] - 2025-01-28
+## [1.5.0] - 2026-01-10
+
+**Audit correction:** the v1.5 source detects rings and computes centroid
+descriptors, but its production CShM path uses the individual coordinating
+atoms. Earlier text in this section incorrectly described centroid replacement
+and numerical improvements as implemented behavior; those unsupported claims
+have been removed.
 
 ### 🎯 Overview
 
-**Multi-Structure Batch Analysis & Piano Stool Complex Support** - This major release introduces comprehensive batch analysis for multi-structure files (XYZ and CIF), along with support for half-sandwich (piano stool) complexes.
+**Multi-Structure Batch Analysis & Heuristic Cycle Diagnostics** - This release
+introduced batch processing plus exploratory planar-cycle descriptors. It did
+not establish chemical hapticity or centroid-based CShM support.
 
 ### ✨ New Features
 
@@ -35,7 +69,8 @@ features are not part of the current unreleased code.
 - **Implementation:**
   - New `useFileUpload` hook with multi-structure support
   - New `useBatchAnalysis` hook for orchestrating batch operations
-  - Unified input parser supporting multi-structure XYZ and CIF files
+  - Unified multi-frame XYZ parser and basic Cartesian-coordinate CIF importer;
+    fractional-coordinate, symmetry, and periodic-image expansion are not supported
   - New data model with `Structure` and `ParsedFile` types
 
 **New Components:**
@@ -57,9 +92,9 @@ features are not part of the current unreleased code.
 - Softer color scheme for selected rows
 - TrackballControls for unrestricted 360° 3D rotation
 
-#### Piano Stool (Half-Sandwich) Complex Recognition
-- **Problem:** Piano stool complexes like [CpMn(CO)₃] were analyzed as CN=8 (all atoms separately), giving poor CShM values (>15.0)
-- **Solution:** Automatic pattern detection and geometry-aware analysis
+#### Piano Stool (Half-Sandwich) Pattern Annotation
+- **Scope:** Report heuristic planar-cycle size and centroid descriptors for inspection.
+- **CShM boundary:** The calculation continues to use all individual coordinating atoms.
 - **Implementation:**
   - Added `PIANO_STOOL_GEOMETRIES` mapping to `algorithmConstants.js`
   - Enhanced `buildPianoStoolGeometry()` function in `geometryBuilder.js`
@@ -72,19 +107,13 @@ features are not part of the current unreleased code.
 - **CN=6:** Vacant pentagonal bipyramid (vPBP-6), Octahedral (OC-6)
 - **CN=7:** Pentagonal bipyramid (PBPY-7), Capped octahedron (COC-7)
 
-**Improvement in Results:**
-| Complex | Before (Point-Based) | After (Centroid-Based) | Improvement |
-|---------|---------------------|------------------------|-------------|
-| [CpMn(CO)₃] | CN=8, CShM≈18.5 (Very Poor) | CN=4, CShM≈2.1 (Good) | **16.4 points** |
-| [CpFe(CO)₂I] | CN=8, CShM≈16.2 (Very Poor) | CN=4, CShM≈3.4 (Good) | **12.8 points** |
-
 ### 📝 Documentation
 
 #### New Documentation Files
 - **`docs/development/PIANO_STOOL_SUPPORT.md`** - Comprehensive documentation:
   - Overview of piano stool complexes
   - Implementation details
-  - Centroid-based analysis explanation
+  - Historical centroid-analysis proposal, now marked as not implemented
   - Usage examples and expected results
   - Comparison with SHAPE 2.1
   - Literature references
@@ -106,22 +135,16 @@ features are not part of the current unreleased code.
 - `src/services/coordination/patterns/geometryBuilder.js` - Implemented intelligent geometry filtering
 
 **Key Algorithm Changes:**
-1. Piano stool patterns detected with 85% confidence
-2. Centroid-based coordination number calculation
-3. Geometry filtering to piano stool-appropriate shapes
-4. In intensive mode, all geometries evaluated for comparison
-5. Results sorted by CShM (best match first)
+1. Heuristic planar-cycle descriptors added for informational reporting
+2. Geometry-reference evaluation retained the individual coordinating atoms
+3. Results sorted by finite CShM value where available
 
-### 🎨 Benefits
+### 🎨 User-visible addition
 
-**Advantages over SHAPE 2.1:**
-1. ✅ **Automatic recognition** of piano stool patterns
-2. ✅ **Intelligent geometry selection** based on structure type
-3. ✅ **Better CShM values** through centroid-based analysis
-4. ✅ **Faster analysis** by testing only relevant geometries
-5. ✅ **Clear interpretation** with pattern-specific feedback
+The report can display heuristic planar-cycle descriptors. No advantage in
+CShM accuracy, speed, or parity with SHAPE 2.1 is claimed from those descriptors.
 
-**Common Piano Stool Examples Now Supported:**
+**Examples used while developing the heuristic (not a support claim):**
 - [CpMn(CO)₃] - Cymantrene
 - [CpFe(CO)₂X] - Monosubstituted ferrocene derivatives
 - [(η⁶-C₆H₆)Ru(Cl)₃]⁺ - Ruthenium arene complexes
@@ -134,11 +157,9 @@ features are not part of the current unreleased code.
 - Cotton, F. A. et al. (1999). *Advanced Inorganic Chemistry*, 6th ed.
 - Housecroft, C. E. & Sharpe, A. G. (2012). *Inorganic Chemistry*, 4th ed.
 
-**Related Features:**
-- Sandwich complex support (ferrocene, etc.)
-- Macrocycle support (porphyrins, corrins)
-- Ring detection (η³-η⁷ hapto ligands)
-- Intensive analysis system
+**Related code paths:**
+- Heuristic planar-cycle descriptors
+- Extended-search analysis using individual coordinating atoms
 
 ---
 
@@ -146,7 +167,9 @@ features are not part of the current unreleased code.
 
 ### 🎯 Overview
 
-**Publication-Ready Refactoring Release** - This release transforms Q-Shape into publication-quality scientific software through comprehensive refactoring, proper algorithm implementation, and extensive testing. All 4 publication blockers identified in code review have been resolved.
+**Historical refactoring milestone.** The original release note called this
+"publication-ready"; that phrase was not a scientific validation result and is
+superseded by the explicit `1.6.0-rc.1` validation boundary.
 
 ### 🏗️ Major Refactoring
 
@@ -336,9 +359,10 @@ npm run build  # Build for production
 
 #### Enhanced PDF Reports
 - Added intensive analysis metadata section
-- Shows detected structural patterns (sandwich, piano stool, macrocycle)
+- Historically showed heuristic labels for putative structural patterns
 - Displays ligand group details and ring information
-- Highlights sandwich structures with explanatory text
+- Historically highlighted putative sandwich patterns; this is not a validated
+  assignment in the current candidate
 
 ### 📖 Documentation
 

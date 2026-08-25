@@ -31,7 +31,7 @@ export default function FileUploadSection({
                 marginBottom: '0.75rem',
                 marginTop: '0.25rem'
             }}>
-                Supports single structures, multi-frame XYZ trajectories, and CIF files with multiple blocks
+                Supports single/multi-frame XYZ and basic Cartesian-coordinate CIF blocks (no symmetry or periodic expansion)
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input

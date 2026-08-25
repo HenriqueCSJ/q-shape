@@ -59,8 +59,8 @@ export const KABSCH = {
 /**
  * Ring Detection Parameters
  *
- * For detecting aromatic rings and cyclic ligands (η³, η⁵, η⁶).
- * Critical for ferrocene and sandwich compound analysis.
+ * For flagging planar-cycle candidates as informational descriptors.
+ * These parameters do not define chemical bonds, hapticity, or topology.
  *
  * References:
  * - Typical C-C bond: 1.54 Å (single), 1.34 Å (aromatic)
@@ -68,29 +68,25 @@ export const KABSCH = {
  */
 export const RING_DETECTION = {
     /**
-     * Bond distance threshold (Å)
+     * Candidate-adjacency distance threshold (Å)
      *
-     * Maximum distance to consider two atoms bonded.
-     * Value: typical C-C bond (1.54 Å) + tolerance (0.26 Å)
-     * Covers single, double, and aromatic C-C bonds.
+     * Uniform distance used to connect atoms in the candidate graph. It is not
+     * an element-pair covalent-bond rule.
      */
     BOND_THRESHOLD: 1.8,
 
     /**
      * Planarity tolerance (Å)
      *
-     * Maximum deviation from best-fit plane for ring atoms.
-     * Value based on typical aromatic ring distortions.
-     * Benzene is planar within ~0.01 Å; 0.3 Å accommodates
-     * Jahn-Teller distortions and thermal motion.
+     * Maximum deviation from the heuristic plane for cycle candidates. This
+     * is not an aromaticity criterion.
      */
     PLANARITY_TOLERANCE: 0.3,
 
     /**
      * Minimum ring size for detection
      *
-     * Smallest meaningful ring for hapticity analysis.
-     * η³-allyl is the smallest common π-coordinated ligand.
+     * Smallest cycle size searched by the heuristic.
      */
     MIN_RING_SIZE: 3,
 
@@ -209,7 +205,7 @@ export const PATTERN_DETECTION = {
  * Continuous Shape Measure (CShM) Calculation Parameters
  *
  * Multi-stage optimization for finding optimal rotation and atom assignment.
- * Different parameter sets for speed vs. accuracy tradeoffs.
+ * Different fixed search budgets for the two user-selectable modes.
  *
  * References:
  * - Pinsky & Avnir (1998). Inorg. Chem., 37, 5575-5582.
@@ -217,10 +213,7 @@ export const PATTERN_DETECTION = {
  */
 export const SHAPE_MEASURE = {
     /**
-     * Default mode: Fast computation with good accuracy
-     *
-     * Optimized for interactive use. Typical completion: 1-3 seconds.
-     * Accuracy: ±0.01 CShM units for most geometries.
+     * Default mode: bounded search configuration.
      */
     DEFAULT: {
         /**
@@ -243,9 +236,8 @@ export const SHAPE_MEASURE = {
         /**
          * Number of simulated annealing restarts
          *
-         * Multiple runs with different starting points prevent local minima.
-         * Seven restarts cover the high-CN basins retained by the direct
-         * SHAPE 2.1 parity census while preserving interactive runtime.
+         * Multiple runs explore different starting points. They do not
+         * guarantee escape from every local minimum.
          */
         NUM_RESTARTS: 7,
 
@@ -262,7 +254,7 @@ export const SHAPE_MEASURE = {
          * Annealing steps per restart
          *
          * Number of optimization iterations per annealing run.
-         * 3000 steps provides adequate convergence for most cases.
+         * Fixed search budget per run.
          */
         STEPS_PER_RUN: 3000,
 
@@ -270,15 +262,14 @@ export const SHAPE_MEASURE = {
          * Final refinement steps
          *
          * Local optimization steps after annealing.
-         * 2000 steps for fine-tuning the solution.
+         * Fixed local-refinement budget.
          */
         REFINEMENT_STEPS: 2000,
 
         /**
          * Use Kabsch pre-alignment
          *
-         * Start with Kabsch algorithm for good initial guess.
-         * Significantly improves convergence speed.
+         * Start with a Kabsch alignment before the bounded search.
          */
         USE_KABSCH: true
     },
@@ -286,8 +277,8 @@ export const SHAPE_MEASURE = {
     /**
      * Intensive mode: Extended search
      *
-     * For difficult cases that benefit from additional starting points.
-     * Typical completion: 5-15 seconds.
+     * Uses additional starting points and iterations. No global-minimum or
+     * runtime guarantee is implied.
      */
     INTENSIVE: {
         /**
@@ -306,7 +297,7 @@ export const SHAPE_MEASURE = {
         /**
          * More annealing restarts
          *
-         * 12 restarts for thorough exploration of solution space.
+         * Fixed count of alternative starting trajectories.
          */
         NUM_RESTARTS: 12,
 
@@ -316,7 +307,7 @@ export const SHAPE_MEASURE = {
         /**
          * Longer annealing runs
          *
-         * 8000 steps ensures convergence even for complex geometries.
+         * Larger fixed search budget per run.
          */
         STEPS_PER_RUN: 8000,
 
@@ -425,27 +416,27 @@ export const SHAPE_MEASURE = {
     /**
      * Early Termination Thresholds
      *
-     * Stop optimization early if excellent result found.
+     * Stop optimization early after reaching fixed low-value thresholds.
      */
     EARLY_STOP: {
         /**
          * After key orientations stage
          *
-         * CShM < 0.01 = nearly perfect match
+         * Stop when CShM < 0.01
          */
         AFTER_KEY_ORIENTATIONS: 0.01,
 
         /**
          * After grid search stage
          *
-         * CShM < 0.05 = excellent match
+         * Stop when CShM < 0.05
          */
         AFTER_GRID_SEARCH: 0.05,
 
         /**
          * During annealing per-run
          *
-         * CShM < 0.001 = perfect match within numerical precision
+         * Stop when CShM < 0.001
          */
         DURING_ANNEALING_RUN: 0.001,
 

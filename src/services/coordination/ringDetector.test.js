@@ -37,13 +37,13 @@ describe('Ring Detector', () => {
 
             expect(result.ringCount).toBe(2);
             expect(result.monodentate).toHaveLength(0);
-            expect(result.hasSandwichStructure).toBe(true);
+            expect(result.hasMultipleLargeRings).toBe(true);
 
             // Both rings should be η⁵-Cp
             expect(result.rings).toHaveLength(2);
             result.rings.forEach(ring => {
                 expect(ring.size).toBe(5);
-                expect(ring.hapticity).toBe('η⁵-Cp');
+                expect(ring.ringSizeLabel).toBe('5-membered carbon cycle candidate');
                 expect(ring.type).toBe('ring');
             });
         });
@@ -94,7 +94,7 @@ describe('Ring Detector', () => {
 
             const result = detectLigandGroups(atoms, 0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
-            expect(result.hasSandwichStructure).toBe(true);
+            expect(result.hasMultipleLargeRings).toBe(true);
         });
     });
 
@@ -115,7 +115,7 @@ describe('Ring Detector', () => {
 
             expect(result.ringCount).toBe(1);
             expect(result.rings[0].size).toBe(6);
-            expect(result.rings[0].hapticity).toBe('η⁶-C₆');
+            expect(result.rings[0].ringSizeLabel).toBe('6-membered carbon cycle candidate');
         });
 
         test('should calculate benzene centroid correctly', () => {
@@ -205,7 +205,7 @@ describe('Ring Detector', () => {
             expect(result.totalGroups).toBe(4);
 
             // Check monodentate ligands
-            expect(result.monodentate[0].hapticity).toBe('η¹');
+            expect(result.monodentate[0].ringSizeLabel).toBe('single coordinating atom');
             expect(result.monodentate[0].type).toBe('monodentate');
         });
 
@@ -222,7 +222,7 @@ describe('Ring Detector', () => {
 
             const result = detectLigandGroups(atoms, 0, [1, 2, 3, 4, 5]);
 
-            expect(result.hasSandwichStructure).toBe(false);
+            expect(result.hasMultipleLargeRings).toBe(false);
         });
     });
 
@@ -237,7 +237,7 @@ describe('Ring Detector', () => {
             expect(result.ringCount).toBe(0);
             expect(result.monodentate).toHaveLength(0);
             expect(result.totalGroups).toBe(0);
-            expect(result.hasSandwichStructure).toBe(false);
+            expect(result.hasMultipleLargeRings).toBe(false);
         });
 
         test('should handle only monodentate ligands', () => {
@@ -337,7 +337,8 @@ describe('Ring Detector', () => {
             expect(centroidAtoms).toHaveLength(1);
 
             const centroidAtom = centroidAtoms[0];
-            expect(centroidAtom.element).toBe('η⁵-Cp');
+            expect(centroidAtom.element).toBe('X');
+            expect(centroidAtom.ringSizeLabel).toBe('5-membered carbon cycle candidate');
             expect(centroidAtom.isRingCentroid).toBe(true);
             expect(centroidAtom.ringSize).toBe(5);
             expect(centroidAtom.originalIndices).toHaveLength(5);
@@ -438,7 +439,7 @@ describe('Ring Detector', () => {
 
             const result = detectLigandGroups(atoms, 0, [1, 2, 3, 4, 5, 6, 7]);
 
-            expect(result.summary).toBe('1 ring(s) + 2 monodentate ligand(s)');
+            expect(result.summary).toBe('1 planar-cycle candidate(s) + 2 other coordinating atom(s)');
         });
 
         test('should list detected hapticities', () => {
@@ -462,9 +463,9 @@ describe('Ring Detector', () => {
             const coordIndices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
             const result = detectLigandGroups(atoms, 0, coordIndices);
 
-            expect(result.detectedHapticities).toContain('η⁵-Cp');
-            expect(result.detectedHapticities).toContain('η⁶-C₆');
-            expect(result.detectedHapticities).toHaveLength(2);
+            expect(result.candidateRingSizeLabels).toContain('5-membered carbon cycle candidate');
+            expect(result.candidateRingSizeLabels).toContain('6-membered carbon cycle candidate');
+            expect(result.candidateRingSizeLabels).toHaveLength(2);
         });
     });
 

@@ -176,7 +176,7 @@ function calculateShapeMeasure(actualCoords, refCoords, mode) {
 |------|-------------|----------|
 | `fast` | Hungarian only, single alignment | Quick screening |
 | `default` | Hungarian + refinement | Standard analysis |
-| `intensive` | Multiple starting points + simulated annealing | Publication-quality |
+| `intensive` | Multiple starting points + simulated annealing | Difficult or ambiguous cases; validation status remains separate |
 
 ### 6.3 Intensive Mode Parameters
 

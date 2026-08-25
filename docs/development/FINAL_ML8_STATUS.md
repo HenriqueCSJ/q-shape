@@ -1,5 +1,7 @@
 # Final ML8 Geometry Status
 
+> **Historical working note — not current release evidence.** This document records an earlier development proposal or exploratory result. It has not been rebound to the `1.6.0-rc.1` source commit and must not be used to claim current behavior, SHAPE parity, accuracy, or scientific validation. In particular, the production CShM path uses individual coordinating atoms; ring centroids are informational descriptors only.
+
 ## Why I Can't Fix the Remaining Mismatches
 
 ### The Root Cause Discovered
