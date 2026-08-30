@@ -2,7 +2,14 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import './App.css';
 
 // Constants
-import { APP_VERSION, APP_BUILD_SHA, BUILD_DATE, APP_FULL_NAME, getCitationString, CITATION } from './constants/appMetadata';
+import {
+    APP_VERSION,
+    APP_BUILD_SHA,
+    BUILD_DATE,
+    APP_FULL_NAME,
+    getCitationLink,
+    getCitationString
+} from './constants/appMetadata';
 
 // Custom Hooks
 import useFileUpload from './hooks/useFileUpload';
@@ -33,6 +40,10 @@ import BatchSummaryTable from './components/BatchSummaryTable';
 
 // --- START: REACT COMPONENT ---
 export default function CoordinationGeometryAnalyzer() {
+    const citationLink = getCitationLink();
+    const buildSourceLabel = APP_BUILD_SHA === 'unavailable-local-build'
+        ? 'local checkout'
+        : APP_BUILD_SHA.slice(0, 12);
     // UI State (managed locally)
     const [selectedMetal, setSelectedMetal] = useState(null);
     const [analysisParams, setAnalysisParams] = useState({ mode: 'default', key: 0 });
@@ -172,7 +183,7 @@ export default function CoordinationGeometryAnalyzer() {
     // Intensive Analysis Handler
     const handleIntensiveAnalysis = useCallback(async () => {
         if (!atoms || effectiveMetal === null || !coordRadius || !intensiveInputKey) {
-            handleWarning('Cannot run intensive analysis: Missing required data');
+            handleWarning('Cannot run extended search: missing required data');
             return;
         }
 
@@ -192,7 +203,7 @@ export default function CoordinationGeometryAnalyzer() {
         setIntensiveMetadata(null);
         if (batchMode) clearStructureResult(selectedStructureIndex, batchOwnership);
         setIsRunningIntensive(true);
-        setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting intensive analysis...' });
+        setIntensiveProgress({ stage: 'starting', progress: 0, message: 'Starting extended search...' });
 
         try {
             const results = await runIntensiveAnalysisAsync(
@@ -213,7 +224,7 @@ export default function CoordinationGeometryAnalyzer() {
                 results.geometryResults.length === 0 ||
                 results.geometryResults.some(item => !isShapeResultRecord(item)) ||
                 !results.ligandGroups || !results.metadata || serviceError) {
-                throw new Error(serviceError || 'Intensive analysis returned no valid geometry results');
+                throw new Error(serviceError || 'Extended search returned no valid geometry results');
             }
 
             const bestIntensiveGeometry =
@@ -265,7 +276,7 @@ export default function CoordinationGeometryAnalyzer() {
             if (batchMode) {
                 setStructureResult(selectedStructureIndex, failure, batchOwnership);
             }
-            handleError(`Intensive analysis failed: ${failure.error}`);
+            handleError(`Extended search failed: ${failure.error}`);
             setIntensiveProgress(null);
         } finally {
             if (runId === intensiveRunIdRef.current) {
@@ -396,13 +407,53 @@ export default function CoordinationGeometryAnalyzer() {
         }
     }, [batchMode, selectedStructureIndex, setStructureOverride]);
 
-    // Handle radius change with override storage
-    const handleRadiusChangeWithOverride = useCallback((radius) => {
-        setCoordRadius(radius, false);
-        if (batchMode) {
+    const storeRadiusOverride = useCallback((radius) => {
+        if (batchMode && Number.isFinite(radius) && radius > 0) {
             setStructureOverride(selectedStructureIndex, { radius });
         }
-    }, [batchMode, selectedStructureIndex, setStructureOverride, setCoordRadius]);
+    }, [batchMode, selectedStructureIndex, setStructureOverride]);
+
+    // Every manual radius control edits only the selected structure in batch mode.
+    const handleRadiusChangeWithOverride = useCallback((radius) => {
+        setCoordRadius(radius, false);
+        storeRadiusOverride(radius);
+    }, [setCoordRadius, storeRadiusOverride]);
+
+    const handleRadiusInputChangeWithOverride = useCallback((event) => {
+        handleRadiusInputChange(event);
+        storeRadiusOverride(parseFloat(event.target.value));
+    }, [handleRadiusInputChange, storeRadiusOverride]);
+
+    const handleIncrementRadiusWithOverride = useCallback(() => {
+        const nextRadius = coordRadius + radiusStep;
+        incrementRadius();
+        storeRadiusOverride(nextRadius);
+    }, [coordRadius, radiusStep, incrementRadius, storeRadiusOverride]);
+
+    const handleDecrementRadiusWithOverride = useCallback(() => {
+        const nextRadius = Math.max(1.5, coordRadius - radiusStep);
+        decrementRadius();
+        storeRadiusOverride(nextRadius);
+    }, [coordRadius, radiusStep, decrementRadius, storeRadiusOverride]);
+
+    const handleFindRadiusForCNWithOverride = useCallback(() => {
+        const nextRadius = handleFindRadiusForCN();
+        storeRadiusOverride(nextRadius);
+    }, [handleFindRadiusForCN, storeRadiusOverride]);
+
+    const handleAutoRadiusChange = useCallback((enabled) => {
+        setAutoRadius(enabled);
+        if (batchMode) {
+            setStructureOverride(selectedStructureIndex, {
+                radius: enabled ? undefined : coordRadius
+            });
+        }
+    }, [batchMode, coordRadius, selectedStructureIndex, setAutoRadius, setStructureOverride]);
+
+    const handleApplyRadiusToAll = useCallback((radius) => {
+        setAutoRadius(false);
+        applyOverrideToAll({ radius });
+    }, [applyOverrideToAll, setAutoRadius]);
 
     // Report generation using service
     const handleGenerateReport = useCallback(() => {
@@ -515,10 +566,19 @@ export default function CoordinationGeometryAnalyzer() {
             marginTop: '0.5rem',
             fontFamily: 'monospace'
         }}>
-            Version {APP_VERSION} | Built: {BUILD_DATE} | Source: {APP_BUILD_SHA}
+            Version {APP_VERSION} | Build: {BUILD_DATE} | Source:{' '}
+            <span title={APP_BUILD_SHA}>{buildSourceLabel}</span>
         </p>
         <p style={{fontStyle: 'italic', marginTop: '1rem', fontSize: '0.9rem'}}>
-            Cite this: {getCitationString()} <a href={CITATION.url} target="_blank" rel="noopener noreferrer" style={{color: '#4f46e5'}}>{CITATION.url}</a>
+            Cite this: {getCitationString()}{' '}
+            <a
+                href={citationLink.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{color: '#4f46e5'}}
+            >
+                {citationLink.label}
+            </a>
         </p>
       </header>
 
@@ -584,17 +644,20 @@ export default function CoordinationGeometryAnalyzer() {
           radiusInput={radiusInput}
           radiusStep={radiusStep}
           targetCNInput={targetCNInput}
-          onRadiusInputChange={handleRadiusInputChange}
+          onRadiusInputChange={handleRadiusInputChangeWithOverride}
           onRadiusStepChange={handleRadiusStepChange}
-          onFindRadiusForCN={handleFindRadiusForCN}
-          onIncrementRadius={incrementRadius}
-          onDecrementRadius={decrementRadius}
+          onFindRadiusForCN={handleFindRadiusForCNWithOverride}
+          onIncrementRadius={handleIncrementRadiusWithOverride}
+          onDecrementRadius={handleDecrementRadiusWithOverride}
           onCoordRadiusChange={handleRadiusChangeWithOverride}
-          onAutoRadiusChange={setAutoRadius}
+          onAutoRadiusChange={handleAutoRadiusChange}
           onTargetCNInputChange={setTargetCNInput}
           batchMode={batchMode}
           onApplyMetalToAll={(metalIndex) => applyOverrideToAll({ metalIndex })}
-          onApplyRadiusToAll={(radius) => applyOverrideToAll({ radius })}
+          onApplyRadiusToAll={handleApplyRadiusToAll}
+          currentStructureId={currentStructure?.id}
+          selectedStructureIndex={selectedStructureIndex}
+          structureCount={structureCount}
         />
 
         <CoordinationSummary

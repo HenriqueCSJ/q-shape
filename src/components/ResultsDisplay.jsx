@@ -103,7 +103,7 @@ export default function ResultsDisplay({
                         🔬
                     </div>
                     <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-                        Running {analysisParams.mode === 'intensive' ? 'Intensive' : 'Standard'} Analysis
+                        Running {analysisParams.mode === 'intensive' ? 'Extended Search' : 'Standard Analysis'}
                     </div>
                     {progress && (
                         <div style={{

@@ -29,6 +29,42 @@ function getCoordinatedAtoms(atoms, metalIndex, radius) {
     return getCoordinatingAtoms(atoms, metalIndex, radius).map(item => item.idx);
 }
 
+/**
+ * Describe which part of the CShM solver an "intensive" request can exercise.
+ *
+ * CN 5-7 already use the exhaustive permutation solver in both user modes, so
+ * increasing the bounded-search budget would not change their calculation.
+ * CN 8-12 first use the same deterministic pair-frame search in both modes and
+ * can finish there for an excellent match; only harder cases continue into the
+ * mode-dependent grid/annealing/refinement stages.
+ */
+export function describeIntensiveSearchProfile(coordinationNumber) {
+    if (coordinationNumber >= 5 && coordinationNumber <= 7) {
+        return {
+            id: 'exact-permutation',
+            expandedSearchBudget: false,
+            message: `Using exact permutation search for CN ${coordinationNumber}. Standard and Extended Search use the same exact solver here, so identical CShM values are expected.`,
+            progressLabel: 'Evaluating geometries with the exact permutation solver'
+        };
+    }
+
+    if (coordinationNumber >= 8 && coordinationNumber <= 12) {
+        return {
+            id: 'anchor-plus-extended-bounded',
+            expandedSearchBudget: true,
+            message: `Using deterministic pair-frame search for CN ${coordinationNumber}, followed by the larger bounded search when needed. Near-ideal cases can finish before the extra stages and match Standard.`,
+            progressLabel: 'Evaluating geometries with anchor and extended bounded search'
+        };
+    }
+
+    return {
+        id: 'extended-bounded',
+        expandedSearchBudget: true,
+        message: `Using the larger bounded search for CN ${coordinationNumber} (denser grid, more restarts, and longer refinement). A lower CShM is possible but not guaranteed.`,
+        progressLabel: 'Evaluating geometries with the extended bounded search'
+    };
+}
+
 export function validateIntensiveGeometryResults(results, coordinationNumber) {
     if (!Array.isArray(results) || results.length === 0) {
         throw new Error('Intensive analysis returned no geometry results');
@@ -113,6 +149,8 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             throw new Error('No coordinated atoms found within radius');
         }
 
+        const searchProfile = describeIntensiveSearchProfile(CN);
+
         reportProgress('rings', 0.2, 'Detecting ligand groups (for info only)...');
 
         // Detect ligand groups for informational purposes only
@@ -120,12 +158,12 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
         const ligandGroups = detectLigandGroups(atoms, metalIndex, coordIndices);
         console.log(`Detected ${ligandGroups.ringCount} ring(s) and ${ligandGroups.monodentate.length} monodentate ligand(s)`);
 
-        reportProgress('geometry', 0.3, 'Starting extended-search CShM analysis...');
+        reportProgress('geometry', 0.3, searchProfile.message);
 
         // Extract centered coordinates - use ALL coordinating atoms
         const actualCoords = extractCoordinatedCoords(atoms, metalIndex, coordIndices);
 
-        console.log(`Running extended search: evaluating all reference geometries for CN=${CN}`);
+        console.log(`${searchProfile.message} Evaluating all reference geometries for CN=${CN}.`);
 
         // Allow UI to update
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -139,7 +177,11 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
             'intensive',
             (progress) => {
                 // Forward CShM calculation progress to UI
-                reportProgress('geometry', 0.3 + (progress * 0.6), `Evaluating geometries... ${Math.round(progress * 100)}%`);
+                reportProgress(
+                    'geometry',
+                    0.3 + (progress * 0.6),
+                    `${searchProfile.progressLabel}... ${Math.round(progress * 100)}%`
+                );
             }
         ), CN);
 
@@ -164,6 +206,9 @@ export async function runIntensiveAnalysisAsync(atoms, metalIndex, radius, onPro
                 radius,
                 coordinationNumber: CN,
                 intensiveMode: true,
+                searchProfile: searchProfile.id,
+                expandedSearchBudget: searchProfile.expandedSearchBudget,
+                searchNote: searchProfile.message,
                 fullReferenceCensus: true,
                 geometryCount: results.length,
                 bestGeometry: bestResult?.name || null,

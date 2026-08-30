@@ -15,7 +15,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "node scripts/build-with-metadata.cjs",
     "test": "react-scripts test",
     "validate:test": "node --test validation/tests/*.test.cjs",
     "validate:direct:test": "node --test validation/tests/direct-parity-*.test.cjs",

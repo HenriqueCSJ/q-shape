@@ -10,6 +10,7 @@ import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 import { detectLigandGroups } from './ringDetector';
 import { buildGeneralGeometry } from './patterns/geometryBuilder';
 import {
+    describeIntensiveSearchProfile,
     runIntensiveAnalysisAsync,
     validateIntensiveGeometryResults
 } from './intensiveAnalysis';
@@ -141,5 +142,41 @@ describe('intensive-analysis failure contract', () => {
         const result = await runIntensiveAnalysisAsync(withNearDuplicate, 0, 2);
         expect(result.metadata.coordinationNumber).toBe(2);
         expect(buildGeneralGeometry.mock.calls[0][0]).toHaveLength(2);
+        expect(buildGeneralGeometry).toHaveBeenCalledWith(
+            expect.any(Array),
+            2,
+            'intensive',
+            expect.any(Function)
+        );
+        expect(result.metadata).toMatchObject({
+            searchProfile: 'extended-bounded',
+            expandedSearchBudget: true
+        });
+    });
+});
+
+describe('intensive search-profile communication', () => {
+    test.each([5, 6, 7])('explains that CN %i uses the same exact solver in both modes', (cn) => {
+        expect(describeIntensiveSearchProfile(cn)).toMatchObject({
+            id: 'exact-permutation',
+            expandedSearchBudget: false,
+            message: expect.stringMatching(/same exact solver.*identical CShM values are expected/i)
+        });
+    });
+
+    test.each([8, 9, 10, 11, 12])('explains the shared early anchor stage for CN %i', (cn) => {
+        expect(describeIntensiveSearchProfile(cn)).toMatchObject({
+            id: 'anchor-plus-extended-bounded',
+            expandedSearchBudget: true,
+            message: expect.stringMatching(/finish before the extra stages and match Standard/i)
+        });
+    });
+
+    test.each([2, 3, 4, 20])('identifies an expanded bounded-search budget for CN %i', (cn) => {
+        expect(describeIntensiveSearchProfile(cn)).toMatchObject({
+            id: 'extended-bounded',
+            expandedSearchBudget: true,
+            message: expect.stringMatching(/lower CShM is possible but not guaranteed/i)
+        });
     });
 });

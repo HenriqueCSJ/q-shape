@@ -357,6 +357,25 @@ describe('batch-analysis async ownership', () => {
         expect(latest.batchProgress.stage).toBe('cancelled');
         expect(latest.batchResults.size).toBe(0);
     });
+
+    test('keeps an individual radius local until it is explicitly applied to all structures', async () => {
+        await render([structure('alpha'), structure('beta'), structure('gamma')]);
+        const autoDetectedRadii = [0, 1, 2].map(index => latest.getRadius(index));
+
+        await act(async () => {
+            latest.setStructureOverride(1, { radius: 3.25 });
+        });
+
+        expect(latest.getRadius(0)).toBe(autoDetectedRadii[0]);
+        expect(latest.getRadius(1)).toBe(3.25);
+        expect(latest.getRadius(2)).toBe(autoDetectedRadii[2]);
+
+        await act(async () => {
+            latest.applyOverrideToAll({ radius: 4.1 });
+        });
+
+        expect([0, 1, 2].map(index => latest.getRadius(index))).toEqual([4.1, 4.1, 4.1]);
+    });
 });
 
 test('batch progress accepts both service fractions and percentages', () => {

@@ -100,6 +100,75 @@ describe('CShM UI reporting surfaces', () => {
         expect(text).not.toContain('-0.000');
     });
 
+    test('batch navigator supports previous, next, and direct structure selection', async () => {
+        const onSelectStructure = jest.fn();
+        const structures = [{ id: 'alpha' }, { id: 'beta' }, { id: 'gamma' }];
+        const text = await render(
+            <BatchModePanel
+                structures={structures}
+                selectedStructureIndex={1}
+                onSelectStructure={onSelectStructure}
+                batchResults={new Map()}
+            />
+        );
+
+        expect(text).toContain('Editing structure 2 of 3: beta');
+        expect(text).toContain('Parameter changes below affect only this structure');
+
+        await act(async () => container.querySelector('button[aria-label="Previous structure"]').click());
+        expect(onSelectStructure).toHaveBeenLastCalledWith(0);
+
+        await act(async () => container.querySelector('button[aria-label="Next structure"]').click());
+        expect(onSelectStructure).toHaveBeenLastCalledWith(2);
+
+        const selector = container.querySelector('#batch-structure-select');
+        await act(async () => {
+            selector.value = '2';
+            selector.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        expect(onSelectStructure).toHaveBeenLastCalledWith(2);
+    });
+
+    test('batch radius controls identify individual scope and expose an explicit apply-all action', async () => {
+        const onApplyRadiusToAll = jest.fn();
+        const text = await render(
+            <AnalysisControls
+                atoms={[{ element: 'Fe' }]}
+                selectedMetal={0}
+                onMetalChange={jest.fn()}
+                coordRadius={3.25}
+                autoRadius={false}
+                radiusInput="3.250"
+                radiusStep={0.05}
+                targetCNInput="6"
+                onRadiusInputChange={jest.fn()}
+                onRadiusStepChange={jest.fn()}
+                onFindRadiusForCN={jest.fn()}
+                onIncrementRadius={jest.fn()}
+                onDecrementRadius={jest.fn()}
+                onCoordRadiusChange={jest.fn()}
+                onAutoRadiusChange={jest.fn()}
+                onTargetCNInputChange={jest.fn()}
+                batchMode={true}
+                onApplyMetalToAll={jest.fn()}
+                onApplyRadiusToAll={onApplyRadiusToAll}
+                currentStructureId="beta"
+                selectedStructureIndex={1}
+                structureCount={3}
+            />
+        );
+
+        expect(text).toContain('Individual radius: editing structure 2 of 3 (beta)');
+        expect(text).toContain('Changes in this card affect only this structure');
+        expect(text).toContain('Apply current radius to all 3');
+        expect(text).toContain('Apply metal to all');
+
+        await act(async () => {
+            container.querySelector('button[aria-label="Apply current radius to all 3 structures"]').click();
+        });
+        expect(onApplyRadiusToAll).toHaveBeenCalledWith(3.25);
+    });
+
     test('batch UI keeps and explains a terminal structure failure', async () => {
         const structures = [{ id: 'failed-structure' }];
         const batchResults = new Map([[

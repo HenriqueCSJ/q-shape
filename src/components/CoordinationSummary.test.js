@@ -47,8 +47,8 @@ describe('coordination action mutual exclusion', () => {
         });
         const buttons = [...container.querySelectorAll('button')];
         return {
-            intensive: buttons.find(button => button.textContent.includes('Intensive Analysis') ||
-                button.textContent.includes('Running...')),
+            intensive: buttons.find(button => button.textContent.includes('Extended Search') ||
+                button.textContent.includes('Running extended search...')),
             batch: buttons.find(button => button.textContent.includes('Analyze All Structures') ||
                 button.textContent.includes('Cancel'))
         };
@@ -71,5 +71,17 @@ describe('coordination action mutual exclusion', () => {
         const buttons = await render({ isRunningIntensive: false, isBatchRunning: false });
         expect(buttons.intensive.disabled).toBe(false);
         expect(buttons.batch.disabled).toBe(false);
+    });
+
+    test('explains when extended search is identical by design', async () => {
+        await render({
+            coordAtoms: Array.from({ length: 6 }, (_, index) => ({
+                idx: index + 1,
+                atom: { element: 'N' }
+            }))
+        });
+
+        expect(container.textContent).toContain('same exact solver');
+        expect(container.textContent).toContain('identical CShM values are expected');
     });
 });

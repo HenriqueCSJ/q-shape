@@ -27,8 +27,13 @@ export default function AnalysisControls({
     // v1.5.0 batch mode props
     batchMode = false,
     onApplyMetalToAll,
-    onApplyRadiusToAll
+    onApplyRadiusToAll,
+    currentStructureId = null,
+    selectedStructureIndex = 0,
+    structureCount = 0
 }) {
+    const currentStructureLabel = currentStructureId || `Structure ${selectedStructureIndex + 1}`;
+
     return (
         <div className="controls-section">
             {/* Metal Center Selector */}
@@ -39,6 +44,7 @@ export default function AnalysisControls({
                     </label>
                     {batchMode && selectedMetal !== null && onApplyMetalToAll && (
                         <button
+                            type="button"
                             onClick={() => onApplyMetalToAll(selectedMetal)}
                             style={{
                                 padding: '0.25rem 0.5rem',
@@ -50,9 +56,9 @@ export default function AnalysisControls({
                                 cursor: 'pointer',
                                 fontWeight: 600
                             }}
-                            title="Apply this metal selection to all structures in batch"
+                            title={`Apply this metal selection to all ${structureCount} structures`}
                         >
-                            Apply to All
+                            Apply metal to all
                         </button>
                     )}
                 </div>
@@ -73,6 +79,20 @@ export default function AnalysisControls({
 
             {/* Coordination Radius Control */}
             <div className="card">
+                {batchMode && (
+                    <div style={{
+                        marginBottom: '0.75rem',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                        border: '1px solid #cbd5e1',
+                        color: '#334155',
+                        fontSize: '0.85rem'
+                    }}>
+                        <strong>Individual radius:</strong> editing structure {selectedStructureIndex + 1} of {structureCount}
+                        {' '}(<strong>{currentStructureLabel}</strong>). Changes in this card affect only this structure.
+                    </div>
+                )}
                 <div className="slider-header">
                     <label className="control-label">
                         📏 Coordination Radius: {coordRadius.toFixed(2)} Å
@@ -80,6 +100,8 @@ export default function AnalysisControls({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         {batchMode && onApplyRadiusToAll && (
                             <button
+                                type="button"
+                                aria-label={`Apply current radius to all ${structureCount} structures`}
                                 onClick={() => onApplyRadiusToAll(coordRadius)}
                                 style={{
                                     padding: '0.25rem 0.5rem',
@@ -91,9 +113,9 @@ export default function AnalysisControls({
                                     cursor: 'pointer',
                                     fontWeight: 600
                                 }}
-                                title="Apply this radius to all structures in batch"
+                                title={`Copy ${coordRadius.toFixed(2)} Å to all ${structureCount} structures`}
                             >
-                                Apply to All
+                                Apply current radius to all {structureCount}
                             </button>
                         )}
                         <label className="checkbox-label">

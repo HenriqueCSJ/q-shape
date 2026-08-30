@@ -217,6 +217,8 @@ export function useRadiusControl({
                 onWarning(`✅ Set radius to ${optimalRadius.toFixed(3)} Å for CN=${cn}${gapInfo}`);
             }
 
+            return optimalRadius;
+
         } catch (error) {
             console.error("Error in handleFindRadiusForCN:", error);
             if (onWarning) {

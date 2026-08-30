@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { describeIntensiveSearchProfile } from '../services/coordination/intensiveAnalysis';
 import { formatShapeMeasure } from '../utils/geometry';
 
 export default function CoordinationSummary({
@@ -44,6 +45,7 @@ export default function CoordinationSummary({
         : (geometryResults && geometryResults.length > 0 && !isLoading);
     const intensiveDisabled = isLoading || isRunningIntensive || isBatchRunning;
     const batchStartDisabled = !isBatchRunning && isRunningIntensive;
+    const intensiveSearchProfile = describeIntensiveSearchProfile(coordAtoms.length);
 
     return (
         <div style={{
@@ -137,8 +139,10 @@ export default function CoordinationSummary({
                 justifyContent: 'center'
             }}>
                 <button
+                    type="button"
                     onClick={onIntensiveAnalysis}
                     disabled={intensiveDisabled}
+                    title={intensiveSearchProfile.message}
                     style={{
                         padding: '1rem 2rem',
                         background: intensiveDisabled ? '#d1d5db' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
@@ -155,7 +159,7 @@ export default function CoordinationSummary({
                     onMouseOver={(e) => !intensiveDisabled && (e.currentTarget.style.transform = 'translateY(-2px)')}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                    {isRunningIntensive ? '⚡ Running...' : '⚡ Intensive Analysis'}
+                    {isRunningIntensive ? '⚡ Running extended search...' : '⚡ Run Extended Search'}
                 </button>
 
                 <button
@@ -238,6 +242,15 @@ export default function CoordinationSummary({
                         {isBatchRunning ? '⏹️ Cancel' : '🚀 Analyze All Structures'}
                     </button>
                 )}
+            </div>
+
+            <div style={{
+                marginTop: '0.75rem',
+                color: '#475569',
+                fontSize: '0.85rem',
+                textAlign: 'center'
+            }}>
+                <strong>What this does:</strong> {intensiveSearchProfile.message}
             </div>
 
             {/* Progress Display */}
@@ -364,6 +377,12 @@ export default function CoordinationSummary({
                         Planar-cycle descriptors are heuristic and informational only; they do not assign
                         chemical hapticity or alter the atoms used for CShM.
                     </div>
+
+                    {intensiveMetadata.metadata?.searchNote && (
+                        <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
+                            <strong>Search path:</strong> {intensiveMetadata.metadata.searchNote}
+                        </div>
+                    )}
 
                     <div style={{ color: '#166534', marginBottom: '0.5rem' }}>
                         {intensiveMetadata.ligandGroups?.summary || 'Ligand information not available'}
