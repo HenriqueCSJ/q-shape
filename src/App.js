@@ -673,6 +673,7 @@ export default function CoordinationGeometryAnalyzer() {
           isRunningIntensive={isRunningIntensive}
           bestGeometry={bestGeometry}
           geometryResults={geometryResults}
+          selectedGeometryIndex={selectedGeometryIndex}
           onIntensiveAnalysis={handleIntensiveAnalysis}
           onGenerateReport={batchMode && batchResults.size > 0 ? handleGenerateBatchReport : handleGenerateReport}
           onGenerateCSV={batchMode && batchResults.size > 0 ? handleGenerateLongDetailedCSV : handleGenerateCSV}

@@ -14,6 +14,7 @@ const baseProps = {
     isLoading: false,
     bestGeometry: null,
     geometryResults: [],
+    selectedGeometryIndex: 0,
     onIntensiveAnalysis: jest.fn(),
     onGenerateReport: jest.fn(),
     onGenerateCSV: jest.fn(),
@@ -83,5 +84,39 @@ describe('coordination action mutual exclusion', () => {
 
         expect(container.textContent).toContain('same exact solver');
         expect(container.textContent).toContain('identical CShM values are expected');
+    });
+
+    test('shows the selected-analysis card in the restored second grid slot', async () => {
+        await render({
+            batchMode: false,
+            analysisParams: { mode: 'default' },
+            geometryResults: [
+                { name: 'OC-6 (Octahedral)', shapeMeasure: 0.25, status: 'available' },
+                { name: 'TPR-6 (Trigonal Prism)', shapeMeasure: 2.5, status: 'available' },
+                { name: 'PPY-6 (Pentagonal Pyramid)', shapeMeasure: 4, status: 'available' }
+            ],
+            bestGeometry: { name: 'OC-6 (Octahedral)', shapeMeasure: 0.25, status: 'available' },
+            additionalMetrics: {
+                meanBondLength: 2,
+                stdDevBondLength: 0.1,
+                minBondLength: 1.9,
+                maxBondLength: 2.1,
+                angleStats: { count: 15, mean: 108, stdDev: 12.34, min: 60, max: 180 }
+            },
+            selectedGeometryIndex: 1
+        });
+
+        expect(container.textContent).toContain('Selected Analysis');
+        expect(container.textContent).toContain('TPR-6 (Trigonal Prism)');
+        expect(container.textContent).toContain('2.5000');
+        expect(container.textContent).toContain('Rank: 2 of 3');
+        expect(container.textContent).toContain('Point group: D3h');
+        expect(container.textContent).toContain('ΔCShM to best: 2.2500');
+        expect(container.textContent).toContain('Nearest CShM gap: 1.5000');
+        expect(container.textContent).toContain('M–L length CV: 5.00%');
+        expect(container.textContent).toContain('L–M–L angle SD: 12.34°');
+        expect(container.textContent).toContain('not confidence probabilities');
+        expect(container.textContent).not.toContain('Quality Score');
+        expect(container.textContent).not.toContain('RMSD');
     });
 });

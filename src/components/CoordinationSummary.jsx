@@ -6,8 +6,10 @@
  */
 
 import React from 'react';
+import { POINT_GROUPS } from '../constants/referenceGeometries';
 import { describeIntensiveSearchProfile } from '../services/coordination/intensiveAnalysis';
 import { formatShapeMeasure } from '../utils/geometry';
+import { isShapeResultAvailable, shapeResultDetail } from '../utils/shapeResults';
 
 export default function CoordinationSummary({
     atoms,
@@ -21,7 +23,8 @@ export default function CoordinationSummary({
     isLoading,
     isRunningIntensive,
     bestGeometry,
-    geometryResults,
+    geometryResults = [],
+    selectedGeometryIndex = 0,
     onIntensiveAnalysis,
     onGenerateReport,
     onGenerateCSV,
@@ -46,6 +49,39 @@ export default function CoordinationSummary({
     const intensiveDisabled = isLoading || isRunningIntensive || isBatchRunning;
     const batchStartDisabled = !isBatchRunning && isRunningIntensive;
     const intensiveSearchProfile = describeIntensiveSearchProfile(coordAtoms.length);
+    const selectedGeometry = geometryResults[selectedGeometryIndex] || bestGeometry;
+    const selectedGeometryAvailable = isShapeResultAvailable(selectedGeometry);
+    const selectedGeometryRank = geometryResults.indexOf(selectedGeometry) + 1;
+    const selectedPointGroup = selectedGeometry
+        ? POINT_GROUPS[selectedGeometry.name] || '—'
+        : '—';
+    const analysisModeLabel = analysisParams?.mode === 'intensive'
+        ? 'Extended Search'
+        : 'Standard';
+    const availableGeometries = geometryResults.filter(isShapeResultAvailable);
+    const bestAvailableCShM = availableGeometries.length > 0
+        ? Math.min(...availableGeometries.map(result => result.shapeMeasure))
+        : null;
+    const cShMDeltaToBest = selectedGeometryAvailable && bestAvailableCShM !== null
+        ? Math.max(0, selectedGeometry.shapeMeasure - bestAvailableCShM)
+        : null;
+    const nearestCShMGap = selectedGeometryAvailable
+        ? availableGeometries
+            .filter(result => result !== selectedGeometry)
+            .reduce((nearestGap, result) => (
+                Math.min(nearestGap, Math.abs(result.shapeMeasure - selectedGeometry.shapeMeasure))
+            ), Infinity)
+        : null;
+    const bondLengthCv = additionalMetrics &&
+        Number.isFinite(additionalMetrics.meanBondLength) &&
+        additionalMetrics.meanBondLength > 0 &&
+        Number.isFinite(additionalMetrics.stdDevBondLength)
+        ? (additionalMetrics.stdDevBondLength / additionalMetrics.meanBondLength) * 100
+        : null;
+    const angleStdDev = additionalMetrics?.angleStats?.count > 0 &&
+        Number.isFinite(additionalMetrics.angleStats.stdDev)
+        ? additionalMetrics.angleStats.stdDev
+        : null;
 
     return (
         <div style={{
@@ -129,6 +165,58 @@ export default function CoordinationSummary({
                     )}
                 </div>
 
+                {selectedGeometry && (
+                    <div style={{
+                        padding: '1.5rem',
+                        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                        borderRadius: '12px',
+                        border: '2px solid #86efac'
+                    }}>
+                        <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: '#15803d', fontSize: '1.1rem' }}>
+                            🎯 Selected Analysis
+                        </div>
+                        <div style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 800,
+                            color: '#166534',
+                            textAlign: 'center',
+                            margin: '0.25rem 0'
+                        }}>
+                            {selectedGeometry.name}
+                        </div>
+                        <div style={{
+                            fontSize: '2.5rem',
+                            fontWeight: 800,
+                            color: selectedGeometryAvailable ? '#059669' : '#64748b',
+                            textAlign: 'center',
+                            margin: '0.5rem 0'
+                        }}>
+                            {formatShapeMeasure(selectedGeometry.shapeMeasure)}
+                        </div>
+                        <div style={{ textAlign: 'center', color: '#475569', fontSize: '0.9rem' }}>
+                            dimensionless CShM
+                        </div>
+                        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                <div><strong>Rank:</strong> {selectedGeometryRank > 0 ? `${selectedGeometryRank} of ${geometryResults.length}` : '—'}</div>
+                                <div><strong>Point group:</strong> {selectedPointGroup}</div>
+                                <div><strong>ΔCShM to best:</strong> {cShMDeltaToBest === null ? 'N/A' : formatShapeMeasure(cShMDeltaToBest)}</div>
+                                <div><strong>Nearest CShM gap:</strong> {Number.isFinite(nearestCShMGap) ? formatShapeMeasure(nearestCShMGap) : 'N/A'}</div>
+                                <div><strong>M–L length CV:</strong> {bondLengthCv === null ? 'N/A' : `${bondLengthCv.toFixed(2)}%`}</div>
+                                <div><strong>L–M–L angle SD:</strong> {angleStdDev === null ? 'N/A' : `${angleStdDev.toFixed(2)}°`}</div>
+                            </div>
+                            {selectedGeometryAvailable ? (
+                                <div style={{ marginTop: '0.75rem', color: '#64748b' }}>
+                                    {analysisModeLabel} mode. CShM gaps are numerical separations, not confidence probabilities.
+                                </div>
+                            ) : (
+                                <div style={{ marginTop: '0.75rem', color: '#64748b' }}>
+                                    {shapeResultDetail(selectedGeometry)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Action Buttons - context-aware for batch vs single mode */}
