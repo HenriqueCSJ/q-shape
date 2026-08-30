@@ -207,11 +207,11 @@ N2 N 0.0 2.0 0.0`;
         expect(result.structures[0].atoms.length).toBe(3);
     });
 
-    it('should reject fractional-coordinate CIF until symmetry expansion is implemented', () => {
+    it('should convert fractional-coordinate CIF using the unit cell', () => {
         const content = `data_NaCl
-_cell_length_a 5.64
-_cell_length_b 5.64
-_cell_length_c 5.64
+_cell_length_a 5.64(2)
+_cell_length_b 5.64(2)
+_cell_length_c 5.64(2)
 _cell_angle_alpha 90
 _cell_angle_beta 90
 _cell_angle_gamma 90
@@ -223,13 +223,168 @@ _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
 Na1 Na 0.0 0.0 0.0
-Cl1 Cl 0.5 0.5 0.5`;
+Cl1 Cl 0.5(1) 0.5(1) 0.5(1)`;
 
         const result = parseInput(content, 'nacl.cif');
 
+        expect(result.valid).toBe(true);
+        expect(result.structures.length).toBe(1);
+        expect(result.structures[0].atoms.length).toBe(2);
+        expect(result.structures[0].atoms[0].x).toBeCloseTo(0, 8);
+        expect(result.structures[0].atoms[1].x).toBeCloseTo(2.82, 8);
+        expect(result.structures[0].atoms[1].y).toBeCloseTo(2.82, 8);
+        expect(result.structures[0].atoms[1].z).toBeCloseTo(2.82, 8);
+        expect(result.structures[0].metadata.parseProvenance).toBe('cif-fractional-to-cartesian');
+        expect(result.warnings).toContain(
+            'Fractional CIF coordinates were converted to Cartesian coordinates from the unit cell; crystallographic symmetry and periodic images are not expanded.'
+        );
+    });
+
+    it('should parse every block in a multi-block fractional-coordinate CIF', () => {
+        const block = (name, element, x) => `data_${name}
+_cell_length_a 10
+_cell_length_b 10
+_cell_length_c 10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+${element}1 ${element} ${x} 0.25 0.5`;
+        const blockNames = ['1', '9', '2', '7', '8', '3', '6', '4', '10'];
+        const content = blockNames.map((name, index) =>
+            block(name, 'Fe', (index + 1) / 10)
+        ).join('\n\n');
+
+        const result = parseInput(content, 'multi-fractional.cif');
+
+        expect(result.valid).toBe(true);
+        expect(result.frameCount).toBe(9);
+        expect(result.warnings).toEqual([
+            'Fractional CIF coordinates were converted to Cartesian coordinates from the unit cell; crystallographic symmetry and periodic images are not expanded.'
+        ]);
+        result.structures.forEach((structure, index) => {
+            expect(structure.atoms[0].x).toBeCloseTo(index + 1, 8);
+        });
+    });
+
+    it('should reject invalid fractional rows instead of silently dropping atoms', () => {
+        const content = `data_invalid_fractional
+_cell_length_a 10
+_cell_length_b 10
+_cell_length_c 10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0 0 0
+N1 N ? 0.2 0.3`;
+
+        const result = parseInput(content, 'invalid-fractional.cif');
+
         expect(result.valid).toBe(false);
-        expect(result.error).toContain('Fractional-coordinate CIF is unsupported');
-        expect(result.error).toContain('symmetry and periodic-image expansion');
+        expect(result.error).toContain('Fractional atom-site loop rejected: 1 invalid row');
+    });
+
+    it('should reject fractional coordinates without a complete valid unit cell', () => {
+        const content = `data_missing_cell
+_cell_length_a 10
+_cell_length_b 10
+_cell_length_c 10
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0 0 0`;
+
+        const result = parseInput(content, 'missing-cell.cif');
+
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('require complete, valid unit-cell lengths and angles');
+    });
+
+    it('should convert a non-orthogonal unit cell', () => {
+        const content = `data_triclinic
+_cell_length_a 10
+_cell_length_b 20
+_cell_length_c 30
+_cell_angle_alpha 80
+_cell_angle_beta 70
+_cell_angle_gamma 60
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0.1 0.2 0.3`;
+
+        const result = parseInput(content, 'triclinic.cif');
+
+        expect(result.valid).toBe(true);
+        const atom = result.structures[0].atoms[0];
+        expect(atom.x).toBeCloseTo(6.0781812899, 8);
+        expect(atom.y).toBeCloseTo(3.4915176169, 8);
+        expect(atom.z).toBeCloseTo(8.4571891494, 8);
+    });
+
+    it('should reject a degenerate unit cell', () => {
+        const content = `data_degenerate
+_cell_length_a 10
+_cell_length_b 10
+_cell_length_c 10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 0.000001
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0.1 0.2 0.3`;
+
+        const result = parseInput(content, 'degenerate.cif');
+
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('Unit-cell angles define a degenerate cell');
+    });
+
+    it('should prefer valid Cartesian coordinates when both coordinate forms are present', () => {
+        const content = `data_both
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe ? 0 0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_Cartn_x
+_atom_site_Cartn_y
+_atom_site_Cartn_z
+Fe1 Fe 1.5 2.5 3.5`;
+
+        const result = parseInput(content, 'both.cif');
+
+        expect(result.valid).toBe(true);
+        expect(result.structures[0].atoms[0]).toEqual({
+            element: 'Fe', x: 1.5, y: 2.5, z: 3.5
+        });
+        expect(result.structures[0].metadata.parseProvenance).toBe('cif-cartesian');
     });
 
     it('should expose the no-symmetry boundary for Cartesian-coordinate CIF', () => {

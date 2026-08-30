@@ -299,9 +299,10 @@ export function parseXYZMultiFrame(content, filename) {
 /**
  * Parse CIF content
  *
- * This deliberately fail-closed basic importer accepts only explicit Cartesian
- * atom-site loops. Fractional coordinates require crystallographic symmetry and
- * periodic-image expansion, which are not implemented in this candidate.
+ * This basic importer accepts explicit Cartesian atom-site loops and converts
+ * fractional atom-site coordinates with the CIF unit-cell matrix. Coordinates
+ * are used as listed; crystallographic symmetry and periodic images are not
+ * expanded.
  *
  * @param {string} content - Raw CIF content
  * @param {string} filename - Source filename
@@ -326,7 +327,9 @@ export function parseCIF(content, filename) {
             if (blockResult.valid) {
                 structures.push(blockResult.structure);
                 if (blockResult.warnings.length > 0) {
-                    warnings.push(...blockResult.warnings);
+                    for (const warning of blockResult.warnings) {
+                        if (!warnings.includes(warning)) warnings.push(warning);
+                    }
                 }
             } else {
                 warnings.push(`Block ${blockIndex + 1} (${block.name}): ${blockResult.error}`);
@@ -410,43 +413,71 @@ function parseCIFBlock(block, filename, blockIndex) {
         const cartesianResult = extractCartesianAtoms(lines);
         const fractionalResult = extractFractionalAtoms(lines);
 
-        if (!cartesianResult.foundCoordinateLoop && fractionalResult.foundCoordinateLoop) {
-            return {
-                valid: false,
-                warnings,
-                error: 'Fractional-coordinate CIF is unsupported: symmetry and periodic-image expansion are not implemented. Convert the complete molecular environment to explicit Cartesian coordinates before analysis.'
-            };
-        }
+        let atoms;
+        let parseProvenance;
 
-        if (!cartesianResult.foundCoordinateLoop) {
+        // Prefer explicit Cartesian coordinates when a CIF supplies both forms.
+        if (cartesianResult.foundCoordinateLoop) {
+            if (cartesianResult.invalidRows.length > 0) {
+                return {
+                    valid: false,
+                    warnings,
+                    error: `Cartesian atom-site loop rejected: ${cartesianResult.invalidRows.length} invalid row(s): ` +
+                        cartesianResult.invalidRows.join('; ')
+                };
+            }
+
+            if (cartesianResult.atoms.length === 0) {
+                return {
+                    valid: false,
+                    warnings,
+                    error: 'Cartesian atom-site loop contains no atom rows'
+                };
+            }
+
+            atoms = cartesianResult.atoms;
+            parseProvenance = 'cif-cartesian';
+            warnings.push(
+                'Basic Cartesian-coordinate CIF import: coordinates are used exactly as listed; crystallographic symmetry and periodic images are not expanded.'
+            );
+        } else if (fractionalResult.foundCoordinateLoop) {
+            if (fractionalResult.invalidRows.length > 0) {
+                return {
+                    valid: false,
+                    warnings,
+                    error: `Fractional atom-site loop rejected: ${fractionalResult.invalidRows.length} invalid row(s): ` +
+                        fractionalResult.invalidRows.join('; ')
+                };
+            }
+
+            if (fractionalResult.atoms.length === 0) {
+                return {
+                    valid: false,
+                    warnings,
+                    error: 'Fractional atom-site loop contains no atom rows'
+                };
+            }
+
+            if (!unitCell) {
+                return {
+                    valid: false,
+                    warnings,
+                    error: 'Fractional atom-site coordinates require complete, valid unit-cell lengths and angles'
+                };
+            }
+
+            atoms = convertFractionalToCartesian(fractionalResult.atoms, unitCell);
+            parseProvenance = 'cif-fractional-to-cartesian';
+            warnings.push(
+                'Fractional CIF coordinates were converted to Cartesian coordinates from the unit cell; crystallographic symmetry and periodic images are not expanded.'
+            );
+        } else {
             return {
                 valid: false,
                 warnings,
                 error: 'No atom coordinates found in block'
             };
         }
-
-        if (cartesianResult.invalidRows.length > 0) {
-            return {
-                valid: false,
-                warnings,
-                error: `Cartesian atom-site loop rejected: ${cartesianResult.invalidRows.length} invalid row(s): ` +
-                    cartesianResult.invalidRows.join('; ')
-            };
-        }
-
-        const atoms = cartesianResult.atoms;
-        if (atoms.length === 0) {
-            return {
-                valid: false,
-                warnings,
-                error: 'Cartesian atom-site loop contains no atom rows'
-            };
-        }
-
-        warnings.push(
-            'Basic Cartesian-coordinate CIF import: coordinates are used exactly as listed; crystallographic symmetry and periodic images are not expanded.'
-        );
 
         // Generate structure ID
         const id = blockIndex === 0 && block.name
@@ -460,7 +491,7 @@ function parseCIFBlock(block, filename, blockIndex) {
         const structure = createStructure(id, filename, atoms, {
             unitCell,
             spaceGroup: spaceGroup || undefined,
-            parseProvenance: 'cif-basic',
+            parseProvenance,
             warnings: warnings.length > 0 ? warnings : undefined
         });
 
@@ -666,6 +697,53 @@ function parseLoopLine(line) {
     }
 
     return parts;
+}
+
+/**
+ * Convert fractional atom-site coordinates to Cartesian coordinates.
+ *
+ * Uses the standard crystallographic unit-cell transformation matrix. This
+ * conversion does not apply symmetry operators or generate periodic images.
+ *
+ * @param {Array<{element: string, x: number, y: number, z: number}>} fractionalAtoms
+ * @param {UnitCell} cell
+ * @returns {Array<{element: string, x: number, y: number, z: number}>}
+ */
+function convertFractionalToCartesian(fractionalAtoms, cell) {
+    const { a, b, c, alpha, beta, gamma } = cell;
+    if (![a, b, c].every(length => Number.isFinite(length) && length > 0) ||
+        ![alpha, beta, gamma].every(angle => Number.isFinite(angle) && angle > 0 && angle < 180)) {
+        throw new Error('Unit-cell lengths and angles are invalid');
+    }
+
+    const alphaRad = alpha * Math.PI / 180;
+    const betaRad = beta * Math.PI / 180;
+    const gammaRad = gamma * Math.PI / 180;
+    const cosAlpha = Math.cos(alphaRad);
+    const cosBeta = Math.cos(betaRad);
+    const cosGamma = Math.cos(gammaRad);
+    const sinGamma = Math.sin(gammaRad);
+    const volumeFactorSquared = 1 - cosAlpha * cosAlpha - cosBeta * cosBeta -
+        cosGamma * cosGamma + 2 * cosAlpha * cosBeta * cosGamma;
+
+    if (Math.abs(sinGamma) < 1e-12 || volumeFactorSquared <= 1e-12) {
+        throw new Error('Unit-cell angles define a degenerate cell');
+    }
+
+    const volumeFactor = Math.sqrt(volumeFactorSquared);
+    const m11 = a;
+    const m12 = b * cosGamma;
+    const m13 = c * cosBeta;
+    const m22 = b * sinGamma;
+    const m23 = c * (cosAlpha - cosBeta * cosGamma) / sinGamma;
+    const m33 = c * volumeFactor / sinGamma;
+
+    return fractionalAtoms.map(atom => ({
+        element: atom.element,
+        x: m11 * atom.x + m12 * atom.y + m13 * atom.z,
+        y: m22 * atom.y + m23 * atom.z,
+        z: m33 * atom.z
+    }));
 }
 
 /**

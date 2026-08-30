@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No entries yet.
+### Corrected
+
+- Restored fractional-coordinate CIF loading by converting listed atom-site
+  positions with the unit-cell matrix. Invalid rows and invalid cells still fail
+  closed; crystallographic symmetry and periodic images are not expanded.
 
 ## [1.6.0-rc.1] - 2026-08-25
 

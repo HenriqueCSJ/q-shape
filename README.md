@@ -51,7 +51,7 @@
 
 ✅ **Batch Processing** - Analyze multiple structures from a single file
 ✅ **Multi-Structure XYZ Support** - Load multi-frame XYZ files
-⚠️ **Basic Cartesian CIF Import** - Explicit Cartesian atom-site rows only; no fractional-coordinate, symmetry, or periodic-image expansion
+⚠️ **Basic CIF Import** - Reads Cartesian atom-site rows and converts fractional coordinates from the unit cell; no symmetry or periodic-image expansion
 ✅ **Batch Summary Table** - Visual overview of all analyzed structures at a glance
 ✅ **Batch Analysis** - Run intensive analysis on all structures with progress tracking
 ✅ **Batch Print Reports** - Print-ready HTML reports with per-structure details; save as PDF from the browser print dialog
@@ -81,7 +81,7 @@ The current public site is the archived **v1.5.0** application, not this
 
 ### Basic Workflow
 
-1. **Upload** an XYZ file, or a basic CIF containing explicit Cartesian atom-site coordinates
+1. **Upload** an XYZ file, or a basic CIF containing Cartesian or fractional atom-site coordinates
 2. **Select** metal center (auto-detected or manual selection)
 3. **Adjust** coordination sphere radius if needed
 4. **Run** analysis (standard or intensive mode)
@@ -90,7 +90,7 @@ The current public site is the archived **v1.5.0** application, not this
 
 ### Batch Analysis Workflow (v1.5.0)
 
-1. **Upload** a multi-frame XYZ file or a multi-block basic Cartesian-coordinate CIF
+1. **Upload** a multi-frame XYZ file or a multi-block basic CIF
 2. **Review** the batch summary table showing all structures
 3. **Run Batch Analysis** to analyze all structures with intensive mode
 4. **Navigate** between structures using the structure selector
