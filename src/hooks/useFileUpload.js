@@ -19,6 +19,8 @@ import { detectMetalCenter } from '../services/coordination/metalDetector';
 import { detectOptimalRadius } from '../services/coordination/radiusDetector';
 import { isBatchMode } from '../types/structureTypes';
 
+const EMPTY_ATOMS = [];
+
 export function useFileUpload() {
     // Core state
     const [structures, setStructures] = useState([]);
@@ -31,7 +33,7 @@ export function useFileUpload() {
 
     // Derived state helper
     const currentStructure = structures.length > 0 ? structures[selectedStructureIndex] : null;
-    const atoms = currentStructure ? currentStructure.atoms : [];
+    const atoms = currentStructure ? currentStructure.atoms : EMPTY_ATOMS;
     const batchMode = isBatchMode(structures);
 
     /**

@@ -22,7 +22,7 @@
  * });
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { getCoordinatingAtoms } from '../services/coordination/sphereDetector';
 
 export function useCoordination({
@@ -30,39 +30,27 @@ export function useCoordination({
     selectedMetal = null,
     coordRadius = 3.0
 } = {}) {
-    const [coordAtoms, setCoordAtoms] = useState([]);
-
-    // Update coordination sphere when parameters change
-    useEffect(() => {
+    const [revision, setRevision] = useState(0);
+    // Derive the sphere in the same render as its structure and parameters.
+    const coordAtoms = useMemo(() => {
         if (selectedMetal == null || atoms.length === 0) {
-            setCoordAtoms([]);
-            return;
+            return [];
         }
 
         try {
-            const selected = getCoordinatingAtoms(atoms, selectedMetal, coordRadius);
-            setCoordAtoms(selected);
+            return getCoordinatingAtoms(atoms, selectedMetal, coordRadius);
         } catch (error) {
             console.error("Error detecting coordination sphere:", error);
-            setCoordAtoms([]);
+            return [];
         }
-    }, [atoms, selectedMetal, coordRadius]);
+    // revision intentionally supports the existing explicit refresh action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [atoms, selectedMetal, coordRadius, revision]);
 
     // Force update coordination sphere
     const updateCoordination = useCallback(() => {
-        if (selectedMetal == null || atoms.length === 0) {
-            setCoordAtoms([]);
-            return;
-        }
-
-        try {
-            const selected = getCoordinatingAtoms(atoms, selectedMetal, coordRadius);
-            setCoordAtoms(selected);
-        } catch (error) {
-            console.error("Error updating coordination sphere:", error);
-            setCoordAtoms([]);
-        }
-    }, [atoms, selectedMetal, coordRadius]);
+        setRevision(value => value + 1);
+    }, []);
 
     return {
         coordAtoms,

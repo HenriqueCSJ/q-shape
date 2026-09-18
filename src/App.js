@@ -21,11 +21,13 @@ import { useThreeScene } from './hooks/useThreeScene';
 
 // Services
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
+import { calculateAdditionalMetrics } from './services/shapeAnalysis/structuralMetrics';
 import { generatePDFReport, generateCSVReport, generateBatchPDFReport, generateLongDetailedCSV } from './services/reportGenerator';
 import { isShapeResultAvailable, isShapeResultRecord } from './utils/shapeResults';
 import {
     BATCH_RESULT_STATUS,
     batchResultDetail,
+    batchResultStatusLabel,
     createBatchFailureResult
 } from './utils/batchResults';
 
@@ -93,6 +95,8 @@ export default function CoordinationGeometryAnalyzer() {
     const {
         batchResults,
         getBatchSummary,
+        getMetalIndex,
+        getRadius,
         structureOverrides,
         setStructureOverride,
         applyOverrideToAll,
@@ -110,18 +114,25 @@ export default function CoordinationGeometryAnalyzer() {
         onError: handleError
     });
 
+    // A saved row belongs to this uploaded atom array, even if another file reuses its ID.
+    const batchResult = batchResults.get(selectedStructureIndex);
+    const selectedBatchResult = batchMode && batchResult?.sourceAtoms === atoms
+        ? batchResult
+        : null;
+
     // Get effective metal and radius (with override support)
     const effectiveMetal = useMemo(() => {
+        if (batchMode) return getMetalIndex(selectedStructureIndex);
         const override = structureOverrides.get(selectedStructureIndex);
         if (override?.metalIndex !== undefined) {
             return override.metalIndex;
         }
         return selectedMetal;
-    }, [selectedMetal, selectedStructureIndex, structureOverrides]);
+    }, [batchMode, getMetalIndex, selectedMetal, selectedStructureIndex, structureOverrides]);
 
     // Radius Control Hook
     const {
-        coordRadius,
+        coordRadius: controlledRadius,
         autoRadius,
         radiusInput,
         radiusStep,
@@ -140,6 +151,11 @@ export default function CoordinationGeometryAnalyzer() {
         onRadiusChange: useCallback(() => {}, []),
         onWarning: handleWarning
     });
+
+    const coordRadius = useMemo(() => batchMode
+        ? getRadius(selectedStructureIndex)
+        : controlledRadius,
+    [batchMode, getRadius, selectedStructureIndex, controlledRadius]);
 
     // Coordination Hook
     const { coordAtoms } = useCoordination({
@@ -252,6 +268,7 @@ export default function CoordinationGeometryAnalyzer() {
                     metadata: results.metadata,
                     metalIndex: effectiveMetal,
                     radius: coordRadius,
+                    coordAtoms,
                     coordinationNumber: results.metadata?.coordinationNumber || 0,
                     analysisMode: 'intensive',
                     status: bestIntensiveGeometry
@@ -271,7 +288,8 @@ export default function CoordinationGeometryAnalyzer() {
             const failure = createBatchFailureResult(error, {
                 metalIndex: effectiveMetal,
                 radius: coordRadius,
-                coordinationNumber: coordAtoms.length || null
+                coordAtoms,
+                coordinationNumber: effectiveMetal == null ? null : coordAtoms.length
             });
             if (batchMode) {
                 setStructureResult(selectedStructureIndex, failure, batchOwnership);
@@ -289,18 +307,36 @@ export default function CoordinationGeometryAnalyzer() {
         isAnalysisOwnershipCurrent]);
 
     // Shape Analysis Hook
-    const {
-        geometryResults,
-        bestGeometry,
-        additionalMetrics,
-        isLoading,
-        progress
-    } = useShapeAnalysis({
+    const liveAnalysis = useShapeAnalysis({
         coordAtoms,
         analysisParams,
+        enabled: !selectedBatchResult && !isBatchRunning,
         onWarning: handleWarning,
         onError: handleError
     });
+
+    // Read the saved batch record directly; selecting a row must not rerun its solver.
+    const geometryResults = selectedBatchResult
+        ? selectedBatchResult.geometryResults
+        : liveAnalysis.geometryResults;
+    const bestGeometry = selectedBatchResult
+        ? selectedBatchResult.bestGeometry
+        : liveAnalysis.bestGeometry;
+    const additionalMetrics = useMemo(() => selectedBatchResult
+        ? calculateAdditionalMetrics(selectedBatchResult.coordAtoms)
+        : liveAnalysis.additionalMetrics,
+    [selectedBatchResult, liveAnalysis.additionalMetrics]);
+    const isLoading = !selectedBatchResult && (isBatchRunning || liveAnalysis.isLoading);
+    const progress = selectedBatchResult ? null : liveAnalysis.progress;
+    const displayAnalysisParams = selectedBatchResult
+        ? { mode: selectedBatchResult.analysisMode }
+        : analysisParams;
+    const displayIntensiveMetadata = useMemo(() => selectedBatchResult
+        ? { metadata: selectedBatchResult.metadata, ligandGroups: selectedBatchResult.ligandGroups }
+        : intensiveMetadata, [selectedBatchResult, intensiveMetadata]);
+    const selectedBatchError = selectedBatchResult && !bestGeometry
+        ? batchResultDetail(selectedBatchResult)
+        : null;
 
     // Scene key for forcing 3D re-render when selection changes
     const sceneKey = useMemo(() => {
@@ -374,25 +410,17 @@ export default function CoordinationGeometryAnalyzer() {
                 // Check if we have an override for this structure
                 const override = structureOverrides.get(selectedStructureIndex);
 
-                if (override?.metalIndex !== undefined) {
-                    setSelectedMetal(override.metalIndex);
-                } else if (metadata.detectedMetalIndex != null) {
-                    setSelectedMetal(metadata.detectedMetalIndex);
-                }
+                setSelectedMetal(getMetalIndex(selectedStructureIndex));
+                setCoordRadius(getRadius(selectedStructureIndex), override?.radius === undefined);
 
-                if (override?.radius !== undefined) {
-                    setCoordRadius(override.radius, false);
-                } else if (metadata.suggestedRadius) {
-                    setCoordRadius(metadata.suggestedRadius, true);
-                }
-
-                // Reset to default analysis for new structure
+                // Unsaved edits start a fresh calculation; saved rows are displayed directly above.
                 setAnalysisParams({ mode: 'default', key: Date.now() });
                 setIntensiveMetadata(null);
                 setSelectedGeometryIndex(0);
             }
         }
-    }, [selectedStructureIndex, batchMode, uploadMetadata, setCoordRadius, structureOverrides]);
+    }, [selectedStructureIndex, batchMode, uploadMetadata, setCoordRadius, structureOverrides,
+        getMetalIndex, getRadius]);
 
     // Handle structure selection
     const handleSelectStructure = useCallback((index) => {
@@ -485,8 +513,8 @@ export default function CoordinationGeometryAnalyzer() {
                 warnings,
                 fileName,
                 fileFormat,
-                analysisMode: analysisParams.mode,
-                intensiveMetadata,
+                analysisMode: displayAnalysisParams.mode,
+                intensiveMetadata: displayIntensiveMetadata,
                 imgData,
                 structureId: currentStructure?.id
             });
@@ -494,7 +522,7 @@ export default function CoordinationGeometryAnalyzer() {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, analysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, intensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
+    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, displayAnalysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, displayIntensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
     // Batch print-ready report
     const handleGenerateBatchReport = useCallback(() => {
@@ -667,8 +695,9 @@ export default function CoordinationGeometryAnalyzer() {
           additionalMetrics={additionalMetrics}
           progress={progress}
           intensiveProgress={intensiveProgress}
-          intensiveMetadata={intensiveMetadata}
-          analysisParams={analysisParams}
+          intensiveMetadata={displayIntensiveMetadata}
+          analysisParams={displayAnalysisParams}
+          resultSource={selectedBatchResult ? `Saved batch result · ${batchResultStatusLabel(selectedBatchResult)}` : null}
           isLoading={isLoading}
           isRunningIntensive={isRunningIntensive}
           bestGeometry={bestGeometry}
@@ -712,7 +741,8 @@ export default function CoordinationGeometryAnalyzer() {
           <ResultsDisplay
             isLoading={isLoading}
             geometryResults={geometryResults}
-            analysisParams={analysisParams}
+            analysisParams={displayAnalysisParams}
+            analysisError={selectedBatchError}
             progress={progress}
             selectedMetal={effectiveMetal}
             selectedGeometryIndex={selectedGeometryIndex}

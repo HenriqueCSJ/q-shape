@@ -26,7 +26,8 @@ import {
     BATCH_RESULT_STATUS,
     batchResultDetail,
     batchResultStatusLabel,
-    createBatchFailureResult
+    createBatchFailureResult,
+    getBatchResultStatus
 } from '../utils/batchResults';
 
 export function normalizeProgressFraction(value) {
@@ -182,6 +183,7 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
             const next = new Map(prev);
             next.set(structureIndex, {
                 ...result,
+                sourceAtoms: structures[structureIndex]?.atoms,
                 structureId: structures[structureIndex]?.id || `structure-${structureIndex}`,
                 timestamp: Date.now()
             });
@@ -360,11 +362,19 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
                         batchRunId
                     });
                     if (!ownsRun()) break;
-                    results.push({ structureIndex: i, structureId, success: true, result });
+                    results.push({ structureIndex: i, structureId, success: true,
+                        status: getBatchResultStatus(result), result });
                 } catch (err) {
                     if (!ownsRun() || err?.code === 'ANALYSIS_INVALIDATED') break;
                     console.error(`Error analyzing structure ${i}:`, err);
-                    const failure = createBatchFailureResult(err);
+                    const metalIndex = getMetalIndex(i);
+                    const radius = getRadius(i);
+                    const coordAtoms = metalIndex == null ? [] :
+                        getCoordinatingAtoms(structures[i].atoms, metalIndex, radius);
+                    const failure = createBatchFailureResult(err, {
+                        metalIndex, radius, coordAtoms,
+                        coordinationNumber: metalIndex == null ? null : coordAtoms.length
+                    });
                     setStructureResult(i, failure, { contextVersion, batchRunId });
                     results.push({
                         structureIndex: i,
@@ -377,12 +387,15 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
             }
 
             if (ownsRun()) {
+                const complete = results.filter(r => r.status === BATCH_RESULT_STATUS.AVAILABLE).length;
+                const partial = results.filter(r => r.status === BATCH_RESULT_STATUS.PARTIAL).length;
+                const failed = results.length - complete - partial;
                 setBatchProgress({
                     stage: 'complete',
                     currentStructure: totalStructures,
                     totalStructures,
                     progress: 100,
-                    message: `Completed: ${results.filter(r => r.success).length}/${totalStructures} structures analyzed`
+                    message: `Processed ${results.length}/${totalStructures} structures: ${complete} complete, ${partial} partial, ${failed} failed`
                 });
             }
 
@@ -402,7 +415,7 @@ export function useBatchAnalysis({ structures, onWarning, onError }) {
         }
 
         return results;
-    }, [structures, analyzeStructure, setStructureResult, onWarning, onError]);
+    }, [structures, analyzeStructure, setStructureResult, getMetalIndex, getRadius, onWarning, onError]);
 
     /**
      * Cancel running batch analysis

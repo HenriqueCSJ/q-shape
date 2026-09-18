@@ -110,11 +110,11 @@ describe('coordination action mutual exclusion', () => {
         expect(container.textContent).toContain('TPR-6 (Trigonal Prism)');
         expect(container.textContent).toContain('2.5000');
         expect(container.textContent).toContain('Rank: 2 of 3');
-        expect(container.textContent).toContain('Point group: D3h');
+        expect(container.textContent).toContain('Reference symmetry: D3h');
         expect(container.textContent).toContain('ΔCShM to best: 2.2500');
         expect(container.textContent).toContain('Nearest CShM gap: 1.5000');
         expect(container.textContent).toContain('M–L length CV: 5.00%');
-        expect(container.textContent).toContain('L–M–L angle SD: 12.34°');
+        expect(container.textContent).toContain('All-pair angle spread: 12.34°');
         expect(container.textContent).toContain('not confidence probabilities');
         expect(container.textContent).not.toContain('Quality Score');
         expect(container.textContent).not.toContain('RMSD');

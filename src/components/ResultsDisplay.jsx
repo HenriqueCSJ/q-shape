@@ -18,6 +18,7 @@ export default function ResultsDisplay({
     geometryResults = [],
     analysisParams,
     progress,
+    analysisError = null,
     selectedMetal,
     selectedGeometryIndex = 0,
     onGeometrySelect,
@@ -83,6 +84,11 @@ export default function ResultsDisplay({
                     fontWeight: 600
                 }}>
                     Analysis incomplete: {unavailableCount} reference {unavailableCount === 1 ? 'geometry is' : 'geometries are'} unavailable (N/A).
+                </div>
+            )}
+            {analysisError && (
+                <div role="alert" style={{ padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <strong>Saved batch analysis:</strong> {analysisError}
                 </div>
             )}
             {isLoading ? (
@@ -228,6 +234,7 @@ export default function ResultsDisplay({
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
                     {selectedMetal == null
                         ? 'Select a metal center to begin analysis'
+                        : analysisError ? 'No geometry result is available for this saved analysis.'
                         : 'No reference geometries for this coordination number'}
                 </div>
             )}

@@ -112,6 +112,7 @@ export default function BatchModePanel({
                                 resultLabel = ` — Error: ${resultDetail}`;
                             } else if (isShapeResultAvailable(result?.bestGeometry)) {
                                 resultLabel = ` — ${result.bestGeometry.name} (CShM: ${formatShapeMeasure(result.bestGeometry.shapeMeasure, 3)})`;
+                                if (resultStatus === BATCH_RESULT_STATUS.PARTIAL) resultLabel += ' — Partial';
                             } else if (result) {
                                 resultLabel = ` — N/A${resultDetail ? `: ${resultDetail}` : ''}`;
                             }

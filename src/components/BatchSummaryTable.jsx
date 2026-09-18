@@ -235,6 +235,7 @@ export default function BatchSummaryTable({
                                                 padding: '0.75rem',
                                                 color: row.status === 'Error'
                                                     ? '#b91c1c'
+                                                    : row.status === 'Partial' ? '#92400e'
                                                     : isSelected ? selectedTextColor : '#374151',
                                                 fontWeight: 600
                                             }}>
@@ -276,7 +277,7 @@ export default function BatchSummaryTable({
                             <strong>{summary.length}</strong> of <strong>{structures.length}</strong> structures processed
                         </span>
                         <span>
-                            Select a Structure ID to view details
+                            Select a structure to view its saved analysis
                         </span>
                     </div>
                 </>

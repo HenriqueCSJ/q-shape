@@ -266,6 +266,20 @@ describe('batch-analysis async ownership', () => {
         expect(onWarning).toHaveBeenCalledWith('Structure sample: optimizer failed');
     });
 
+    test('preserves a known zero coordination number when an empty sphere fails', async () => {
+        getCoordinatingAtoms.mockReturnValue([]);
+        runIntensiveAnalysisAsync.mockRejectedValue(new Error('No coordinated atoms found within radius'));
+        await render([structure('empty-sphere')]);
+        await act(async () => { latest.setStructureOverride(0, { metalIndex: 0, radius: 2 }); });
+
+        await act(async () => { await latest.analyzeAllStructures(); });
+
+        expect(latest.batchResults.get(0)).toMatchObject({
+            status: 'error', metalIndex: 0, coordinationNumber: 0, coordAtoms: []
+        });
+        expect(latest.getBatchSummary()[0].coordinationNumber).toBe(0);
+    });
+
     test('retains explicit unavailable geometry rows while selecting a finite best result', async () => {
         runIntensiveAnalysisAsync.mockResolvedValue({
             geometryResults: [

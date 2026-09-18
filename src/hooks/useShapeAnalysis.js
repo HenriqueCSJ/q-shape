@@ -11,6 +11,7 @@
  * @param {Object} params - Hook parameters
  * @param {Array} params.coordAtoms - Coordination sphere atoms
  * @param {Object} params.analysisParams - Analysis parameters {mode, key}
+ * @param {boolean} params.enabled - Whether to calculate and expose live analysis results
  * @param {Function} params.onWarning - Callback for warnings
  * @param {Function} params.onError - Callback for errors
  *
@@ -27,7 +28,7 @@
  * } = useShapeAnalysis({ coordAtoms, analysisParams, onWarning, onError });
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
 import { calculateAdditionalMetrics } from '../services/shapeAnalysis/structuralMetrics';
@@ -119,6 +120,7 @@ export function calculateGeometryResult({
 export function useShapeAnalysis({
     coordAtoms = [],
     analysisParams = { mode: 'default', key: 0 },
+    enabled = true,
     onWarning = null,
     onError = null
 } = {}) {
@@ -130,6 +132,10 @@ export function useShapeAnalysis({
     // Analysis progress state
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(null);
+    // Hide old state during the render before the new input's effect runs.
+    const requestIdentity = useMemo(() => ({ coordAtoms, analysisParams, enabled }),
+        [coordAtoms, analysisParams, enabled]);
+    const [activeRequest, setActiveRequest] = useState(null);
 
     // Results cache with LRU limit to prevent memory leaks
     // Maximum 10 cached results (typical use case: one structure at a time)
@@ -172,6 +178,17 @@ export function useShapeAnalysis({
     useEffect(() => {
         // Cancellation flag to prevent state updates after unmount or re-run
         let isCancelled = false;
+
+        setActiveRequest(requestIdentity);
+        setGeometryResults([]);
+        setBestGeometry(null);
+        setAdditionalMetrics(null);
+        setIsLoading(false);
+        setProgress(null);
+
+        // Stored batch results are displayed by the caller. Do not launch a
+        // second calculation or expose results from an earlier selected sphere.
+        if (!enabled) return;
 
         const hasIntensiveResults = Array.isArray(analysisParams.intensiveResults) &&
             analysisParams.intensiveResults.length > 0;
@@ -371,19 +388,22 @@ export function useShapeAnalysis({
     // Don't include onWarning/onError in dependencies - they're stable callbacks
     // Including them causes infinite loops when they're recreated
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [coordAtoms, analysisParams, getCacheKey, addToCache]);
+    }, [coordAtoms, analysisParams, enabled, requestIdentity, getCacheKey, addToCache]);
+
+    const isCurrentRequest = enabled && activeRequest === requestIdentity;
+    const currentResults = isCurrentRequest ? geometryResults : [];
 
     return {
         // Results
-        geometryResults,
-        bestGeometry,
-        additionalMetrics,
-        analysisComplete: geometryResults.length > 0 && geometryResults.every(isShapeResultAvailable),
-        unavailableGeometryCount: geometryResults.filter(result => !isShapeResultAvailable(result)).length,
+        geometryResults: currentResults,
+        bestGeometry: isCurrentRequest ? bestGeometry : null,
+        additionalMetrics: isCurrentRequest ? additionalMetrics : null,
+        analysisComplete: currentResults.length > 0 && currentResults.every(isShapeResultAvailable),
+        unavailableGeometryCount: currentResults.filter(result => !isShapeResultAvailable(result)).length,
 
         // Progress
-        isLoading,
-        progress,
+        isLoading: isCurrentRequest && isLoading,
+        progress: isCurrentRequest ? progress : null,
 
         // Methods
         clearCache,

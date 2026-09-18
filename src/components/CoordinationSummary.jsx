@@ -20,6 +20,7 @@ export default function CoordinationSummary({
     intensiveProgress,
     intensiveMetadata,
     analysisParams,
+    resultSource = null,
     isLoading,
     isRunningIntensive,
     bestGeometry,
@@ -37,7 +38,8 @@ export default function CoordinationSummary({
     structureId = null
 }) {
     // Safety check: ensure selectedMetal is valid and within bounds
-    if (selectedMetal == null || !atoms || selectedMetal >= atoms.length || !atoms[selectedMetal]) {
+    const hasMetal = selectedMetal != null && Boolean(atoms?.[selectedMetal]);
+    if (!hasMetal && !batchMode) {
         return null;
     }
 
@@ -46,12 +48,11 @@ export default function CoordinationSummary({
     const canGenerateCSV = batchMode
         ? hasBatchResults
         : (geometryResults && geometryResults.length > 0 && !isLoading);
-    const intensiveDisabled = isLoading || isRunningIntensive || isBatchRunning;
+    const intensiveDisabled = !hasMetal || isLoading || isRunningIntensive || isBatchRunning;
     const batchStartDisabled = !isBatchRunning && isRunningIntensive;
     const intensiveSearchProfile = describeIntensiveSearchProfile(coordAtoms.length);
     const selectedGeometry = geometryResults[selectedGeometryIndex] || bestGeometry;
     const selectedGeometryAvailable = isShapeResultAvailable(selectedGeometry);
-    const selectedGeometryRank = geometryResults.indexOf(selectedGeometry) + 1;
     const selectedPointGroup = selectedGeometry
         ? POINT_GROUPS[selectedGeometry.name] || '—'
         : '—';
@@ -59,6 +60,7 @@ export default function CoordinationSummary({
         ? 'Extended Search'
         : 'Standard';
     const availableGeometries = geometryResults.filter(isShapeResultAvailable);
+    const selectedGeometryRank = availableGeometries.indexOf(selectedGeometry) + 1;
     const bestAvailableCShM = availableGeometries.length > 0
         ? Math.min(...availableGeometries.map(result => result.shapeMeasure))
         : null;
@@ -109,7 +111,7 @@ export default function CoordinationSummary({
                         Viewing: {structureId}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: '#3b82f6', marginLeft: 'auto' }}>
-                        (use structure selector above to switch)
+                        {resultSource || 'Current structure'}
                     </span>
                 </div>
             )}
@@ -137,7 +139,7 @@ export default function CoordinationSummary({
                         color: '#475569'
                     }}>
                         <strong>Metal:</strong>
-                        <span>{atoms[selectedMetal].element}</span>
+                        <span>{hasMetal ? atoms[selectedMetal].element : 'Select a center'}</span>
 
                         <strong>CN:</strong>
                         <span>{coordAtoms.length}</span>
@@ -165,7 +167,7 @@ export default function CoordinationSummary({
                     )}
                 </div>
 
-                {selectedGeometry && (
+                {selectedGeometry && !isLoading && (
                     <div style={{
                         padding: '1.5rem',
                         background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
@@ -198,13 +200,18 @@ export default function CoordinationSummary({
                         </div>
                         <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                <div><strong>Rank:</strong> {selectedGeometryRank > 0 ? `${selectedGeometryRank} of ${geometryResults.length}` : '—'}</div>
-                                <div><strong>Point group:</strong> {selectedPointGroup}</div>
+                                <div><strong>Rank:</strong> {selectedGeometryAvailable && selectedGeometryRank > 0 ? `${selectedGeometryRank} of ${availableGeometries.length}` : '—'}</div>
+                                <div><strong>Reference symmetry:</strong> {selectedPointGroup}</div>
                                 <div><strong>ΔCShM to best:</strong> {cShMDeltaToBest === null ? 'N/A' : formatShapeMeasure(cShMDeltaToBest)}</div>
                                 <div><strong>Nearest CShM gap:</strong> {Number.isFinite(nearestCShMGap) ? formatShapeMeasure(nearestCShMGap) : 'N/A'}</div>
-                                <div><strong>M–L length CV:</strong> {bondLengthCv === null ? 'N/A' : `${bondLengthCv.toFixed(2)}%`}</div>
-                                <div><strong>L–M–L angle SD:</strong> {angleStdDev === null ? 'N/A' : `${angleStdDev.toFixed(2)}°`}</div>
+                                <div title="100 × population standard deviation / mean M–L distance."><strong>M–L length CV:</strong> {bondLengthCv === null ? 'N/A' : `${bondLengthCv.toFixed(2)}%`}</div>
+                                <div title="Population standard deviation of all L–M–L angles. Regular geometries can contain different angles, so this is a spread, not a distortion score."><strong>All-pair angle spread:</strong> {angleStdDev === null ? 'N/A' : `${angleStdDev.toFixed(2)}°`}</div>
                             </div>
+                            {availableGeometries.length < geometryResults.length && (
+                                <div style={{ marginTop: '0.75rem', color: '#92400e' }}>
+                                    {geometryResults.length - availableGeometries.length} reference geometries unavailable; rank uses available results.
+                                </div>
+                            )}
                             {selectedGeometryAvailable ? (
                                 <div style={{ marginTop: '0.75rem', color: '#64748b' }}>
                                     {analysisModeLabel} mode. CShM gaps are numerical separations, not confidence probabilities.
