@@ -628,11 +628,69 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         const finalizeBoundedSearch = () => {
             acceptSupplementalBest();
-            const result = finalizeBoundedCandidate({
+            let result = finalizeBoundedCandidate({
                 measure: globalBestMeasure,
                 matching: globalBestMatching,
                 rotation: globalBestRotation
             }, polishAssignmentRotation, N, needsCentralAtom);
+            const originalFinalization = result.finalization;
+            let additionalPairFrames = 0;
+            let additionalPolishSteps = 0;
+            // Complete the well-conditioned pair coverage only after the
+            // original trajectory and final polish. Separate candidate pools
+            // preserve the original three-anchor result and random stream.
+            if (usePairFrameSearch) {
+                const additionalPairs = selectAnchorPairs(
+                    P_vecs, numLigands, numLigands * (numLigands - 1) / 2
+                ).slice(anchorPairs.length);
+                const candidates = [];
+                let expandedBest = result;
+                for (const { i, j } of additionalPairs) {
+                    for (let q1 = 0; q1 < numLigands; q1++) {
+                        for (let q2 = 0; q2 < numLigands; q2++) {
+                            if (q1 === q2) continue;
+                            additionalPairFrames++;
+                            const rotation = rotationFromVectorPairs(
+                                P_vecs[i], P_vecs[j], Q_vecs[q1], Q_vecs[q2]
+                            );
+                            if (!rotation) continue;
+                            const scored = getMeasureForRotation(rotation);
+                            const candidate = { ...scored, rotation };
+                            if (candidate.measure < expandedBest.measure) expandedBest = candidate;
+                            const matchingKey = scored.matching.map(([a, b]) => `${a}:${b}`).join(',');
+                            const duplicate = candidates.findIndex(item => item.matchingKey === matchingKey);
+                            if (duplicate < 0) {
+                                candidates.push({ ...candidate, matchingKey });
+                            } else if (candidate.measure < candidates[duplicate].measure) {
+                                candidates[duplicate] = { ...candidate, matchingKey };
+                            }
+                            candidates.sort((a, b) => a.measure - b.measure);
+                            if (candidates.length > SHAPE_MEASURE.ANCHOR_SEARCH.TOP_CANDIDATES) candidates.pop();
+                        }
+                    }
+                }
+                for (const candidate of candidates) {
+                    const polished = finalizeBoundedCandidate(
+                        candidate, polishAssignmentRotation, N, needsCentralAtom
+                    );
+                    additionalPolishSteps += polished.finalization.steps;
+                    if (polished.measure < expandedBest.measure) expandedBest = polished;
+                }
+                if (expandedBest.measure < result.measure) {
+                    result = finalizeBoundedCandidate(
+                        expandedBest, polishAssignmentRotation, N, needsCentralAtom
+                    );
+                }
+            }
+            result.finalization = {
+                ...result.finalization,
+                beforeMeasure: originalFinalization.beforeMeasure,
+                afterMeasure: result.measure,
+                improved: result.measure < originalFinalization.beforeMeasure,
+                stageA: originalFinalization,
+                additionalPairFrames,
+                additionalPolishSteps
+            };
             // Optional observer is diagnostic only and does not affect search.
             if (typeof options.onFinalization === 'function') {
                 options.onFinalization(result.finalization);
