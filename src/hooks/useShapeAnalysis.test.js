@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Vector3 } from 'three';
+import { Matrix4, Vector3 } from 'three';
+import { SHAPE_COMPARISON_CONVENTION } from '../constants/shapeComparison';
 import useShapeAnalysis, {
     calculateGeometryResult,
     intensiveResultsMatchInput,
@@ -56,6 +57,14 @@ describe('shape-analysis cache identity', () => {
             .not.toBe(makeShapeAnalysisCacheKey(linear, 'default'));
     });
 
+    test('cache identity binds the comparison convention and rejects a historical input key', () => {
+        const key = makeShapeAnalysisCacheKey(linear, 'intensive');
+        const parts = JSON.parse(key);
+        expect(parts[0]).toBe(SHAPE_COMPARISON_CONVENTION);
+        const historicalKey = JSON.stringify(parts.slice(1));
+        expect(intensiveResultsMatchInput({ intensiveResults: [{ shapeMeasure: 1 }], intensiveInputKey: historicalKey }, linear)).toBe(false);
+    });
+
     test('accepts intensive results only for the exact originating sphere', () => {
         const params = {
             mode: 'intensive',
@@ -75,6 +84,20 @@ describe('fail-closed per-target result handling', () => {
         refCoords: [[1, 0, 0], [0, 1, 0]],
         mode: 'default'
     };
+
+    test('the live adapter retains the full reflected result tuple and unchanged reference', () => {
+        const transform = new Matrix4().makeScale(-1, 1, 1);
+        const calculation = { measure: 0.123456789012345, transformationMatrix: transform, rotationMatrix: transform,
+            comparisonConvention: SHAPE_COMPARISON_CONVENTION, alignmentParity: -1,
+            matching: [[0, 1], [1, 0]], branchScores: { proper: 2, reflected: 0.123456789012345 }, alignedCoords: [[0, 1, 0], [-1, 0, 0]] };
+        const output = calculateGeometryResult({ ...params, calculator: () => calculation });
+        expect(output).toMatchObject({ comparisonConvention: SHAPE_COMPARISON_CONVENTION, alignmentParity: -1,
+            matching: calculation.matching, branchScores: calculation.branchScores, alignedCoords: calculation.alignedCoords });
+        expect(output.transformationMatrix.toArray()).toEqual(transform.toArray());
+        expect(output.rotationMatrix).toBe(output.transformationMatrix);
+        expect(output.refCoords).toBe(params.refCoords);
+        expect(output.shapeMeasure).toBe(calculation.measure);
+    });
 
     test('retains a target that returns Infinity as an explicit N/A row', () => {
         const result = calculateGeometryResult({

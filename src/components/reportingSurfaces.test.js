@@ -31,6 +31,16 @@ describe('CShM UI reporting surfaces', () => {
         return container.textContent;
     }
 
+    test('the selected reference explains mirror equivalence and labels its mirrored overlay', async () => {
+        const text = await render(<Visualization3D canvasRef={{ current: null }} showIdeal={true}
+            displayGeometry={{ name: 'JATDI-10', comparisonConvention: 'cshm-o3-v1', alignmentParity: -1 }}
+            onShowIdealChange={jest.fn()} onShowLabelsChange={jest.fn()} onAutoRotateChange={jest.fn()} />);
+        expect(text).toContain('CShM treats mirror images as equivalent.');
+        expect(text).toContain('JATDI-10: Mirrored reference alignment.');
+        expect(text).toContain('Molecular coordinates are unchanged.');
+        expect(text).toContain('does not determine absolute configuration');
+    });
+
     test('results list normalizes -0 and marks non-finite and negative values invalid', async () => {
         const text = await render(
             <ResultsDisplay

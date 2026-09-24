@@ -18,6 +18,7 @@ import {
 } from '../utils/batchResults';
 import { calculateAdditionalMetrics } from './shapeAnalysis/structuralMetrics';
 import { APP_VERSION, APP_BUILD_SHA, APP_FULL_NAME, getCitationString, CITATION } from '../constants/appMetadata';
+import { alignmentExportRecord, alignmentParityLabel, analysisContextRecord, comparisonConventionLabel } from '../utils/shapeAlignment';
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
@@ -53,6 +54,37 @@ function csvField(value) {
     return `"${spreadsheetSafe.replace(/"/g, '""')}"`;
 }
 
+const alignmentHeaders = ['CShM_Full_Precision', 'Comparison_Convention', 'Alignment_Parity', 'Transformation_Matrix', 'Alignment_Record_JSON', 'Analysis_Context_JSON'];
+
+function alignmentCSVFields(result, context) {
+    const record = alignmentExportRecord(result);
+    return [
+        isShapeResultAvailable(result) ? String(result.shapeMeasure === 0 ? 0 : result.shapeMeasure) : 'N/A',
+        csvField(record?.comparisonConvention || 'legacy / not recorded'),
+        record?.alignmentParity ?? '',
+        csvField(JSON.stringify(record?.transformationMatrix || null)),
+        csvField(JSON.stringify(record)),
+        csvField(JSON.stringify({ sourceCommit: APP_BUILD_SHA, ...context }))
+    ];
+}
+
+function batchContext(structure, result) {
+    return analysisContextRecord({
+        atoms: result.sourceAtoms || structure.atoms,
+        selectedMetal: result.metalIndex,
+        coordAtoms: result.coordAtoms,
+        coordRadius: result.radius,
+        analysisMode: result.analysisMode,
+        structureId: structure.id
+    });
+}
+
+function exactRecordHTML(record) {
+    return `<p>Complete coordinates, settings, full-precision results and alignment transforms are retained in this report's expandable data record and in the CSV export.</p><details class="no-print"><summary>Show full-precision analysis record</summary><pre style="white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.3;">${escapeHtml(JSON.stringify({ schemaVersion: 1, sourceCommit: APP_BUILD_SHA, ...record }))}</pre></details>`;
+}
+
+const comparisonExplanation = 'For cshm-o3-v1 results, CShM treats mirror images as equivalent and does not determine absolute configuration. A mirrored overlay transforms the reference only; molecular coordinates are unchanged. Point-group names are reference-model metadata.';
+
 /**
  * Generate a print-ready report (opens in a new window)
  *
@@ -87,7 +119,9 @@ export function generatePDFReport({
     analysisMode,
     intensiveMetadata,
     imgData,
-    structureId
+    structureId,
+    displayGeometry = null,
+    showIdeal = true
 }) {
     if (!atoms.length || selectedMetal == null || !bestGeometry) {
         throw new Error('Missing required data for report generation');
@@ -450,6 +484,8 @@ footer strong {
   <p><strong>Generated on:</strong> ${date}</p>
   <p><strong>Source commit:</strong> ${escapeHtml(APP_BUILD_SHA)}</p>
   <p><strong>Analysis Mode:</strong> ${analysisMode === 'intensive' ? 'Extended Search with Kabsch Alignment' : 'Standard Search with Kabsch Alignment'}</p>
+  <p>${escapeHtml(comparisonConventionLabel(bestGeometry))} ${escapeHtml(alignmentParityLabel(bestGeometry))}.</p>
+  <p><strong>Minimum CShM (full precision):</strong> ${isShapeResultAvailable(bestGeometry) ? String(bestGeometry.shapeMeasure === 0 ? 0 : bestGeometry.shapeMeasure) : 'N/A'}</p>
   <p style="font-style: italic; margin-top: 1rem; font-size: 0.9rem;">
     Cite this: ${escapeHtml(getCitationString())}
     <a href="${escapeHtml(CITATION.url)}" style="color: #4f46e5;">${escapeHtml(CITATION.url)}</a>
@@ -569,6 +605,8 @@ footer strong {
 
   <h2>🎨 3D Visualization Snapshot</h2>
   <img src="${escapeHtml(safeRasterDataUrl(imgData))}" alt="3D rendering of the coordination complex">
+  <p><strong>Displayed overlay:</strong> ${showIdeal && displayGeometry ? `${escapeHtml(displayGeometry.name)} — ${escapeHtml(alignmentParityLabel(displayGeometry))}. Convention: ${escapeHtml(displayGeometry.comparisonConvention || 'legacy / not recorded')}. CShM (full precision): ${isShapeResultAvailable(displayGeometry) ? String(displayGeometry.shapeMeasure === 0 ? 0 : displayGeometry.shapeMeasure) : 'N/A'}.` : 'No identified reference overlay.'} The minimum-result headline above is independent of the selected overlay.</p>
+  <p>${escapeHtml(comparisonExplanation)}</p>
 
   <h2>📋 Geometry Analysis Results</h2>
   <table>
@@ -580,6 +618,7 @@ footer strong {
         <th>CShM</th>
         <th>Status</th>
         <th>Details</th>
+        <th>Alignment</th>
       </tr>
     </thead>
     <tbody>
@@ -591,11 +630,18 @@ footer strong {
         <td style="font-family: monospace; font-weight: 600;">${formatShapeMeasure(r.shapeMeasure)}</td>
         <td>${escapeHtml(shapeResultStatusLabel(r))}</td>
         <td>${escapeHtml(shapeResultDetail(r))}</td>
+        <td>${escapeHtml(alignmentParityLabel(r))}</td>
       </tr>
       `).join('')}
     </tbody>
   </table>
 
+  ${exactRecordHTML({
+      context: analysisContextRecord({ atoms, selectedMetal, coordAtoms, coordRadius, analysisMode, structureId }),
+      minimumResult: alignmentExportRecord(bestGeometry),
+      displayedOverlay: showIdeal ? alignmentExportRecord(displayGeometry) : null,
+      results: geometryResults.map(alignmentExportRecord)
+  })}
   <h2>🔗 Coordinating Atoms</h2>
   <table>
     <thead>
@@ -670,13 +716,13 @@ footer strong {
  * @param {string} params.fileName - Structure file name
  * @returns {void} Downloads CSV file
  */
-export function generateCSVReport({ geometryResults, fileName }) {
+export function generateCSVReport({ geometryResults, fileName, ...context }) {
     if (!geometryResults || geometryResults.length === 0) {
         throw new Error('No geometry results available for CSV export');
     }
 
     // CSV Header
-    const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Status', 'Details'];
+    const headers = ['Rank', 'Geometry', 'Point Group', 'CShM', 'Status', 'Details', ...alignmentHeaders];
 
     // CSV Rows
     const rows = geometryResults.map((result, index) => {
@@ -688,7 +734,8 @@ export function generateCSVReport({ geometryResults, fileName }) {
             pointGroup,
             formatShapeMeasure(result.shapeMeasure),
             shapeResultStatusLabel(result),
-            csvField(shapeResultDetail(result))
+            csvField(shapeResultDetail(result)),
+            ...alignmentCSVFields(result, analysisContextRecord(context))
         ];
     });
 
@@ -790,6 +837,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                         <td style="font-family: monospace;">${formatShapeMeasure(r.shapeMeasure)}</td>
                         <td>${escapeHtml(shapeResultStatusLabel(r))}</td>
                         <td>${escapeHtml(shapeResultDetail(r))}</td>
+                        <td>${escapeHtml(alignmentParityLabel(r))}</td>
                     </tr>
                 `;
             }).join('') || `
@@ -800,6 +848,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     <td style="font-family: monospace;">N/A</td>
                     <td>${escapeHtml(structureStatus)}</td>
                     <td>${escapeHtml(structureDetails)}</td>
+                    <td>Alignment parity not recorded</td>
                 </tr>
             `;
 
@@ -832,6 +881,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                     <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
                         <p style="margin: 0 0 0.5rem 0;">The installed Q-Shape inventory contains <strong>${totalAvailableGeometries} reference geometries</strong>.</p>
                         <p style="margin: 0;">This structure was evaluated against <strong>${cnGeometries} same-CN reference geometries</strong> for CN=${coordAtoms.length} using Kabsch alignment and assignment optimization.</p>
+                        <p>${escapeHtml(comparisonConventionLabel(bestGeometry))} ${escapeHtml(alignmentParityLabel(bestGeometry))}. Minimum CShM (full precision): ${isShapeResultAvailable(bestGeometry) ? String(bestGeometry.shapeMeasure === 0 ? 0 : bestGeometry.shapeMeasure) : 'N/A'}.</p>
                     </div>
                     `}
 
@@ -977,6 +1027,7 @@ export function generateBatchPDFReport({ structures, batchResults, fileName, fil
                                 <th>CShM</th>
                                 <th>Status</th>
                                 <th>Details</th>
+                                <th>Alignment</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1039,6 +1090,17 @@ ${getBatchReportStyles()}
 
   <h2 style="margin-top: 3rem;">📋 Detailed Results by Structure</h2>
   ${detailSections.join('')}
+  <p>${escapeHtml(comparisonExplanation)}</p>
+  ${exactRecordHTML({ structures: structures.map((structure, index) => {
+      const result = batchResults.get(index);
+      return result ? {
+          context: batchContext(structure, result),
+          minimumResult: alignmentExportRecord(result.bestGeometry),
+          results: (result.geometryResults || []).map(alignmentExportRecord),
+          status: batchResultStatusLabel(result),
+          detail: batchResultDetail(result)
+      } : { structureId: structure.id, status: 'Not analyzed' };
+  }) })}
 </main>
 
 <footer>
@@ -1100,7 +1162,8 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
         'CShM',
         'Status',
         'Details',
-        'Analysis_Mode'
+        'Analysis_Mode',
+        ...alignmentHeaders
     ];
 
     const rows = [];
@@ -1120,7 +1183,8 @@ export function generateWideSummaryCSV({ structures, batchResults, fileName }) {
                 formatShapeMeasure(bestGeometry?.shapeMeasure),
                 csvField(batchResultStatusLabel(result)),
                 csvField(batchResultDetail(result)),
-                csvField(result.analysisMode || 'default')
+                csvField(result.analysisMode || 'default'),
+                ...alignmentCSVFields(bestGeometry, batchContext(structure, result))
             ]);
         }
     });
@@ -1154,7 +1218,8 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
         'CShM',
         'Status',
         'Details',
-        'Is_Best_Match'
+        'Is_Best_Match',
+        ...alignmentHeaders
     ];
 
     const rows = [];
@@ -1172,7 +1237,8 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
                     formatShapeMeasure(geom.shapeMeasure),
                     csvField(shapeResultStatusLabel(geom)),
                     csvField(shapeResultDetail(geom)),
-                    csvField(geomIndex === 0 && isShapeResultAvailable(geom) ? 'Yes' : 'No')
+                    csvField(geomIndex === 0 && isShapeResultAvailable(geom) ? 'Yes' : 'No'),
+                    ...alignmentCSVFields(geom, batchContext(structure, result))
                 ]);
             });
         } else if (result) {
@@ -1186,7 +1252,8 @@ export function generateLongDetailedCSV({ structures, batchResults, fileName }) 
                 'N/A',
                 csvField(batchResultStatusLabel(result)),
                 csvField(batchResultDetail(result)),
-                csvField('No')
+                csvField('No'),
+                ...alignmentCSVFields(null, batchContext(structure, result))
             ]);
         }
     });

@@ -45,7 +45,7 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
     for (const name of sandwichGeometries) {
         const refCoords = geometries[name];
 
-        const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+        const { measure, ...alignment } = calculateShapeMeasure(
             actualCoords,
             refCoords,
             mode,
@@ -53,11 +53,10 @@ export function buildSandwichGeometry(actualCoords, pattern, mode = 'intensive')
         );
 
         results.push({
+            ...alignment,
             name,
             shapeMeasure: measure,
             refCoords,  // ADD: Needed for polyhedron rendering
-            alignedCoords,
-            rotationMatrix,
             pattern: 'sandwich'
         });
 
@@ -135,7 +134,7 @@ export function buildPianoStoolGeometry(actualCoords, pattern, mode = 'intensive
     for (const name of pianoStoolGeometries) {
         const refCoords = geometries[name];
 
-        const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+        const { measure, ...alignment } = calculateShapeMeasure(
             actualCoords,
             refCoords,
             mode,
@@ -143,11 +142,10 @@ export function buildPianoStoolGeometry(actualCoords, pattern, mode = 'intensive
         );
 
         results.push({
+            ...alignment,
             name,
             shapeMeasure: measure,
             refCoords,
-            alignedCoords,
-            rotationMatrix,
             pattern: 'piano_stool'
         });
 
@@ -167,7 +165,7 @@ export function buildPianoStoolGeometry(actualCoords, pattern, mode = 'intensive
         for (const name of otherGeometries) {
             const refCoords = geometries[name];
 
-            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+            const { measure, ...alignment } = calculateShapeMeasure(
                 actualCoords,
                 refCoords,
                 mode,
@@ -175,11 +173,10 @@ export function buildPianoStoolGeometry(actualCoords, pattern, mode = 'intensive
             );
 
             results.push({
+                ...alignment,
                 name,
                 shapeMeasure: measure,
                 refCoords,
-                alignedCoords,
-                rotationMatrix,
                 pattern: 'general'
             });
         }
@@ -228,7 +225,7 @@ export function buildMacrocycleGeometry(actualCoords, pattern, mode = 'intensive
     for (const name of macrocycleGeometries) {
         const refCoords = geometries[name];
 
-        const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+        const { measure, ...alignment } = calculateShapeMeasure(
             actualCoords,
             refCoords,
             mode,
@@ -236,11 +233,10 @@ export function buildMacrocycleGeometry(actualCoords, pattern, mode = 'intensive
         );
 
         results.push({
+            ...alignment,
             name,
             shapeMeasure: measure,
             refCoords,  // ADD: Needed for polyhedron rendering
-            alignedCoords,
-            rotationMatrix,
             pattern: 'macrocycle'
         });
 
@@ -274,7 +270,7 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
         const refCoords = geometries[name];
 
         try {
-            const { measure, alignedCoords, rotationMatrix } = calculateShapeMeasure(
+            const { measure, ...alignment } = calculateShapeMeasure(
                 actualCoords,
                 refCoords,
                 mode,
@@ -282,11 +278,10 @@ export async function buildGeneralGeometry(actualCoords, coordinationNumber, mod
             );
 
             results.push({
+                ...alignment,
                 name,
                 shapeMeasure: measure,
                 refCoords,  // ADD: Needed for polyhedron rendering
-                alignedCoords,
-                rotationMatrix,
                 pattern: 'general'
             });
         } catch (error) {

@@ -30,6 +30,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { REFERENCE_GEOMETRIES } from '../constants/referenceGeometries';
+import { SHAPE_COMPARISON_CONVENTION } from '../constants/shapeComparison';
 import calculateShapeMeasure from '../services/shapeAnalysis/shapeCalculator';
 import { calculateAdditionalMetrics } from '../services/shapeAnalysis/structuralMetrics';
 import {
@@ -50,6 +51,7 @@ export function makeShapeAnalysisCacheKey(atoms, mode = 'default') {
     if (!Array.isArray(atoms) || atoms.length === 0) return null;
     try {
         return JSON.stringify([
+            SHAPE_COMPARISON_CONVENTION,
             String(mode),
             atoms.map((entry, position) => {
                 const element = entry?.atom?.element;
@@ -98,6 +100,7 @@ export function calculateGeometryResult({
             progressCallback
         );
         return normalizeShapeResult({
+            ...calculation,
             name,
             shapeMeasure: calculation?.measure,
             refCoords,

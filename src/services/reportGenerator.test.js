@@ -1,3 +1,5 @@
+import { Matrix4 } from 'three';
+import { SHAPE_COMPARISON_CONVENTION } from '../constants/shapeComparison';
 import {
     generateBatchPDFReport,
     generateCSVReport,
@@ -130,7 +132,7 @@ describe('scientific report surfaces', () => {
             fileName: 'test'
         });
 
-        expect(csvContent.split('\n')[0]).toBe('Rank,Geometry,Point Group,CShM,Status,Details');
+        expect(csvContent.split('\n')[0]).toBe('Rank,Geometry,Point Group,CShM,Status,Details,CShM_Full_Precision,Comparison_Convention,Alignment_Parity,Transformation_Matrix,Alignment_Record_JSON,Analysis_Context_JSON');
         expect(csvContent).toContain('0.0000');
         expect(csvContent).toContain('N/A');
         expect(csvContent).toContain('synthetic target failure');
@@ -372,5 +374,63 @@ describe('scientific report surfaces', () => {
         });
         expect(csvContent).toContain('"\'+formula-marker"');
         expect(csvContent).toContain('"\'-formula-detail"');
+    });
+
+    test('native reports preserve the selected mirrored overlay separately from the minimum and export exact tuples', () => {
+        const matrix = new Matrix4().makeScale(-1, 1, 1);
+        const mirrored = { name: 'JATDI-10 selected reference', shapeMeasure: 19.301246399556728,
+            comparisonConvention: SHAPE_COMPARISON_CONVENTION, alignmentParity: -1,
+            transformationMatrix: matrix, rotationMatrix: matrix,
+            properRotationMatrix: new Matrix4(), matching: [[0, 1], [1, 0]],
+            alignedCoords: [[-1, 0, 0], [0, 0, 0]], refCoords: [[1, 0, 0], [0, 0, 0]],
+            branchScores: { proper: 19.319084613179825, reflected: 19.301246399556728 } };
+        const proper = { ...mirrored, name: 'Minimum proper reference', shapeMeasure: 1,
+            alignmentParity: 1, transformationMatrix: new Matrix4(), rotationMatrix: new Matrix4() };
+        const params = { ...singleReportParams, geometryResults: [proper, mirrored], bestGeometry: proper,
+            displayGeometry: mirrored, showIdeal: true,
+            atoms: [{ element: 'Fe', x: 0, y: 0, z: 0 }, { element: 'N', x: 1.123456789012345, y: 0, z: 0 }],
+            selectedMetal: 0, coordAtoms: [{ idx: 1, atom: { element: 'N', x: 1.123456789012345, y: 0, z: 0 }, distance: 1.123456789012345 }], coordRadius: 2.34567890123456 };
+        generatePDFReport(params);
+        const doc = new DOMParser().parseFromString(reportWrite.mock.calls.at(-1)[0], 'text/html');
+        const caption = [...doc.querySelectorAll('p')].find(p => p.textContent.startsWith('Displayed overlay:')).textContent;
+        expect(caption).toContain('JATDI-10 selected reference — Mirrored reference alignment');
+        expect(caption).not.toContain('Minimum proper reference');
+        const exported = JSON.parse(doc.querySelector('details pre').textContent);
+        expect(doc.querySelector('details').hasAttribute('open')).toBe(false);
+        expect(doc.querySelector('details').classList.contains('no-print')).toBe(true);
+        expect(exported.minimumResult.name).toBe('Minimum proper reference');
+        expect(exported.displayedOverlay.name).toBe(mirrored.name);
+        expect(exported.displayedOverlay.shapeMeasure).toBe(mirrored.shapeMeasure);
+        expect(exported.displayedOverlay.transformationMatrix).toEqual(matrix.toArray());
+        expect(exported.displayedOverlay.rotationMatrix).toEqual(matrix.toArray());
+        expect(exported.displayedOverlay.matching).toEqual(mirrored.matching);
+        expect(exported.context.atoms).toEqual(params.atoms);
+        expect(exported.context.selectedDonorIndices).toEqual([1]);
+        expect(exported.context.coordRadius).toBe(params.coordRadius);
+
+        const structure = { id: 'mirror-case', atoms: params.atoms };
+        const result = { geometryResults: [proper, mirrored], bestGeometry: proper,
+            metalIndex: 0, coordAtoms: params.coordAtoms, radius: params.coordRadius,
+            coordinationNumber: 1, analysisMode: 'intensive' };
+        const batch = { structures: [structure], batchResults: new Map([[0, result]]), fileName: 'mirror', fileFormat: 'xyz' };
+        generateBatchPDFReport(batch);
+        const batchDoc = new DOMParser().parseFromString(reportWrite.mock.calls.at(-1)[0], 'text/html');
+        const batchExport = JSON.parse(batchDoc.querySelector('details pre').textContent);
+        expect(batchDoc.body.textContent).toContain('Mirrored reference alignment');
+        expect(batchExport.structures[0].results[1].branchScores).toEqual(mirrored.branchScores);
+        expect(batchExport.structures[0].results[1].alignmentParity).toBe(-1);
+
+        for (const generate of [() => generateCSVReport({ ...params, fileName: 'mirror' }), () => generateLongDetailedCSV(batch)]) {
+            generate();
+            expect(csvContent).toContain('19.301246399556728');
+            expect(csvContent).toContain(SHAPE_COMPARISON_CONVENTION);
+            expect(csvContent).toContain('""alignmentParity"":-1');
+            expect(csvContent).toContain('""selectedDonorIndices"":[1]');
+            expect(csvContent).toContain('1.123456789012345');
+            expect(csvContent).toContain('""transformationMatrix"":' + JSON.stringify(matrix.toArray()));
+        }
+        generateWideSummaryCSV({ ...batch, batchResults: new Map([[0, { ...result, bestGeometry: mirrored }]]) });
+        expect(csvContent).toContain('19.301246399556728');
+        expect(csvContent).toContain('""alignmentParity"":-1');
     });
 });

@@ -1,4 +1,5 @@
 import { isValidShapeMeasure } from './geometry';
+import { restoreAlignmentFields } from './shapeAlignment';
 
 export const SHAPE_RESULT_STATUS = Object.freeze({
     AVAILABLE: 'available',
@@ -29,7 +30,7 @@ export function isShapeResultRecord(result) {
 }
 
 export function normalizeShapeResult(result, fallbackName = 'Unknown geometry') {
-    const source = result && typeof result === 'object' ? result : {};
+    const source = restoreAlignmentFields(result && typeof result === 'object' ? result : {});
     const name = typeof source.name === 'string' && source.name.length > 0
         ? source.name
         : fallbackName;

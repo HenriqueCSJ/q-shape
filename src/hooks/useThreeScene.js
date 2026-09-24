@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { ATOMIC_DATA } from '../constants/atomicData';
+import { referenceOverlayCoordinates } from '../utils/shapeAlignment';
 
 /**
  * Custom hook for managing Three.js 3D visualization scene
@@ -227,16 +228,14 @@ export function useThreeScene({
         });
 
         // Render ideal geometry overlay if enabled
-        if (bestGeometry && bestGeometry.rotationMatrix && bestGeometry.refCoords && showIdeal) {
+        const rotatedIdealCoords = showIdeal ? referenceOverlayCoordinates(bestGeometry) : null;
+        if (rotatedIdealCoords) {
             const idealGroup = new THREE.Group();
             const scalingFactor = coordAtoms.length > 0
                 ? coordAtoms.reduce((acc, curr) => acc + curr.distance, 0) / coordAtoms.length
                 : 1;
 
-            const inverseRotation = bestGeometry.rotationMatrix.clone().invert();
-
             const idealCoordsVec = bestGeometry.refCoords.map(c => new THREE.Vector3(...c));
-            const rotatedIdealCoords = idealCoordsVec.map(v => v.clone().applyMatrix4(inverseRotation));
 
             // Render ideal vertices as spheres
             rotatedIdealCoords.forEach((rotatedVec) => {

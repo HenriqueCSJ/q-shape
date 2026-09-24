@@ -6,6 +6,8 @@ import useFileUpload from './hooks/useFileUpload';
 import { useThreeScene } from './hooks/useThreeScene';
 import { runIntensiveAnalysisAsync } from './services/coordination/intensiveAnalysis';
 import calculateShapeMeasure from './services/shapeAnalysis/shapeCalculator';
+import { Matrix4, Vector3 } from 'three';
+import { SHAPE_COMPARISON_CONVENTION } from './constants/shapeComparison';
 
 jest.mock('./hooks/useFileUpload');
 jest.mock('./hooks/useThreeScene', () => ({ useThreeScene: jest.fn() }));
@@ -129,6 +131,49 @@ describe('batch rows and selected analysis use the same stored result', () => {
         expect(cardText()).toContain('0.2000');
         expect(calculateShapeMeasure).toHaveBeenCalledTimes(calculatorCalls);
         expect(runIntensiveAnalysisAsync).toHaveBeenCalledTimes(2);
+    });
+
+    test('saved reflected metadata survives row navigation while original atoms, selection and signed volume remain unchanged', async () => {
+        structures = ['alpha', 'beta'].map(id => ({ id, atoms: [
+            { element: 'Fe', x: 0, y: 0, z: 0 },
+            { element: 'N', x: 1, y: 0, z: 0 },
+            { element: 'N', x: 0, y: 1.2, z: 0 },
+            { element: 'N', x: 0, y: 0, z: 1.4 },
+            { element: 'N', x: -0.8, y: -0.7, z: -0.6 }
+        ] }));
+        const atomsBefore = JSON.stringify(structures[0].atoms);
+        const signedVolume = atoms => {
+            const origin = new Vector3(atoms[0].x, atoms[0].y, atoms[0].z);
+            const vectors = atoms.slice(1, 4).map(a => new Vector3(a.x, a.y, a.z).sub(origin));
+            return vectors[0].dot(vectors[1].cross(vectors[2])) / 6;
+        };
+        const volumeBefore = signedVolume(structures[0].atoms);
+        expect(volumeBefore).not.toBe(0);
+        const transform = new Matrix4().makeScale(-1, 1, 1);
+        const mirrored = { name: 'T-4 saved', shapeMeasure: 0.123456789012345, status: 'available',
+            comparisonConvention: SHAPE_COMPARISON_CONVENTION, alignmentParity: -1,
+            transformationMatrix: transform, rotationMatrix: transform, matching: [[0, 0]],
+            refCoords: [[1, 0, 0]], alignedCoords: [[-1, 0, 0]], branchScores: { proper: 2, reflected: 0.123456789012345 } };
+        runIntensiveAnalysisAsync.mockResolvedValue({ geometryResults: [mirrored], metadata: { geometryCount: 1, coordinationNumber: 4 }, ligandGroups: { rings: [], monodentate: [1, 2, 3, 4] } });
+        useFileUpload.mockReturnValue(uploadState());
+        await mountAndAnalyze();
+        const initial = useThreeScene.mock.calls.at(-1)[0];
+        const donorsBefore = initial.coordAtoms.map(entry => entry.idx);
+        const calls = calculateShapeMeasure.mock.calls.length;
+        await select('beta');
+        await select('alpha');
+        const restored = useThreeScene.mock.calls.at(-1)[0];
+        expect(restored.bestGeometry).toBe(mirrored);
+        expect(restored.bestGeometry.transformationMatrix.toArray()).toEqual(transform.toArray());
+        expect(restored.bestGeometry.alignmentParity).toBe(-1);
+        expect(restored.bestGeometry.comparisonConvention).toBe(SHAPE_COMPARISON_CONVENTION);
+        expect(JSON.stringify(restored.atoms)).toBe(atomsBefore);
+        expect(signedVolume(restored.atoms)).toBe(volumeBefore);
+        expect(restored.selectedMetal).toBe(initial.selectedMetal);
+        expect(restored.coordAtoms.map(entry => entry.idx)).toEqual(donorsBefore);
+        expect(calculateShapeMeasure).toHaveBeenCalledTimes(calls);
+        expect(runIntensiveAnalysisAsync).toHaveBeenCalledTimes(2);
+        expect(container.textContent).toContain('Mirrored reference alignment');
     });
 
     test('a saved failure stays visible when selected and does not become a standard success', async () => {

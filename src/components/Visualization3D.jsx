@@ -5,12 +5,14 @@
  */
 
 import React from 'react';
+import { alignmentParityLabel, comparisonConventionLabel } from '../utils/shapeAlignment';
 
 export default function Visualization3D({
     canvasRef,
     showIdeal,
     showLabels,
     autoRotate,
+    displayGeometry,
     onShowIdealChange,
     onShowLabelsChange,
     onAutoRotateChange
@@ -75,6 +77,13 @@ export default function Visualization3D({
                     </label>
                 </div>
             </div>
+            {displayGeometry && (
+                <p aria-label="Reference alignment" style={{ margin: '0 0 0.75rem', color: '#475569', fontSize: '0.85rem' }}>
+                    {comparisonConventionLabel(displayGeometry)}{' '}
+                    {showIdeal && <strong>{displayGeometry.name}: {alignmentParityLabel(displayGeometry)}.</strong>}{' '}
+                    Molecular coordinates are unchanged. CShM does not determine absolute configuration.
+                </p>
+            )}
             <div className="canvas-container">
                 <canvas
                     ref={canvasRef}

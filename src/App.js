@@ -525,13 +525,15 @@ export default function CoordinationGeometryAnalyzer() {
                 analysisMode: displayAnalysisParams.mode,
                 intensiveMetadata: displayIntensiveMetadata,
                 imgData,
+                displayGeometry,
+                showIdeal,
                 structureId: currentStructure?.id
             });
         } catch (err) {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, displayAnalysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, uploadWarnings, warnings, displayIntensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
+    }, [atoms, effectiveMetal, bestGeometry, displayGeometry, showIdeal, fileName, fileFormat, displayAnalysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, uploadWarnings, warnings, displayIntensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
     // Batch print-ready report
     const handleGenerateBatchReport = useCallback(() => {
@@ -560,13 +562,19 @@ export default function CoordinationGeometryAnalyzer() {
         try {
             generateCSVReport({
                 geometryResults,
+                atoms,
+                selectedMetal: effectiveMetal,
+                coordAtoms,
+                coordRadius,
+                analysisMode: displayAnalysisParams.mode,
+                structureId: currentStructure?.id,
                 fileName: currentStructure?.id || fileName
             });
         } catch (err) {
             console.error("CSV generation failed:", err);
             setWarnings(prev => [...prev, `CSV export failed: ${err.message}`]);
         }
-    }, [geometryResults, fileName, currentStructure]);
+    }, [geometryResults, atoms, effectiveMetal, coordAtoms, coordRadius, displayAnalysisParams.mode, fileName, currentStructure]);
 
     // CSV Export - Long detailed (batch mode, all geometries)
     const handleGenerateLongDetailedCSV = useCallback(() => {
@@ -746,6 +754,7 @@ export default function CoordinationGeometryAnalyzer() {
 
         <div className="main-layout">
           <Visualization3D
+            displayGeometry={displayGeometry}
             key={sceneKey}
             canvasRef={canvasRef}
             showIdeal={showIdeal}

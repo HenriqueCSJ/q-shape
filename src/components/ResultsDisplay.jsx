@@ -8,6 +8,7 @@
 import React from 'react';
 import { POINT_GROUPS } from '../constants/referenceGeometries';
 import { formatShapeMeasure } from '../utils/geometry';
+import { alignmentParityLabel } from '../utils/shapeAlignment';
 import {
     isShapeResultAvailable,
     shapeResultDetail
@@ -186,6 +187,11 @@ export default function ResultsDisplay({
                                         }}>
                                             {POINT_GROUPS[r.name] || ''}
                                         </span>
+                                        {r.comparisonConvention && isAvailable && (
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#475569' }}>
+                                                {alignmentParityLabel(r)}
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{
                                         fontSize: '1.1rem',
