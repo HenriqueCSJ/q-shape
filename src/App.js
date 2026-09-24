@@ -75,12 +75,21 @@ export default function CoordinationGeometryAnalyzer() {
         fileName,
         fileFormat,
         error,
+        warnings: uploadWarnings = [],
         uploadMetadata,
         handleFileUpload,
         selectStructure,
         batchMode,
         structureCount
     } = useFileUpload();
+
+    // Analysis notices belong to the replaced input even when the new file fails
+    // to parse. Parser notices retain the upload hook's separate file lifetime.
+    const handleNewFileSelection = useCallback((event) => {
+        if (!event.target.files?.[0]) return;
+        setWarnings([]);
+        handleFileUpload(event);
+    }, [handleFileUpload]);
 
     // Warning and error handlers
     const handleWarning = useCallback((msg) => {
@@ -510,7 +519,7 @@ export default function CoordinationGeometryAnalyzer() {
                 coordRadius,
                 geometryResults,
                 additionalMetrics,
-                warnings,
+                warnings: [...uploadWarnings, ...warnings],
                 fileName,
                 fileFormat,
                 analysisMode: displayAnalysisParams.mode,
@@ -522,7 +531,7 @@ export default function CoordinationGeometryAnalyzer() {
             console.error("Report generation failed:", err);
             setWarnings(prev => [...prev, `Report generation failed: ${err.message}`]);
         }
-    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, displayAnalysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, warnings, displayIntensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
+    }, [atoms, effectiveMetal, bestGeometry, fileName, fileFormat, displayAnalysisParams.mode, coordRadius, coordAtoms, geometryResults, additionalMetrics, uploadWarnings, warnings, displayIntensiveMetadata, currentStructure, rendererRef, cameraRef, sceneRef]);
 
     // Batch print-ready report
     const handleGenerateBatchReport = useCallback(() => {
@@ -616,10 +625,19 @@ export default function CoordinationGeometryAnalyzer() {
         </div>
       )}
 
+      {uploadWarnings.length > 0 && (
+        <div className="alert alert-warning" role="alert" aria-label="File import warnings">
+          <strong>⚠️ Import warnings for {fileName}:</strong>
+          <ul>
+            {uploadWarnings.map((warning, index) => <li key={index}>{warning}</li>)}
+          </ul>
+        </div>
+      )}
+
       {warnings.length > 0 && (
-        <div className="alert alert-warning">
+        <div className="alert alert-warning" role="alert" aria-label="Analysis warnings">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-            <strong>⚠️ Warnings:</strong>
+            <strong>⚠️ Analysis warnings:</strong>
             <button
               onClick={() => setWarnings([])}
               style={{
@@ -644,7 +662,7 @@ export default function CoordinationGeometryAnalyzer() {
 
       <FileUploadSection
         fileInputRef={fileInputRef}
-        onFileUpload={handleFileUpload}
+        onFileUpload={handleNewFileSelection}
         batchMode={batchMode}
         structureCount={structureCount}
         fileFormat={fileFormat}
