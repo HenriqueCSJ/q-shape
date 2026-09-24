@@ -14,6 +14,57 @@ export function nonnegativeScaleMeasure(normalizedOverlap) {
     return 100 * (1 - scale * scale);
 }
 
+/** Validate and monotonically polish the actual bounded-search winner. */
+export function finalizeBoundedCandidate(candidate, polish, pointCount, fixedCenter) {
+    const validate = result => {
+        if (!Number.isFinite(result.measure) || result.measure < 0 || result.measure > 100) {
+            throw new Error(`Optimization did not produce a valid CShM value (${result.measure})`);
+        }
+        const matching = result.matching;
+        if (!Array.isArray(matching) || matching.length !== pointCount ||
+            matching.some(pair => !Array.isArray(pair) || pair.length !== 2 ||
+                pair.some(index => !Number.isInteger(index) || index < 0 || index >= pointCount)) ||
+            new Set(matching.map(pair => pair[0])).size !== pointCount ||
+            new Set(matching.map(pair => pair[1])).size !== pointCount ||
+            (fixedCenter && !matching.some(([i, j]) => i === pointCount - 1 && j === pointCount - 1))) {
+            throw new Error('Optimization produced an incomplete or invalid assignment');
+        }
+        const elements = result.rotation?.elements;
+        const determinant = result.rotation?.determinant?.();
+        const columns = elements?.length === 16
+            ? [0, 4, 8].map(offset => elements.slice(offset, offset + 3))
+            : [];
+        const orthonormal = columns.length === 3 && columns.every((column, i) =>
+            columns.every((other, j) => Math.abs(column.reduce(
+                (sum, value, k) => sum + value * other[k], 0
+            ) - (i === j ? 1 : 0)) <= 1e-8));
+        if (!elements?.every(Number.isFinite) || !Number.isFinite(determinant) ||
+            Math.abs(determinant - 1) > 1e-8 || !orthonormal ||
+            [3, 7, 11, 12, 13, 14].some(index => Math.abs(elements[index]) > 1e-8) ||
+            Math.abs(elements[15] - 1) > 1e-8) {
+            throw new Error('Optimization produced an invalid proper rotation');
+        }
+    };
+    validate(candidate);
+    // The polisher clones its starting rotation. Retain the entire original
+    // triplet on ties/non-improvement; solver failures remain explicit errors.
+    const polished = polish(candidate.rotation);
+    validate(polished);
+    const improved = polished.measure < candidate.measure;
+    const best = improved ? polished : candidate;
+    return {
+        ...best,
+        finalization: {
+            beforeMeasure: candidate.measure,
+            afterMeasure: best.measure,
+            improved,
+            assignmentChanged: improved && JSON.stringify(candidate.matching) !== JSON.stringify(best.matching),
+            steps: polished.steps,
+            stopReason: polished.stopReason
+        }
+    };
+}
+
 /**
  * Generate all permutations of an array (Heap's algorithm)
  * @param {number[]} arr - Array of indices to permute
@@ -478,6 +529,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             let bestResult = getMeasureForRotation(rotation);
             let bestRotation = rotation.clone();
             let steps = 0;
+            let stopReason = 'iteration_limit';
             const seenMatchings = new Set();
 
             for (
@@ -489,7 +541,10 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 const matchingKey = current.matching
                     .map(([pIndex, qIndex]) => `${pIndex}:${qIndex}`)
                     .join(',');
-                if (seenMatchings.has(matchingKey)) break;
+                if (seenMatchings.has(matchingKey)) {
+                    stopReason = 'repeated_assignment';
+                    break;
+                }
                 seenMatchings.add(matchingKey);
 
                 const P_ordered = current.matching.map(([pIndex]) =>
@@ -513,6 +568,9 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                         SHAPE_MEASURE.ANCHOR_SEARCH.IMPROVEMENT_TOLERANCE ||
                     improvement <= SHAPE_MEASURE.ANCHOR_SEARCH.IMPROVEMENT_TOLERANCE
                 ) {
+                    stopReason = improvement < -SHAPE_MEASURE.ANCHOR_SEARCH.IMPROVEMENT_TOLERANCE
+                        ? 'score_increase'
+                        : 'improvement_tolerance';
                     break;
                 }
                 rotation = polishedRotation;
@@ -522,7 +580,8 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 measure: bestResult.measure,
                 matching: bestResult.matching,
                 rotation: bestRotation,
-                steps
+                steps,
+                stopReason
             };
         };
 
@@ -565,6 +624,30 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
                 globalBestRotation.copy(supplementalBestRotation);
                 globalBestMatching = supplementalBestMatching;
             }
+        };
+
+        const finalizeBoundedSearch = () => {
+            acceptSupplementalBest();
+            const result = finalizeBoundedCandidate({
+                measure: globalBestMeasure,
+                matching: globalBestMatching,
+                rotation: globalBestRotation
+            }, polishAssignmentRotation, N, needsCentralAtom);
+            // Optional observer is diagnostic only and does not affect search.
+            if (typeof options.onFinalization === 'function') {
+                options.onFinalization(result.finalization);
+            }
+            const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(result.rotation));
+            const finalAlignedCoords = new Array(N);
+            for (const [p_idx, q_idx] of result.matching) {
+                finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
+            }
+            reportProgress('Complete', 100, 100, `Final: ${result.measure.toFixed(4)}`);
+            return {
+                measure: result.measure,
+                alignedCoords: finalAlignedCoords,
+                rotationMatrix: result.rotation
+            };
         };
 
         let totalSteps = 0;
@@ -715,18 +798,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             );
 
             if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_KEY_ORIENTATIONS) {
-                acceptSupplementalBest();
-                const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
-                const finalAlignedCoords = new Array(N);
-                for (const [p_idx, q_idx] of globalBestMatching) {
-                    finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
-                }
-                reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
-                return {
-                    measure: globalBestMeasure,
-                    alignedCoords: finalAlignedCoords.filter(Boolean),
-                    rotationMatrix: globalBestRotation
-                };
+                return finalizeBoundedSearch();
             }
         }
 
@@ -760,18 +832,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         // Early termination if already excellent
         if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_KEY_ORIENTATIONS) {
-            acceptSupplementalBest();
-            reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
-            const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
-            const finalAlignedCoords = new Array(N);
-            for (const [p_idx, q_idx] of globalBestMatching) {
-                finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
-            }
-            return {
-                measure: globalBestMeasure,
-                alignedCoords: finalAlignedCoords.filter(Boolean),
-                rotationMatrix: globalBestRotation
-            };
+            return finalizeBoundedSearch();
         }
 
         // STAGE 3: Grid search (optimized)
@@ -822,18 +883,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
 
         // Early termination check
         if (globalBestMeasure < SHAPE_MEASURE.EARLY_STOP.AFTER_GRID_SEARCH) {
-            acceptSupplementalBest();
-            reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
-            const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
-            const finalAlignedCoords = new Array(N);
-            for (const [p_idx, q_idx] of globalBestMatching) {
-                finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
-            }
-            return {
-                measure: globalBestMeasure,
-                alignedCoords: finalAlignedCoords.filter(Boolean),
-                rotationMatrix: globalBestRotation
-            };
+            return finalizeBoundedSearch();
         }
 
         // STAGE 4: Simulated annealing (deterministic sequence)
@@ -957,29 +1007,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             }
         }
 
-        acceptSupplementalBest();
-        if (!Number.isFinite(globalBestMeasure) || globalBestMeasure < 0 || globalBestMeasure > 100) {
-            throw new Error(`Optimization did not produce a valid CShM value (${globalBestMeasure})`);
-        }
-        if (!Array.isArray(globalBestMatching) || globalBestMatching.length !== N) {
-            throw new Error(
-                `Optimization produced an incomplete assignment (${globalBestMatching.length}/${N})`
-            );
-        }
-        reportProgress('Complete', 100, 100, `Final: ${globalBestMeasure.toFixed(4)}`);
-
-        const rotatedP = P_vecs.map(p => p.clone().applyMatrix4(globalBestRotation));
-        const finalAlignedCoords = new Array(N);
-
-        for (const [p_idx, q_idx] of globalBestMatching) {
-            finalAlignedCoords[q_idx] = rotatedP[p_idx].toArray();
-        }
-
-        return {
-            measure: globalBestMeasure,
-            alignedCoords: finalAlignedCoords.filter(Boolean),
-            rotationMatrix: globalBestRotation
-        };
+        return finalizeBoundedSearch();
 
     } catch (error) {
         const wrapped = new Error(
