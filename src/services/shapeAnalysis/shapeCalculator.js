@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import kabschAlignment from '../algorithms/kabsch.js';
 import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants.js';
+import { runOrthogonalComparison } from './orthogonalComparison.js';
 
 /** Score the normalized residual after minimizing over a nonnegative scale. */
 export function nonnegativeScaleMeasure(normalizedOverlap) {
@@ -353,9 +354,9 @@ function createDeterministicRandom(P_vecs, Q_vecs, mode, explicitSeed = null) {
  * 5. Applies simulated annealing for global optimization
  * 6. Refines the solution with local optimization
  *
- * The algorithm finds the optimal rotation and atom-to-vertex matching that
- * minimizes the root mean square deviation between the actual and reference
- * geometries.
+ * Internal SO(3) solver. It retains the best visited proper rotation and
+ * atom-to-vertex matching; bounded search does not certify a global optimum.
+ * The public calculator below evaluates both orientation parities.
  *
  * @param {Array<Array<number>>} actualCoords - Center-relative ligand [x, y, z]
  *   coordinates. Omit the central atom; it is added when the reference contains
@@ -392,7 +393,7 @@ function createDeterministicRandom(P_vecs, Q_vecs, mode, explicitSeed = null) {
  * );
  * console.log(`Shape measure: ${result.measure}`);
  */
-function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null, options = {}) {
+export function calculateProperShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null, options = {}) {
     const actualCount = Array.isArray(actualCoords) ? actualCoords.length : 'invalid';
     const referenceCount = Array.isArray(referenceCoords) ? referenceCoords.length : 'invalid';
     const calculationContext = `mode=${mode}, actualPoints=${actualCount}, referencePoints=${referenceCount}`;
@@ -452,6 +453,9 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
         const P_vecs = needsCentralAtom
             ? canonicalizeLigandOrder(normalizedP, N - 1)
             : normalizedP;
+        // The search uses canonical order; the public correspondence names
+        // original input indices, including the added fixed center at N-1.
+        const inputMatching = matching => matching.map(([i, j]) => [normalizedP.indexOf(P_vecs[i]), j]);
 
         // Apply same centroid-based normalization to reference coordinates
         const Q_vecs_raw = workingRefCoords.map(c => new THREE.Vector3(...c));
@@ -482,6 +486,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             }
             return {
                 measure: result.measure,
+                matching: inputMatching(result.matching),
                 alignedCoords: finalAlignedCoords.filter(Boolean),
                 rotationMatrix: result.rotation
             };
@@ -703,6 +708,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             reportProgress('Complete', 100, 100, `Final: ${result.measure.toFixed(4)}`);
             return {
                 measure: result.measure,
+                matching: inputMatching(result.matching),
                 alignedCoords: finalAlignedCoords,
                 rotationMatrix: result.rotation
             };
@@ -1076,4 +1082,11 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
     }
 }
 
-export default calculateShapeMeasure;
+/**
+ * Public enantiomer-insensitive CShM: two complete, independent proper-solver
+ * branches. transformationMatrix and its legacy rotationMatrix alias contain
+ * the full original-input-to-reference orthogonal transform (det = parity).
+ */
+export default function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', progressCallback = null, options = {}) {
+    return runOrthogonalComparison(calculateProperShapeMeasure, actualCoords, referenceCoords, mode, progressCallback, options);
+}

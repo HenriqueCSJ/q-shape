@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import calculateShapeMeasure, { finalizeBoundedCandidate } from './shapeCalculator';
+import { calculateProperShapeMeasure as calculateShapeMeasure, finalizeBoundedCandidate } from './shapeCalculator';
 import { REFERENCE_GEOMETRIES } from '../../constants/referenceGeometries';
 
 const matching = [[0, 0], [1, 1], [2, 2]];
