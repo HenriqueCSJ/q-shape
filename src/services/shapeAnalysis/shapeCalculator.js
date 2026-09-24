@@ -3,6 +3,17 @@ import kabschAlignment from '../algorithms/kabsch.js';
 import hungarianAlgorithm from '../algorithms/hungarian.js';
 import { SHAPE_MEASURE, KABSCH, PROGRESS } from '../../constants/algorithmConstants.js';
 
+/** Score the normalized residual after minimizing over a nonnegative scale. */
+export function nonnegativeScaleMeasure(normalizedOverlap) {
+    if (!Number.isFinite(normalizedOverlap)) {
+        throw new TypeError('Normalized overlap must be finite');
+    }
+    // Negative overlap has its constrained optimum at zero scale. The upper
+    // clamp handles roundoff beyond the Cauchy-Schwarz bound for unit RMS sets.
+    const scale = Math.max(0, Math.min(1, normalizedOverlap));
+    return 100 * (1 - scale * scale);
+}
+
 /**
  * Generate all permutations of an array (Heap's algorithm)
  * @param {number[]} arr - Array of indices to permute
@@ -89,15 +100,9 @@ function exhaustivePermutationSearch(P_vecs, Q_vecs) {
         // Both P and Q are centroid-normalized, so skip recentering to avoid numerical drift
         const rotation = kabschAlignment(P_ordered, Q_ordered, true);
 
-        // Compute CShM with this rotation and matching
-        // Use SHAPE/cosymlib formula: CShM = 100 * (1 - (overlap/N)²)
-        // where overlap = sum_i (Rp_i · q_i)
+        // Compute the constrained-scale residual for this rotation/matching.
         const overlap = computeOverlap(rotation, matching);
-
-        // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
-        // Clamp overlapNorm to [-1, 1] to prevent floating-point errors from causing negative CShM
-        const overlapNorm = Math.max(-1, Math.min(1, overlap / N));
-        const measure = Math.max(0, 100 * (1 - overlapNorm * overlapNorm));
+        const measure = nonnegativeScaleMeasure(overlap / N);
 
         if (measure < bestMeasure) {
             bestMeasure = measure;
@@ -458,10 +463,7 @@ function calculateShapeMeasure(actualCoords, referenceCoords, mode = 'default', 
             // Compute overlap (sum of dot products) for the matching
             const overlap = matching.reduce((sum, [i, j]) => sum + rotatedP[i].dot(Q_vecs[j]), 0);
 
-            // SHAPE formula: CShM = 100 * (1 - (overlap/N)²)
-            // Clamp overlapNorm to [-1, 1] to prevent floating-point errors from causing negative CShM
-            const overlapNorm = Math.max(-1, Math.min(1, overlap / N));
-            const measure = Math.max(0, 100 * (1 - overlapNorm * overlapNorm));
+            const measure = nonnegativeScaleMeasure(overlap / N);
 
             return { measure, matching };
         };
