@@ -47,7 +47,7 @@ function referenceDocument() {
 function setupFixtures() {
     if (fixtureDirectory) return;
     fixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'qshape-meta-worker-'));
-    generatedDocument = generator.generateMetamorphicCases(REPO_ROOT).document;
+    generatedDocument = generator.generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const casesText = `${JSON.stringify(generatedDocument, null, 2)}\n`;
     assert.equal(
         crypto.createHash('sha256').update(casesText).digest('hex'),

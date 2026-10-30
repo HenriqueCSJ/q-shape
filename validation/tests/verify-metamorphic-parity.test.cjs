@@ -46,7 +46,7 @@ const PRODUCTION_CANDIDATE_SOURCE_PATHS = Object.freeze([
     'validation/scripts/verify-metamorphic-parity.cjs'
 ]);
 
-const generated = generator.generateMetamorphicCases(REPO_ROOT);
+const generated = generator.generateHistoricalMetamorphicCases(REPO_ROOT);
 const caseText = `${JSON.stringify(generated.document, null, 2)}\n`;
 const caseBytes = Buffer.from(caseText, 'utf8');
 const references = referencePreparation.buildMetamorphicReferenceDocument(

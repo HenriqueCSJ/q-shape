@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
-const { generateMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
+const { generateHistoricalMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -28,7 +28,7 @@ test('pre-execution clarification freezes five Q streams and consensus semantics
 });
 
 test('frozen relational and ideal-self censuses are exact', () => {
-    const document = generateMetamorphicCases(REPO_ROOT).document;
+    const document = generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const idealSelf = document.cases.filter(item =>
         item.recipe_id === 'canonical' || item.recipe_category === 'representation'
     );
@@ -58,7 +58,7 @@ test('frozen relational and ideal-self censuses are exact', () => {
 });
 
 test('the frozen document has 2871 case IDs but 2870 serialized coordinate arrays', () => {
-    const document = generateMetamorphicCases(REPO_ROOT).document;
+    const document = generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const groups = new Map();
     for (const item of document.cases) {
         const key = JSON.stringify(item.qshape_actual_ligand_tokens);

@@ -43,7 +43,7 @@ test('canonical Q-Shape reference fingerprint binds all 87 names, coordinates, a
             }))
         }))
     };
-    const expected = '33e90f101fdc784a5de9c278dcc6d802390986575d7d7b1cb52c475110be1a71';
+    const expected = '88184ae9abb16566c30f53f46aa4e5d18fc24728227af67d6f342503063f47ca';
     assert.equal(verifier.qshapeReferenceInventoryFingerprint(document), expected);
     document.by_cn[0].references[0].qshape_reference_coordinate_float64_hex[0][0] =
         '0000000000000000';
@@ -72,11 +72,12 @@ test('all ideal and fixture cases feed identical canonical coordinate tokens to 
     }
 });
 
-test('the SHAPE code mapping contains exactly the three audited aliases', () => {
+test('the SHAPE code mapping retains the three low-CN aliases and adds TRIC-60', () => {
     assert.deepEqual(core.SHAPE_CODE_ALIASES, {
         '3:fac-vOC-3': 'fvOC-3',
         '3:mer-vOC-3': 'mvOC-3',
-        '8:JBTP-8': 'JBTPR-8'
+        '8:JBTP-8': 'JBTPR-8',
+        '60:TIC-60': 'TRIC-60'
     });
     assert.equal(core.expectedShapeCode(4, 'SP-4'), 'SP-4');
 });

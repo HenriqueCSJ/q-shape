@@ -21,6 +21,12 @@ Four historical ideal inputs then represent the earlier Johnson coordinates;
 current-library ideal self-recovery is a separate test. If input coordinates
 change, their SHAPE oracle rows must be recomputed before comparison.
 
+Historical metamorphic v1 test fixtures use the explicit
+`generateHistoricalMetamorphicCases` replay entry point, bound to the retained
+feec5b2 reference rows and unchanged preregistered document digest. The default
+generator still rejects the changed active library; it must not silently create
+new inputs under the old campaign identity.
+
 Source-bound campaign results belong to their exact Git commit. A library
 correction does not imply that bounded search always reaches a global minimum.
 For CN20–CN60, fixed-pairing SHAPE scores are attainable bounds for specified

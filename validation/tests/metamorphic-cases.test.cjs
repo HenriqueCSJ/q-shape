@@ -20,14 +20,14 @@ const {
     SENSITIVITY_SEEDS,
     TOTAL_CASES_PER_REFERENCE,
     classifyPointGroupChirality,
-    generateMetamorphicCases
+    generateHistoricalMetamorphicCases
 } = require('../scripts/metamorphic-cases.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 let cached = null;
 
 function generated() {
-    if (!cached) cached = generateMetamorphicCases(REPO_ROOT);
+    if (!cached) cached = generateHistoricalMetamorphicCases(REPO_ROOT);
     return cached;
 }
 
@@ -184,7 +184,7 @@ test('every case identifier, SHAPE structure identifier, and fixed15 input is ex
 
 test('generation is byte-deterministic and sign-paired recipes share frozen selections', () => {
     const first = generated();
-    const second = generateMetamorphicCases(REPO_ROOT);
+    const second = generateHistoricalMetamorphicCases(REPO_ROOT);
     assert.equal(documentHash(first.document), documentHash(second.document));
     assert.equal(documentHash(first.document), PREREGISTERED_DOCUMENT_SHA256);
     assert.deepEqual(first.document, second.document);

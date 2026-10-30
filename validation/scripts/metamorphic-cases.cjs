@@ -529,11 +529,11 @@ function serializeCase(item) {
     };
 }
 
-function generateMetamorphicCases(repoRoot) {
+function generateMetamorphicCases(repoRoot, frozenReferences = null) {
     assert(RECIPE_REGISTRY.length === CASES_PER_REFERENCE, 'Recipe registry must contain 30 cases');
     assert(ADVERSARIAL_RECIPE_REGISTRY.length === ADVERSARIAL_CASES_PER_REFERENCE,
         'Adversarial recipe registry must contain 3 cases');
-    const { referenceGeometries, pointGroups } = loadQShape(repoRoot);
+    const { referenceGeometries, pointGroups } = frozenReferences || loadQShape(repoRoot);
     const inventory = buildReferenceInventory(referenceGeometries);
     for (const group of inventory) {
         for (const target of group.targets) {
@@ -632,6 +632,26 @@ function generateMetamorphicCases(repoRoot) {
     return { inventory, cases, mainCases, adversarialCases, document };
 }
 
+// Explicit replay of the preregistered historical inputs. New reference
+// coordinates must use a new campaign; the default generator still refuses them.
+function generateHistoricalMetamorphicCases(repoRoot) {
+    const filename = path.join(repoRoot, 'validation/tests/fixtures/direct-parity-feec5b2-references.json');
+    const document = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    const referenceGeometries = {}, pointGroups = {};
+    for (const group of document.by_cn) {
+        referenceGeometries[group.cn] = {};
+        for (const reference of group.references) {
+            referenceGeometries[group.cn][reference.qshape_name] =
+                reference.qshape_reference_coordinate_roundtrip_tokens.map(point => point.map(Number));
+            // Preserve the original Q-Shape labels, rather than SHAPE's listing
+            // spelling (Dinfh) or its JEPBPY-12 point-group typo (D6h).
+            pointGroups[reference.qshape_name] = reference.qshape_code === 'L-2' ? 'D∞h'
+                : reference.qshape_code === 'JEPBPY-12' ? 'D5h' : reference.shape_point_group;
+        }
+    }
+    return generateMetamorphicCases(repoRoot, { referenceGeometries, pointGroups });
+}
+
 function parseArguments(argv) {
     const options = { output: null, repo: path.resolve(__dirname, '..', '..') };
     for (let index = 0; index < argv.length; index++) {
@@ -693,6 +713,7 @@ module.exports = {
     classifyPointGroupChirality,
     deriveSeed,
     generateMetamorphicCases,
+    generateHistoricalMetamorphicCases,
     permutationOrder,
     rotateVector
 };

@@ -21,3 +21,10 @@ test('JSPC-10 uses J86; TIC-60 retains its saved-record name and SHAPE alias',()
     assert.ok(referenceGeometries[60]['TIC-60 (Truncated Icosahedron)']);
     assert.equal(expectedShapeCode(60,'TIC-60'),'TRIC-60');
 });
+test('preregistered metamorphic v1 rejects changed active references while explicit historical replay preserves its original document',()=>{
+    const {generateMetamorphicCases,generateHistoricalMetamorphicCases,PREREGISTERED_DOCUMENT_SHA256}=require('../scripts/metamorphic-cases.cjs');
+    assert.throws(()=>generateMetamorphicCases(root),/changed after preregistration/);
+    const {document}=generateHistoricalMetamorphicCases(root);
+    const digest=require('node:crypto').createHash('sha256').update(JSON.stringify(document,null,2)+'\n').digest('hex');
+    assert.equal(digest,PREREGISTERED_DOCUMENT_SHA256);
+});

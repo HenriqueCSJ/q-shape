@@ -8,7 +8,7 @@ const path = require('node:path');
 
 const {
     PREREGISTERED_DOCUMENT_SHA256,
-    generateMetamorphicCases
+    generateHistoricalMetamorphicCases
 } = require('../../scripts/metamorphic-cases.cjs');
 const {
     DIRECT_REFERENCES_SHA256
@@ -37,7 +37,7 @@ function directReferencesPath() {
 
 function frozenCasesBytes() {
     if (!cachedCasesBytes) {
-        const { document } = generateMetamorphicCases(REPO_ROOT);
+        const { document } = generateHistoricalMetamorphicCases(REPO_ROOT);
         cachedCasesBytes = Buffer.from(`${JSON.stringify(document, null, 2)}\n`, 'utf8');
         assert.equal(sha256(cachedCasesBytes), PREREGISTERED_DOCUMENT_SHA256);
     }

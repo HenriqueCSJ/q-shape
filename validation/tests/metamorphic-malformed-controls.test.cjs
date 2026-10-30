@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { generateMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
+const { generateHistoricalMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
 const {
     CONTROL_CAMPAIGN_ID,
     POSITIVE_CASES_SHA256,
@@ -24,7 +24,7 @@ let positive;
 
 test.before(() => {
     loadQShape(REPO_ROOT);
-    positive = generateMetamorphicCases(REPO_ROOT).document;
+    positive = generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const pretty = Buffer.from(`${JSON.stringify(positive, null, 2)}\n`, 'utf8');
     assert.equal(sha256Buffer(pretty), POSITIVE_CASES_SHA256);
 });

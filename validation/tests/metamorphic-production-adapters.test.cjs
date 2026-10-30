@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const adapters = require('../scripts/metamorphic-production-adapters.cjs');
 const directCore = require('../scripts/direct-parity-core.cjs');
-const { generateMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
+const { generateHistoricalMetamorphicCases } = require('../scripts/metamorphic-cases.cjs');
 const malformedControls = require('../scripts/metamorphic-malformed-controls.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -283,7 +283,7 @@ test('malformed adapter executes the exact frozen control bytes instead of regen
 
 test('default malformed adapter invokes raw SHAPE and real Q-Shape product boundaries', async () => {
     const files = memoryFs();
-    const positive = generateMetamorphicCases(REPO_ROOT).document;
+    const positive = generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const document = malformedControls.buildMalformedControlDocument(positive);
     const shapeCalls = [];
     const production = adapters.createProductionDependencies(baseOptions({ repoRoot: REPO_ROOT }), {
@@ -359,7 +359,7 @@ test('default malformed adapter invokes raw SHAPE and real Q-Shape product bound
 });
 
 test('complete product-boundary mismatch is retained as a scientific gate failure', () => {
-    const positive = generateMetamorphicCases(REPO_ROOT).document;
+    const positive = generateHistoricalMetamorphicCases(REPO_ROOT).document;
     const document = malformedControls.buildMalformedControlDocument(positive);
     const duplicate = document.controls.find(control => control.category === 'duplicate_ligand');
     const loaded = directCore.loadQShape(REPO_ROOT);
