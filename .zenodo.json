@@ -1,7 +1,7 @@
 {
   "title": "Q-Shape - Quantitative Shape Analyzer",
   "version": "1.6.0-rc.2",
-  "description": "Q-Shape 1.6.0-rc.2 is a pre-release candidate for browser-based continuous shape measure calculations, with nonnegative scale and mirror-equivalent comparison, same-coordination-number rankings, 3D overlays, donor selection, batch analysis and report/CSV export. This candidate corrects four Johnson reference coordinate sets from pinned primary Cosymlib data. Scientific comparisons are bound to exact inputs, reference definitions and the evaluated Git commit; engineering tests alone do not establish scientific agreement. CN20-CN60 results remain provisional outside the bounded tested cases. Cite the exact version and source commit used.",
+  "description": "Q-Shape 1.6.0-rc.2 is a pre-release validation candidate for browser-based continuous shape measure calculations, with nonnegative scale and mirror-equivalent comparison, same-coordination-number rankings, 3D overlays, donor selection, batch analysis and report/CSV export. This candidate corrects four Johnson reference coordinate sets from pinned primary Cosymlib data. Scientific comparisons are bound to exact inputs, reference definitions and the evaluated Git commit; engineering tests alone do not establish scientific agreement. CN20-CN60 results remain provisional outside the bounded tested cases. Cite the exact version and source commit used.",
   "creators": [
     {
       "name": "Castro Silva Junior, Henrique",
