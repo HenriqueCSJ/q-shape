@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=3 
+
+TP-3            1 D3h   Trigonal                                           
+vT-3            2 C3v   Vacant tetrahedron                                 
+fvOC-3          3 C3v   fac-Trivacant octahedron                           
+mvOC-3          4 C2v   mer-Trivacant octahedron                           
+
+Structure [ML3 ]         TP-3         vT-3       fvOC-3       mvOC-3
+ I0301          ,       0.000,       3.030,      11.111,       9.526
+ I0302          ,       3.030,       0.000,       2.694,      12.017
+ I0303          ,      11.111,       2.694,       0.000,      18.663
+ I0304          ,       9.526,      12.017,      18.663,       0.000
+ F03            ,       3.638,       0.029,       2.172,      12.515

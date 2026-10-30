@@ -1,0 +1,25 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=11 
+
+HP-11           1 D11h  Hendecagon                                         
+DPY-11          2 C10v  Decagonal pyramid                                  
+EBPY-11         3 D9h   Enneagonal bipyramid                               
+JCPPR-11        4 C5v   Capped pentagonal prism J9                         
+JCPAPR-11       5 C5v   Capped pentagonal antiprism J11                    
+JAPPR-11        6 C2v   Augmented pentagonal prism J52                     
+JASPC-11        7 Cs    Augmented sphenocorona J87                         
+
+Structure [ML11]        HP-11       DPY-11      EBPY-11     JCPPR-11    JCPAPR-11     JAPPR-11     JASPC-11
+ I1101          ,       0.000,      17.198,      27.844,      37.984,      33.385,      28.114,      36.910
+ I1102          ,      17.198,       0.000,      17.552,      28.391,      18.406,      26.388,      22.518
+ I1103          ,      27.844,      17.552,       0.000,      21.953,      17.731,      21.257,      21.792
+ I1104          ,      37.984,      28.391,      21.953,       0.000,       7.188,      12.099,      11.746
+ I1105          ,      33.385,      18.406,      17.731,       7.188,       0.000,      13.396,       5.015
+ I1106          ,      28.114,      26.388,      21.257,      12.099,      13.396,       0.000,      15.412
+ I1107          ,      36.911,      22.519,      21.792,      11.745,       5.015,      15.412,       0.000
+ F11            ,      34.702,      32.380,      28.370,      24.858,      27.022,      21.673,      28.160

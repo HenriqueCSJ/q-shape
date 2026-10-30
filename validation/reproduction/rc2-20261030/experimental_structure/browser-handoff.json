@@ -1,0 +1,154 @@
+{
+  "status": "checks passed; working evidence, not formal figure approval",
+  "source_commit": "9c6a8397be05ad3580269c1b6734cdf5319d2d9b",
+  "software_version": "1.6.0-rc.2",
+  "browser": "Chromium 148.0.7778.96",
+  "cases": [
+    {
+      "name": "02-cn6-minimum",
+      "cn": 6,
+      "radius_A": 2.5,
+      "selected_zero_based_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "mode": "Standard (default)",
+      "minimum": "OC-6 (Octahedral)",
+      "displayed_overlay": "OC-6 (Octahedral)",
+      "references": [
+        {
+          "name": "OC-6 (Octahedral)",
+          "CShM": 1.036084021719741,
+          "alignment_parity": 1
+        },
+        {
+          "name": "TPR-6 (Trigonal Prism)",
+          "CShM": 16.97959569049744,
+          "alignment_parity": 1
+        },
+        {
+          "name": "PPY-6 (Pentagonal Pyramid)",
+          "CShM": 29.0687440966371,
+          "alignment_parity": 1
+        },
+        {
+          "name": "JPPY-6 (Johnson Pentagonal Pyramid, J2)",
+          "CShM": 31.775340283810426,
+          "alignment_parity": 1
+        },
+        {
+          "name": "HP-6 (Hexagon)",
+          "CShM": 32.02107546619345,
+          "alignment_parity": 1
+        }
+      ],
+      "csv_matches_live_inputs_and_results": true,
+      "html_report_matches_live_inputs_and_results": true
+    },
+    {
+      "name": "03-cn6-alternate",
+      "cn": 6,
+      "radius_A": 2.5,
+      "selected_zero_based_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "mode": "Standard (default)",
+      "minimum": "OC-6 (Octahedral)",
+      "displayed_overlay": "TPR-6 (Trigonal Prism)",
+      "references": [
+        {
+          "name": "OC-6 (Octahedral)",
+          "CShM": 1.036084021719741,
+          "alignment_parity": 1
+        },
+        {
+          "name": "TPR-6 (Trigonal Prism)",
+          "CShM": 16.97959569049744,
+          "alignment_parity": 1
+        },
+        {
+          "name": "PPY-6 (Pentagonal Pyramid)",
+          "CShM": 29.0687440966371,
+          "alignment_parity": 1
+        },
+        {
+          "name": "JPPY-6 (Johnson Pentagonal Pyramid, J2)",
+          "CShM": 31.775340283810426,
+          "alignment_parity": 1
+        },
+        {
+          "name": "HP-6 (Hexagon)",
+          "CShM": 32.02107546619345,
+          "alignment_parity": 1
+        }
+      ],
+      "csv_matches_live_inputs_and_results": true,
+      "html_report_matches_live_inputs_and_results": true
+    },
+    {
+      "name": "04-cn4-minimum",
+      "cn": 4,
+      "radius_A": 2.1,
+      "selected_zero_based_indices": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "mode": "Standard (default)",
+      "minimum": "SP-4 (Square Planar)",
+      "displayed_overlay": "SP-4 (Square Planar)",
+      "references": [
+        {
+          "name": "SP-4 (Square Planar)",
+          "CShM": 0.013438116239417042,
+          "alignment_parity": 1
+        },
+        {
+          "name": "SS-4 (Seesaw)",
+          "CShM": 18.749179489666524,
+          "alignment_parity": 1
+        },
+        {
+          "name": "T-4 (Tetrahedral)",
+          "CShM": 33.3422920775131,
+          "alignment_parity": 1
+        },
+        {
+          "name": "vTBPY-4 (Axially Vacant Trigonal Bipyramid)",
+          "CShM": 34.73648058486493,
+          "alignment_parity": -1
+        }
+      ],
+      "csv_matches_live_inputs_and_results": true,
+      "html_report_matches_live_inputs_and_results": true
+    }
+  ],
+  "checks": {
+    "complete_source_coordinates_preserved": true,
+    "full_same_CN_rankings_present": true,
+    "alternate_overlay_does_not_replace_minimum": true,
+    "radius_restore_reproduces_all_CN6_scores_exactly": true,
+    "raw_CIF_symmetry_advisory_shown": true,
+    "replacing_CIF_with_XYZ_clears_import_advisory": true,
+    "CSV_source_commit_inputs_full_precision_alignment_preserved": true,
+    "native_high_resolution_canvases_match_retained_UI_states": true,
+    "HTML_report_version_source_minimum_overlay_inputs_results_preserved": true
+  },
+  "limitations": [
+    "The native CSV has no separate version field; it retains the exact source commit. UI and report retain both.",
+    "Full-precision report JSON is in the retained HTML expandable record. Print CSS hides it; printed donor coordinates are rounded to four decimals. The printed PDF alone is not the full-precision archive.",
+    "Raw asymmetric-unit CIF import is not the experimental coordination-sphere analysis: it does not expand symmetry and includes H positions in the ordinary radius selection.",
+    "The four-donor comparison is a selected geometric subset, not a chemical coordination-number reassignment.",
+    "This run tests single-structure radius restoration, not saved batch restoration."
+  ]
+}

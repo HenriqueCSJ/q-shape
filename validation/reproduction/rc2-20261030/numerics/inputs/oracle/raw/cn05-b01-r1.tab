@@ -1,0 +1,21 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=5 
+
+PP-5            1 D5h   Pentagon                                           
+vOC-5           2 C4v   Vacant octahedron                                  
+TBPY-5          3 D3h   Trigonal bipyramid                                 
+SPY-5           4 C4v   Spherical square pyramid                           
+JTBPY-5         5 D3h   Johnson trigonal bipyramid J12                     
+
+Structure [ML5 ]         PP-5        vOC-5       TBPY-5        SPY-5      JTBPY-5
+ I0501          ,       0.000,      32.225,      37.069,      33.298,      37.282
+ I0502          ,      32.225,       0.000,       7.342,       1.741,       8.614
+ I0503          ,      37.069,       7.342,       0.000,       5.384,       2.941
+ I0504          ,      33.298,       1.741,       5.384,       0.000,       8.286
+ I0505          ,      37.282,       8.614,       2.941,       8.286,       0.000
+ F05            ,      29.865,       6.197,       5.069,       4.225,       7.239

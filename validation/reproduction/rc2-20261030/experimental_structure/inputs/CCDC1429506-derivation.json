@@ -1,0 +1,237 @@
+{
+  "status": "working experimental input; no formal figure approval",
+  "citation": {
+    "authors": [
+      "Tamara J. Lukianova",
+      "Vasyl Kinzhybalo",
+      "Adam Pietraszko"
+    ],
+    "title": "Crystal structure of new organically templated copper sulfate with 2-aminopyridinium",
+    "journal": "Acta Crystallographica Section E",
+    "year": 2015,
+    "volume": 71,
+    "pages": "m191-m192",
+    "doi": "10.1107/S2056989015018629",
+    "accession": "CCDC 1429506",
+    "article_url": "https://journals.iucr.org/e/issues/2015/11/00/hp2072/",
+    "cif_doi": "10.1107/S2056989015018629/hp2072sup1.cif",
+    "download_url": "https://scripts.iucr.org/cgi-bin/sendcif?hp2072"
+  },
+  "source_file": "inputs/hp2072sup1.cif",
+  "source_datablock": "I",
+  "coordinate_source": "Published _atom_site_fract table; standard uncertainties removed for numeric conversion only. Embedded SHELXL coordinates are not substituted.",
+  "units": "angstrom",
+  "cell_a_b_c_alpha_beta_gamma": [
+    7.115,
+    8.211,
+    12.561,
+    91.83,
+    104.59,
+    114.57
+  ],
+  "basis_vectors_A": [
+    [
+      7.115,
+      0.0,
+      0.0
+    ],
+    [
+      -3.4141720657713948,
+      7.4675263712494715,
+      0.0
+    ],
+    [
+      -3.1641216440507005,
+      -1.887704921702613,
+      12.008481392342231
+    ]
+  ],
+  "deposited_symmetry_operators": [
+    "x,y,z",
+    "-x,-y,-z"
+  ],
+  "expanded_operator_about_Cu1": "1-x,1-y,1-z",
+  "center_source": {
+    "label": "Cu1",
+    "element": "Cu",
+    "fractional": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "occupancy": 1.0
+  },
+  "origin_shift_only": true,
+  "refinement_or_optimization": false,
+  "translation_search": [
+    -2,
+    2
+  ],
+  "complete_sphere_radius_A": 2.5,
+  "shorter_subset_radius_A": 2.1,
+  "next_nonhydrogen_distance_A": 3.9372672202142045,
+  "atoms": [
+    {
+      "cif_label": "O11W",
+      "element": "O",
+      "operator": "x,y,z",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "fractional": [
+        0.1945,
+        0.4686,
+        0.35088
+      ],
+      "cartesian_centered_A": [
+        -1.594593677573938,
+        0.04701422986706033,
+        -1.7907047452260731
+      ],
+      "distance_A": 2.398241609793297,
+      "xyz_zero_based_index": 1,
+      "app_atom_label": "O",
+      "app_selector_label": "#2: O",
+      "source_display_label": "O11W"
+    },
+    {
+      "cif_label": "O11W",
+      "element": "O",
+      "operator": "-x,-y,-z",
+      "translation": [
+        1,
+        1,
+        1
+      ],
+      "fractional": [
+        0.8055,
+        0.5314,
+        0.6491199999999999
+      ],
+      "cartesian_centered_A": [
+        1.5945936775739382,
+        -0.04701422986706022,
+        1.7907047452260725
+      ],
+      "distance_A": 2.398241609793297,
+      "xyz_zero_based_index": 2,
+      "app_atom_label": "O",
+      "app_selector_label": "#3: O",
+      "source_display_label": "O11W^i"
+    },
+    {
+      "cif_label": "O12W",
+      "element": "O",
+      "operator": "x,y,z",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "fractional": [
+        0.3772,
+        0.2434,
+        0.50851
+      ],
+      "cartesian_centered_A": [
+        -0.02457212311393183,
+        -1.9322316357463036,
+        0.1021921766488326
+      ],
+      "distance_A": 1.9350881438274041,
+      "xyz_zero_based_index": 3,
+      "app_atom_label": "O",
+      "app_selector_label": "#4: O",
+      "source_display_label": "O12W"
+    },
+    {
+      "cif_label": "O12W",
+      "element": "O",
+      "operator": "-x,-y,-z",
+      "translation": [
+        1,
+        1,
+        1
+      ],
+      "fractional": [
+        0.6228,
+        0.7565999999999999,
+        0.49149
+      ],
+      "cartesian_centered_A": [
+        0.024572123113932053,
+        1.9322316357463032,
+        -0.1021921766488326
+      ],
+      "distance_A": 1.9350881438274037,
+      "xyz_zero_based_index": 4,
+      "app_atom_label": "O",
+      "app_selector_label": "#5: O",
+      "source_display_label": "O12W^i"
+    },
+    {
+      "cif_label": "O13W",
+      "element": "O",
+      "operator": "x,y,z",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "fractional": [
+        0.368,
+        0.5392,
+        0.61353
+      ],
+      "cartesian_centered_A": [
+        -1.4322382752273148,
+        0.07841589399208168,
+        1.3633228924726137
+      ],
+      "distance_A": 1.9789150660391124,
+      "xyz_zero_based_index": 5,
+      "app_atom_label": "O",
+      "app_selector_label": "#6: O",
+      "source_display_label": "O13W"
+    },
+    {
+      "cif_label": "O13W",
+      "element": "O",
+      "operator": "-x,-y,-z",
+      "translation": [
+        1,
+        1,
+        1
+      ],
+      "fractional": [
+        0.632,
+        0.4608,
+        0.38647
+      ],
+      "cartesian_centered_A": [
+        1.4322382752273148,
+        -0.07841589399208168,
+        -1.3633228924726137
+      ],
+      "distance_A": 1.9789150660391124,
+      "xyz_zero_based_index": 6,
+      "app_atom_label": "O",
+      "app_selector_label": "#7: O",
+      "source_display_label": "O13W^i"
+    }
+  ],
+  "checks": {
+    "six_nonhydrogen_neighbors_within_2p5_A": true,
+    "four_within_2p1_A": true,
+    "inversion_pairs_match": true,
+    "published_distances_match_within_0p0006_A": true
+  },
+  "interpretation": "The paper describes six-coordinate elongated CuO6. The four-shorter-donor selection is a geometric subset used to demonstrate selection-dependent CShM; it is not a reassignment to chemically preferred CN4.",
+  "limitations": [
+    "The XYZ contains the metal and six donor O atoms only; water H atoms and crystal packing are omitted.",
+    "Q-Shape XYZ selectors use atom indices and element labels; the 3D labels show elements. Original CIF label mapping is retained here.",
+    "Q-Shape does not expand crystal symmetry; expansion is performed externally by this script."
+  ]
+}

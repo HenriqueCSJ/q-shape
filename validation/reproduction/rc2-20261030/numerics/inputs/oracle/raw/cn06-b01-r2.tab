@@ -1,0 +1,21 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=6 
+
+HP-6            1 D6h   Hexagon                                            
+PPY-6           2 C5v   Pentagonal pyramid                                 
+OC-6            3 Oh    Octahedron                                         
+TPR-6           4 D3h   Trigonal prism                                     
+JPPY-6          5 C5v   Johnson pentagonal pyramid J2                      
+
+Structure [ML6 ]         HP-6        PPY-6         OC-6        TPR-6       JPPY-6
+ I0601          ,       0.000,      28.646,      33.333,      33.675,      25.750
+ I0602          ,      28.646,       0.000,      30.437,      17.016,       2.004
+ I0603          ,      33.333,      30.437,       0.000,      16.737,      34.028
+ I0604          ,      33.675,      17.016,      16.737,       0.000,      21.048
+ I0605          ,      25.750,       2.004,      34.028,      21.048,       0.000
+ F06            ,      32.496,      29.254,       0.216,      15.861,      32.534

@@ -1,0 +1,6 @@
+
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+
+* ERROR * DD-20-distortion-0pct-representation-0.d.dat file not found

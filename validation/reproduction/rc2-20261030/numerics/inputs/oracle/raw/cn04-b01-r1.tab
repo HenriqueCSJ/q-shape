@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=4 
+
+SP-4            1 D4h   Square                                             
+T-4             2 Td    Tetrahedron                                        
+SS-4            3 C2v   Seesaw                                             
+vTBPY-4         4 C3v   Vacant trigonal bipyramid                          
+
+Structure [ML4 ]         SP-4          T-4         SS-4      vTBPY-4
+ I0401          ,       0.000,      33.333,      19.050,      34.875
+ I0402          ,      33.333,       0.000,       9.790,       3.573
+ I0403          ,      19.050,       9.790,       0.000,       8.233
+ I0404          ,      34.875,       3.573,       8.233,       0.000
+ F04            ,       0.027,      31.944,      17.861,      33.487

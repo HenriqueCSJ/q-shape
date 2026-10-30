@@ -1,0 +1,82 @@
+{
+  "rows": 952,
+  "environments": 98,
+  "binary64_repeat_mismatches": 0,
+  "max_independent_alignment_residual": 5.551115123125783e-16,
+  "max_independent_score_residual": 1.9184653865522705e-13,
+  "MAE": "0.000006336505433192418125974809648",
+  "max_abs_difference": "0.001089666707903",
+  "within_rounding": 943,
+  "nearest_agreement": 98,
+  "pair_count": 4896,
+  "discordant_pairs": 0,
+  "by_cn": [
+    {
+      "cn": 2,
+      "comparisons": 12,
+      "within_rounding": 12,
+      "max_difference": "0.0000047620623925"
+    },
+    {
+      "cn": 3,
+      "comparisons": 20,
+      "within_rounding": 20,
+      "max_difference": "0.0000045722266081"
+    },
+    {
+      "cn": 4,
+      "comparisons": 20,
+      "within_rounding": 20,
+      "max_difference": "0.000004963363230"
+    },
+    {
+      "cn": 5,
+      "comparisons": 30,
+      "within_rounding": 30,
+      "max_difference": "0.000004906109172"
+    },
+    {
+      "cn": 6,
+      "comparisons": 30,
+      "within_rounding": 30,
+      "max_difference": "0.000004639230983"
+    },
+    {
+      "cn": 7,
+      "comparisons": 56,
+      "within_rounding": 56,
+      "max_difference": "0.000004779057520"
+    },
+    {
+      "cn": 8,
+      "comparisons": 182,
+      "within_rounding": 182,
+      "max_difference": "0.000004999740044"
+    },
+    {
+      "cn": 9,
+      "comparisons": 182,
+      "within_rounding": 182,
+      "max_difference": "0.000004959004082"
+    },
+    {
+      "cn": 10,
+      "comparisons": 182,
+      "within_rounding": 177,
+      "max_difference": "0.001089666707903"
+    },
+    {
+      "cn": 11,
+      "comparisons": 56,
+      "within_rounding": 56,
+      "max_difference": "0.000004416077725"
+    },
+    {
+      "cn": 12,
+      "comparisons": 182,
+      "within_rounding": 178,
+      "max_difference": "0.000563547393179"
+    }
+  ],
+  "source_binding": "Numerical records declare7a995b9;9c6a839 changes one Zenodo-descriptionword only, independently verified by Git diff."
+}

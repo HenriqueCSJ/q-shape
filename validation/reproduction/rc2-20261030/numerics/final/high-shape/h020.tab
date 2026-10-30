@@ -1,0 +1,15 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Bounded fixed-pairing control; not global minimization 
+
+QTOC-24         0 C1    Exact rc.2 reference; designated center last       
+
+Fixed vertices permutation used for CShM
+  24  11   4  21  10  23  20   5   2   9   7  14   1   8  22  16   3  18   6  19  17  15  12  13   0
+
+Structure [ML24]      QTOC-24
+ HIGH_CASE      ,       0.000

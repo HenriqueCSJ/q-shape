@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "9c6a8397be05ad3580269c1b6734cdf5319d2d9b",
+  "sourceBranch": "codex/claude-revisions-20261030",
+  "sourceIdentityKind": "observed-git-revision",
+  "observedGitCommit": "9c6a8397be05ad3580269c1b6734cdf5319d2d9b",
+  "cleanGitTree": true,
+  "mode": "high",
+  "analysisMode": "default",
+  "seedPolicy": "input-derived",
+  "startedAt": "2026-10-30T12:47:32.192Z",
+  "node": "v24.19.0",
+  "nodeExecutable": "C:\\Users\\henri\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe",
+  "os": "Windows 11 Pro",
+  "executionPolicy": "Serial fits within each process; low-CN campaigns may run concurrently. High-CN timing campaign is isolated from other Q-Shape campaigns.",
+  "oracleRerun": false
+}

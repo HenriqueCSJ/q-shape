@@ -1,0 +1,25 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=7 
+
+HP-7            1 D7h   Heptagon                                           
+HPY-7           2 C6v   Hexagonal pyramid                                  
+PBPY-7          3 D5h   Pentagonal bipyramid                               
+COC-7           4 C3v   Capped octahedron                                  
+CTPR-7          5 C2v   Capped trigonal prism                              
+JPBPY-7         6 D5h   Johnson pentagonal bipyramid J13                   
+JETPY-7         7 C3v   Johnson elongated triangular pyramid J7            
+
+Structure [ML7 ]         HP-7        HPY-7       PBPY-7        COC-7       CTPR-7      JPBPY-7      JETPY-7
+ I0701          ,       0.000,      25.468,      35.213,      36.422,      31.071,      33.606,      35.009
+ I0702          ,      25.468,       0.000,      26.688,      20.778,      22.767,      24.484,      20.189
+ I0703          ,      35.213,      26.688,       0.000,       8.582,       6.675,       3.616,      25.644
+ I0704          ,      36.422,      20.778,       8.582,       0.000,       2.007,      12.028,      19.754
+ I0705          ,      31.071,      22.767,       6.675,       2.007,       0.000,      10.012,      20.682
+ I0706          ,      33.606,      24.484,       3.616,      12.028,      10.012,       0.000,      26.457
+ I0707          ,      35.009,      20.189,      25.644,      19.754,      20.682,      26.457,       0.000
+ F07            ,      35.213,      26.687,       0.000,       8.581,       6.675,       3.616,      25.644

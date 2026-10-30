@@ -1,0 +1,101 @@
+🔬 Q-Shape (Quantitative Shape Analyzer)
+
+Advanced Coordination Geometry Analysis
+
+Version 1.6.0-rc.2 | Build: 2026-10-30 12:42 UTC | Source: 9c6a8397be05
+
+Cite this: Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0-rc.2; pre-release validation candidate; archival DOI pending for this candidate). Source repository
+
+📁 Load Molecular Structure (.xyz, .cif)
+
+Supports single/multi-frame XYZ and Cartesian or fractional-coordinate CIF blocks (no symmetry or periodic expansion)
+
+📄
+Single Structure Mode
+Format: XYZ| Current: CCDC1429506-CuO6
+🎯 Metal Center
+Select central atom
+#1: Cu ⭐
+#2: O
+#3: O
+#4: O
+#5: O
+#6: O
+#7: O
+📏 Coordination Radius: 2.10 Å
+Auto
+±0.50 Å
+±0.10 Å
+±0.05 Å
+±0.01 Å
++
+−
+🎯 Find Radius by Coordination Number
+Find Radius
+Automatically finds optimal radius for target CN using gap detection
+📊 Coordination Summary
+Metal:
+Cu
+CN:
+4
+Ligands:
+O, O, O, O
+📏 Bond Statistics
+Mean: 1.957 Å
+Std Dev: 0.022 Å
+Min: 1.935 Å
+Max: 1.979 Å
+🎯 Selected Analysis
+SP-4 (Square Planar)
+0.0134
+dimensionless CShM
+Rank: 1 of 4
+Reference symmetry: D4h
+ΔCShM to best: 0.0000
+Nearest CShM gap: 18.7357
+M–L length CV: 1.12%
+All-pair angle spread: 42.43°
+Standard mode. CShM gaps are numerical separations, not confidence probabilities.
+⚡ Run Extended Search
+📄 Generate Report
+📊 Download CSV
+What this does: Using the larger bounded search for CN 4 (denser grid, more restarts, and longer refinement). A lower CShM is possible but not guaranteed.
+🎨 3D Visualization
+Show Ideal
+Labels
+Rotate
+
+CShM treats mirror images as equivalent. SP-4 (Square Planar): Proper reference alignment. Molecular coordinates are unchanged. CShM does not determine absolute configuration.
+
+💡 Mouse: rotate • Scroll: zoom • Right-click: pan
+
+📈 Geometry Analysis Results
+
+💡 Click on any available geometry to visualize it in 3D
+
+👁️ 1. SP-4 (Square Planar) ⭐
+D4h
+Proper reference alignment
+0.0134
+2. SS-4 (Seesaw)
+C2v
+Proper reference alignment
+18.7492
+3. T-4 (Tetrahedral)
+Td
+Proper reference alignment
+33.3423
+4. vTBPY-4 (Axially Vacant Trigonal Bipyramid)
+C3v
+Mirrored reference alignment
+34.7365
+📚 References
+Pinsky, M.; Avnir, D. Inorg. Chem. 1998, 37, 5575–5582.
+Alvarez, S. et al. Coord. Chem. Rev. 2005, 249, 1693–1708.
+Llunell, M. et al. SHAPE 2.1, Universitat de Barcelona, 2013.
+
+Universidade Federal Rural do Rio de Janeiro (UFRRJ)
+
+Departamento de Química Fundamental
+
+Prof. Dr. Henrique C. S. Junior

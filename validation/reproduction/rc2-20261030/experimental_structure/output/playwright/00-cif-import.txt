@@ -1,0 +1,106 @@
+🔬 Q-Shape (Quantitative Shape Analyzer)
+
+Advanced Coordination Geometry Analysis
+
+Version 1.6.0-rc.2 | Build: 2026-10-30 12:42 UTC | Source: 9c6a8397be05
+
+Cite this: Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0-rc.2; pre-release validation candidate; archival DOI pending for this candidate). Source repository
+
+⚠️ Import warnings for hp2072sup1:
+Fractional CIF coordinates were converted to Cartesian coordinates from the unit cell; crystallographic symmetry and periodic images are not expanded.
+📁 Load Molecular Structure (.xyz, .cif)
+
+Supports single/multi-frame XYZ and Cartesian or fractional-coordinate CIF blocks (no symmetry or periodic expansion)
+
+📄
+Single Structure Mode
+Format: CIF| Current: I
+🎯 Metal Center
+Select central atom
+#1: Cu ⭐
+#2: O
+#3: H
+#4: H
+#5: O
+#6: H
+#7: H
+#8: O
+#9: H
+#10: H
+#11: S
+#12: O
+#13: O
+#14: O
+#15: O
+#16: N
+#17: H
+#18: N
+#19: H
+#20: H
+#21: C
+#22: C
+#23: H
+#24: C
+#25: H
+#26: C
+#27: H
+#28: C
+#29: H
+#30: O
+#31: H
+#32: H
+#33: O
+#34: H
+#35: H
+📏 Coordination Radius: 3.31 Å
+Auto
+±0.50 Å
+±0.10 Å
+±0.05 Å
+±0.01 Å
++
+−
+🎯 Find Radius by Coordination Number
+Find Radius
+Automatically finds optimal radius for target CN using gap detection
+📊 Coordination Summary
+Metal:
+Cu
+CN:
+9
+Ligands:
+O, O, O, H, H, H, H, H, H
+📏 Bond Statistics
+Mean: 2.447 Å
+Std Dev: 0.318 Å
+Min: 1.935 Å
+Max: 2.940 Å
+⚡ Run Extended Search
+📄 Generate Report
+📊 Download CSV
+What this does: Using deterministic pair-frame search for CN 9, followed by the larger bounded search when needed. Near-ideal cases can finish before the extra stages and match Standard.
+Analyzing: CCU-9 (Capped Cube) (6/13)
+%
+Stage: Initializing
+🎨 3D Visualization
+Show Ideal
+Labels
+Rotate
+
+💡 Mouse: rotate • Scroll: zoom • Right-click: pan
+
+📈 Geometry Analysis Results
+🔬
+Running Standard Analysis
+CCU-9 (Capped Cube)
+Initializing • %
+📚 References
+Pinsky, M.; Avnir, D. Inorg. Chem. 1998, 37, 5575–5582.
+Alvarez, S. et al. Coord. Chem. Rev. 2005, 249, 1693–1708.
+Llunell, M. et al. SHAPE 2.1, Universitat de Barcelona, 2013.
+
+Universidade Federal Rural do Rio de Janeiro (UFRRJ)
+
+Departamento de Química Fundamental
+
+Prof. Dr. Henrique C. S. Junior

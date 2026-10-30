@@ -1,0 +1,17 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=2 
+
+L-2             1 Dinfh Linear                                             
+vT-2            2 C2v   Divacant tetrahedron                               
+vOC-2           3 C2v   Tetravacant octahedron                             
+
+Structure [ML2 ]          L-2         vT-2        vOC-2
+ I0201          ,       0.000,      14.286,      25.000
+ I0202          ,      14.286,       0.000,       1.838
+ I0203          ,      25.000,       1.838,       0.000
+ F02            ,       9.998,       0.433,       4.021

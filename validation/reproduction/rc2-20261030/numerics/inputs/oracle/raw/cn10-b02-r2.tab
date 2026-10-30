@@ -1,0 +1,25 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+Q-Shape direct parity validation, CN=10 
+
+HD-10          13 D4h   Hexadecahedron (2:6:2) or (1:4:4:1)                
+
+Structure [ML10]        HD-10
+ I1001          ,      33.105
+ I1002          ,      29.218
+ I1003          ,      16.606
+ I1004          ,      12.040
+ I1005          ,       6.422
+ I1006          ,       2.699
+ I1007          ,       9.988
+ I1008          ,       7.336
+ I1009          ,      19.067
+ I1010          ,      11.297
+ I1011          ,       4.667
+ I1012          ,       6.191
+ I1013          ,       0.000
+ F10            ,      16.933

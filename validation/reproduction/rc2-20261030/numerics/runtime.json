@@ -1,0 +1,22 @@
+{
+  "nodeExecutable": "C:/Users/henri/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe",
+  "os": {
+    "Caption": "Microsoft Windows 11 Pro",
+    "Version": "10.0.26100",
+    "TotalVisibleMemorySize": 33051344
+  },
+  "cpu": {
+    "Name": "Intel(R) Core(TM) Ultra 9 185H",
+    "NumberOfCores": 16,
+    "NumberOfLogicalProcessors": 22
+  },
+  "dependencyInstall": "npm ci --ignore-scripts --no-audit --no-fund from rc.2 lockfile in task-local non-OneDrive cache",
+  "node": "v24.19.0",
+  "dependencyPath": "C:/Users/henri/.cache/qshape-revision-20261030/dependencies/node_modules",
+  "pythonAnalysis": {
+    "executable": "C:\\Users\\henri\\anaconda3\\python.exe",
+    "version": "3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:09:58) [MSC v.1929 64 bit (AMD64)]",
+    "numpy": "2.3.5",
+    "scipy": "1.16.3"
+  }
+}

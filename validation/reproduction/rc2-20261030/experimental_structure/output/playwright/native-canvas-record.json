@@ -1,0 +1,104 @@
+{
+  "sourceCommit": "9c6a8397be05ad3580269c1b6734cdf5319d2d9b",
+  "softwareVersion": "1.6.0-rc.2",
+  "browser": "148.0.7778.96",
+  "viewportCSS": [
+    900,
+    1000
+  ],
+  "devicePixelRatio": 2,
+  "sourceHeader": "🔬 Q-Shape (Quantitative Shape Analyzer)\n\nAdvanced Coordination Geometry Analysis\n\nVersion 1.6.0-rc.2 | Build: 2026-10-30 12:42 UTC | Source: 9c6a8397be05\n\nCite this: Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0-rc.2; pre-release validation candidate; archival DOI pending for this candidate). Source repository",
+  "captures": [
+    {
+      "name": "02-cn6-minimum",
+      "file": "02-cn6-minimum-canvas-hires.png",
+      "timestamp": "2026-10-30T12:54:36.586Z",
+      "canvas": {
+        "width": 1564,
+        "height": 1200,
+        "cssWidth": 782,
+        "cssHeight": 598
+      },
+      "nativeInteraction": {
+        "dragCSS": [
+          13,
+          8
+        ],
+        "wheelDeltaY": -650
+      },
+      "donorIndices": [
+        3,
+        4,
+        5,
+        6,
+        1,
+        2
+      ],
+      "minimum": "OC-6 (Octahedral)",
+      "minimumScore": 1.036084021719741,
+      "overlay": "OC-6 (Octahedral)",
+      "overlayScore": 1.036084021719741,
+      "exactInputsAndScoresMatchUI": true
+    },
+    {
+      "name": "03-cn6-alternate",
+      "file": "03-cn6-alternate-canvas-hires.png",
+      "timestamp": "2026-10-30T12:54:38.857Z",
+      "canvas": {
+        "width": 1564,
+        "height": 1200,
+        "cssWidth": 782,
+        "cssHeight": 598
+      },
+      "nativeInteraction": {
+        "dragCSS": [
+          13,
+          8
+        ],
+        "wheelDeltaY": -650
+      },
+      "donorIndices": [
+        3,
+        4,
+        5,
+        6,
+        1,
+        2
+      ],
+      "minimum": "OC-6 (Octahedral)",
+      "minimumScore": 1.036084021719741,
+      "overlay": "TPR-6 (Trigonal Prism)",
+      "overlayScore": 16.97959569049744,
+      "exactInputsAndScoresMatchUI": true
+    },
+    {
+      "name": "04-cn4-minimum",
+      "file": "04-cn4-minimum-canvas-hires.png",
+      "timestamp": "2026-10-30T12:54:41.329Z",
+      "canvas": {
+        "width": 1564,
+        "height": 1200,
+        "cssWidth": 782,
+        "cssHeight": 598
+      },
+      "nativeInteraction": {
+        "dragCSS": [
+          13,
+          8
+        ],
+        "wheelDeltaY": -650
+      },
+      "donorIndices": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "minimum": "SP-4 (Square Planar)",
+      "minimumScore": 0.013438116239417042,
+      "overlay": "SP-4 (Square Planar)",
+      "overlayScore": 0.013438116239417042,
+      "exactInputsAndScoresMatchUI": true
+    }
+  ]
+}

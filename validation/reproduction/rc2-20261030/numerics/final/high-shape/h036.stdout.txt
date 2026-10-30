@@ -1,0 +1,12 @@
+
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+
+Reading data from file h036.dat
+CShM table in h036.tab
+Output calculation results in h036.out
+Reading reference structures from file TIC-60.ref
+
+Arrivederci.
+

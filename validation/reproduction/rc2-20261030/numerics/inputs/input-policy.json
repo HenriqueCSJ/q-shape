@@ -1,0 +1,8 @@
+{
+  "bridge": "98 historical inputs and 952 raw SHAPE oracle rows copied byte-for-byte. All current target definitions read from frozen rc.2 source; four old ideal Johnson inputs remain earlier geometries.",
+  "currentIdeal": "87 current-library self-recovery cases. No SHAPE oracle is attached to these new inputs.",
+  "robustness": "18 retained base environments in six representations (108 inputs, 172 base fits and 1032 target executions); same raw SHAPE oracle rows, current targets.",
+  "highCN": "Five references; ideal + seed-defined 2% and 5% RMS coordinate perturbations relative to original donor RMS; each base and two seeded proper-rotation/donor-permutation forms. 15 base fits, 45 target executions. SHAPE fixed-pairing uses exact current-library custom reference and specified permutation.",
+  "shapeRowsNeedingRerun": "No old-input oracle rows need rerun. All 45 high-CN custom-reference inputs require new fixed-pairing SHAPE runs. If current-library ideals are to be cross-compared with SHAPE, all affected input/target rows must be rerun; for just the four changed ideal inputs this is 46 rows (7 for JASPC-11 plus 3*13 for CN12).",
+  "numericalMeaning": "CShM values and differences are dimensionless; timing is milliseconds. CSV outputs are calculation evidence and plot sources, not approved publication tables."
+}

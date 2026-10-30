@@ -1,0 +1,18 @@
+{
+  "status": "data_consistency_checks_passed",
+  "scope": "Computational evidence reconciliation only; no figure/table/layout release approval.",
+  "productionCounts": {
+    "bridge1": 952,
+    "bridge2": 952,
+    "robustness": 1032,
+    "reflection": 172,
+    "self": 87,
+    "high": 45
+  },
+  "signedCsvRows": 952,
+  "cnSummaryRows": 11,
+  "highCnCsvRows": 45,
+  "bridgeOracleRawPathsResolved": 952,
+  "robustnessOracleRawPathsResolved": 1032,
+  "referenceSuperpositions": 92
+}

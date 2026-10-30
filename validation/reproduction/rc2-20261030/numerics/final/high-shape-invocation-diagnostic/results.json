@@ -1,0 +1,41 @@
+{
+  "executable": "/home/henrique/SHAPE/SHAPE_2.1_linux_64/shape_2.1_linux64",
+  "referencePolicy": "Exact current-library custom reference; center fixed; known source correspondence preserved through rotations/permutations.",
+  "oracleRerun": true,
+  "count": 1,
+  "results": [
+    {
+      "caseId": "DD-20-distortion-0pct-representation-0",
+      "targetCode": "DD-20",
+      "status": "failed",
+      "valueToken": null,
+      "processExitCode": 0,
+      "wallMsIncludingWslStartup": 226.0781999793835,
+      "customReference": "C:\\Users\\henri\\OneDrive\\Academic\\Production\\Papers\\Working\\Q\u00b2M\u00b3\\Q-Shape\\manuscript_restart_2026\\revision_20261030\\software_evidence\\final\\high-shape\\DD-20.ref",
+      "rawOutput": "C:\\Users\\henri\\OneDrive\\Academic\\Production\\Papers\\Working\\Q\u00b2M\u00b3\\Q-Shape\\manuscript_restart_2026\\revision_20261030\\software_evidence\\final\\high-shape\\DD-20-distortion-0pct-representation-0.out",
+      "pairing": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "interpretation": "Attainable fixed correspondence score, not an unrestricted minimum."
+    }
+  ]
+}
