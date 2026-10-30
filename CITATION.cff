@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 title: "Q-Shape - Quantitative Shape Analyzer"
-message: "This file describes the Q-Shape 1.6.0-rc.1 validation candidate. Its archival DOI is pending; cite the repository and exact Git commit used."
+message: "This file describes the Q-Shape 1.6.0-rc.2 validation candidate. Its archival DOI is pending; cite the repository and exact Git commit used."
 authors:
   - given-names: Henrique
     family-names: Castro Silva Junior
@@ -10,7 +10,7 @@ authors:
 repository-code: "https://github.com/HenriqueCSJ/q-shape"
 url: "https://github.com/HenriqueCSJ/q-shape"
 license: MIT
-version: "1.6.0-rc.1"
+version: "1.6.0-rc.2"
 keywords:
   - "coordination chemistry"
   - "continuous shape measures"
@@ -21,7 +21,7 @@ keywords:
 preferred-citation:
   type: software
   title: "Q-Shape - Quantitative Shape Analyzer"
-  version: "1.6.0-rc.1"
+  version: "1.6.0-rc.2"
   year: 2026
   authors:
     - given-names: Henrique

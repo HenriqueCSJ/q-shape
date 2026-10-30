@@ -1,6 +1,6 @@
 # Q-Shape numerical validation protocol
 
-Status: working integrated protocol for the `1.6.0-rc.1` successor lineage.
+Status: working integrated protocol for the `1.6.0-rc.2` successor lineage.
 Direct, metamorphic, browser, holdout, and independent-user artifacts frozen for
 earlier commits remain immutable historical evidence and do not transfer to this
 candidate. Every scientific stratum must be rebound to the final successor SHA

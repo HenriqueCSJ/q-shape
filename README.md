@@ -4,7 +4,7 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Candidate](https://img.shields.io/badge/candidate-1.6.0--rc.1-orange.svg?style=flat-square)](validation/protocol.md)
+[![Candidate](https://img.shields.io/badge/candidate-1.6.0--rc.2-orange.svg?style=flat-square)](validation/protocol.md)
 [![Archived release](https://img.shields.io/badge/archived%20release-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
 [![Archived v1.5.0 DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18209621.svg)](https://doi.org/10.5281/zenodo.18209621)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
@@ -72,10 +72,11 @@
 
 ## Quick Start
 
-### Deployed archived version
+### Hosted application
 
-The current public site is the archived **v1.5.0** application, not this
-`1.6.0-rc.1` candidate: **[https://henriquecsj.github.io/q-shape](https://henriquecsj.github.io/q-shape)**.
+The [hosted application](https://henriquecsj.github.io/q-shape) is deployed
+separately. Check its displayed version and exact source commit before treating
+it as the `1.6.0-rc.2` candidate evaluated here.
 
 > 🔒 **Privacy Notice:** Q-Shape runs entirely in your browser. **No data is uploaded or transmitted**. Your molecular structures remain completely private on your device.
 
@@ -129,7 +130,12 @@ Q-Shape currently implements the following computational methods:
 
 ### Validation
 
-The `1.6.0-rc.1` lineage is a **pre-release validation candidate**, not a
+This candidate corrects four Johnson reference coordinate sets from a pinned
+complete primary source, labels JSPC-10 as J86, and preserves TIC-60 as the
+stable saved-result name for the SHAPE table alias TRIC-60. See
+[reference coordinate identity](validation/reference-library.md).
+
+The `1.6.0-rc.2` lineage is a **pre-release validation candidate**, not a
 validated release. The authoritative [validation protocol](validation/protocol.md)
 keeps engineering tests separate from scientific parity. Current boundaries:
 
@@ -146,7 +152,7 @@ keeps engineering tests separate from scientific parity. Current boundaries:
 <summary><strong>Historical v1.5 exploratory SHAPE comparisons (not release-candidate qualification)</strong></summary>
 
 The values below are retained for historical transparency. They do not validate
-`1.6.0-rc.1`, do not replace the frozen campaigns, and must not be summarized as
+`1.6.0-rc.2`, do not replace the frozen campaigns, and must not be summarized as
 holdout or full-census evidence.
 
 #### CN=2 - CuCl₂ (Bent Dihalide)
@@ -337,7 +343,7 @@ npm run build
 
 ## Performance
 
-No runtime or memory benchmark is currently frozen for `1.6.0-rc.1`.
+No runtime or memory benchmark is currently frozen for `1.6.0-rc.2`.
 Performance depends on coordination number, selected mode, browser, and
 hardware; quantitative claims will be added only from a version-bound protocol.
 
@@ -360,7 +366,7 @@ target rather than a validated support claim.
 ## Citation
 
 The DOI below identifies the archived **v1.5.0** release only. It must not be
-used to identify `1.6.0-rc.1`. Until the final candidate receives its own
+used to identify `1.6.0-rc.2`. Until the final candidate receives its own
 persistent archive, cite the repository, the displayed candidate version, and
 the exact Git commit used.
 

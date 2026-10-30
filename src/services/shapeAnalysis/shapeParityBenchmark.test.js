@@ -882,7 +882,7 @@ describe('SHAPE Parity Benchmark - CN=10 FeL10 Complex', () => {
         'JBCSAPR-10 (Bicapped Square Antiprism, J17)': 25.98433,
         'JMBIC-10 (Metabidiminished Icosahedron, J62)': 18.86104,
         'JATDI-10 (Augmented Tridiminished Icosahedron, J64)': 24.24164,
-        'JSPC-10 (Sphenocorona, J87)': 23.62235,
+        'JSPC-10 (Sphenocorona, J86)': 23.62235,
         'SDD-10 (Staggered Dodecahedron 2:6:2)': 17.12464,
         'TD-10 (Tetradecahedron 2:6:2)': 19.41676,
         'HD-10 (Hexadecahedron 2:6:2)': 16.93361

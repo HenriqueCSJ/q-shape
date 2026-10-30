@@ -13,7 +13,7 @@ import {
 
 describe('release identity metadata', () => {
     test('application and package versions identify the same prerelease candidate', () => {
-        expect(APP_VERSION).toBe('1.6.0-rc.1');
+        expect(APP_VERSION).toBe('1.6.0-rc.2');
         expect(packageMetadata.version).toBe(APP_VERSION);
         expect(zenodoMetadata.version).toBe(APP_VERSION);
         expect(zenodoMetadata.description).toContain('pre-release validation candidate');

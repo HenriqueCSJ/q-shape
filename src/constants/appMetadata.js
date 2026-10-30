@@ -5,7 +5,7 @@
  * Update these values when releasing a new version.
  */
 
-export const APP_VERSION = '1.6.0-rc.1';
+export const APP_VERSION = '1.6.0-rc.2';
 export const APP_NAME = 'Q-Shape';
 export const APP_FULL_NAME = 'Q-Shape (Quantitative Shape Analyzer)';
 export const RELEASE_STATUS = 'pre-release validation candidate';

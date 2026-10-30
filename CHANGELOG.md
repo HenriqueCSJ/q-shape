@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0-rc.2] - 2026-10-30
+
+Distinct pre-release candidate; scientific evidence is bound to the exact Git
+commit. No archival DOI is assigned to this candidate.
+
+### Changed
+
+- Replaced JSC-12, JBAPPR-12, JSPMC-12 and JASPC-11 coordinates with the
+  complete pinned Cosymlib/SHAPE primary coordinate rows, including centers.
+- Corrected the JSPC-10 Johnson number to J86 and documented TIC-60 as the
+  stable saved-result name, with TRIC-60 as its SHAPE table alias.
+- Separated historical bridge inputs from current-library self-recovery;
+  see [reference identity](validation/reference-library.md).
+
 ### Corrected
 
 - Restored fractional-coordinate CIF loading by converting listed atom-site

@@ -21,7 +21,8 @@ const EXPECTED_REFERENCE_COUNTS = Object.freeze({
 const SHAPE_CODE_ALIASES = Object.freeze({
     '3:fac-vOC-3': 'fvOC-3',
     '3:mer-vOC-3': 'mvOC-3',
-    '8:JBTP-8': 'JBTPR-8'
+    '8:JBTP-8': 'JBTPR-8',
+    '60:TIC-60': 'TRIC-60'
 });
 
 const DECIMAL_TOKEN_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/;

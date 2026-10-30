@@ -200,7 +200,7 @@ claims will be added only from a version-bound protocol.
 ### Browser qualification
 
 The build targets current mainstream browser families, but the frozen
-cross-browser campaign for `1.6.0-rc.1` is pending. See the
+cross-browser campaign for `1.6.0-rc.2` is pending. See the
 [validation protocol](../validation/protocol.md) for the claim boundary.
 
 ---
