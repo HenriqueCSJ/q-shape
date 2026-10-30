@@ -1,5 +1,11 @@
 # Q-Shape numerical validation protocol
 
+Release note (30 October 2026): stable software version 1.6.0 retains the
+unchanged rc.2 numerical implementation and the bounded evaluation in
+[the reproduction package](reproduction/rc2-20261030/README.md). Its source
+identities remain those actually executed. Software release status does not
+change the incomplete status of the broader scientific strata below.
+
 Status: working integrated protocol for the `1.6.0-rc.2` successor lineage.
 Direct, metamorphic, browser, holdout, and independent-user artifacts frozen for
 earlier commits remain immutable historical evidence and do not transfer to this

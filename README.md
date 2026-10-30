@@ -4,9 +4,9 @@
 
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
-[![Candidate](https://img.shields.io/badge/candidate-1.6.0--rc.2-orange.svg?style=flat-square)](validation/protocol.md)
-[![Archived candidate](https://img.shields.io/badge/archived%20candidate-1.6.0--rc.2-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.6.0-rc.2)
-[![Archived v1.6.0-rc.2 DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23806806.svg)](https://doi.org/10.5281/zenodo.23806806)
+[![Release](https://img.shields.io/badge/release-1.6.0-green.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.6.0)
+[![Evaluation archive](https://img.shields.io/badge/evaluation%20archive-1.6.0--rc.2-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.6.0-rc.2)
+[![Software archive](https://zenodo.org/badge/DOI/10.5281/zenodo.17448251.svg)](https://doi.org/10.5281/zenodo.17448251)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
 [![Tests](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml/badge.svg)](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml)
@@ -14,7 +14,7 @@
 
 **🔬 Advanced Coordination Geometry Analysis for Inorganic Chemistry**
 
-[**Archived v1.5.0 web app**](https://henriquecsj.github.io/q-shape) · [**Report Bug**](https://github.com/HenriqueCSJ/q-shape/issues) · [**Request Feature**](https://github.com/HenriqueCSJ/q-shape/issues)
+[**Launch Q-Shape**](https://henriquecsj.github.io/q-shape) · [**Report Bug**](https://github.com/HenriqueCSJ/q-shape/issues) · [**Request Feature**](https://github.com/HenriqueCSJ/q-shape/issues)
 
 </div>
 
@@ -39,7 +39,7 @@
 
 ### Analysis Capabilities
 
-✅ **92 Reference Geometries Implemented** - CN 2-12 plus high-CN fullerenes; release-candidate qualification is tracked separately
+✅ **92 Reference Geometries Implemented** - CN 2-12 plus high-CN fullerenes; numerical evaluation and its limits are documented below
 ✅ **Continuous Shape Measures (CShM)** - Quantify deviation from ideal geometry
 ✅ **Auto-Detection** - Automatically identifies metal centers and coordination spheres
 ✅ **Smart Radius Control** - Fine-tune coordination sphere or find optimal radius by CN
@@ -47,7 +47,7 @@
 ✅ **Structural Summaries** - Direct bond-length and ligand-metal-ligand angle statistics
 ✅ **Reports and CSV** - Numerical CShM values, structural summaries, and provenance
 
-### Multi-Structure Batch Analysis (v1.5.0)
+### Multi-Structure Batch Analysis
 
 ✅ **Batch Processing** - Analyze multiple structures from a single file
 ✅ **Multi-Structure XYZ Support** - Load multi-frame XYZ files
@@ -76,7 +76,7 @@
 
 The [hosted application](https://henriquecsj.github.io/q-shape) is deployed
 separately. Check its displayed version and exact source commit before treating
-it as the `1.6.0-rc.2` candidate evaluated here.
+it as the `1.6.0` release described here.
 
 > 🔒 **Privacy Notice:** Q-Shape runs entirely in your browser. **No data is uploaded or transmitted**. Your molecular structures remain completely private on your device.
 
@@ -89,7 +89,7 @@ it as the `1.6.0-rc.2` candidate evaluated here.
 5. **Visualize** results in 3D and review shape measures
 6. **Export** a print-ready report and save it as PDF from the browser print dialog
 
-### Batch Analysis Workflow (v1.5.0)
+### Batch Analysis Workflow
 
 1. **Upload** a multi-frame XYZ file or a multi-block basic CIF
 2. **Review** the batch summary table showing all structures
@@ -130,24 +130,31 @@ Q-Shape currently implements the following computational methods:
 
 ### Validation
 
-This candidate corrects four Johnson reference coordinate sets from a pinned
-complete primary source, labels JSPC-10 as J86, and preserves TIC-60 as the
-stable saved-result name for the SHAPE table alias TRIC-60. See
-[reference coordinate identity](validation/reference-library.md).
+Version 1.6.0 retains the corrected Johnson reference coordinates, JSPC-10
+label J86, and TIC-60/TRIC-60 alias of the archived rc.2 numerical implementation.
+See [reference coordinate identity](validation/reference-library.md).
 
-The `1.6.0-rc.2` lineage is a **pre-release validation candidate**, not a
-validated release. The authoritative [validation protocol](validation/protocol.md)
-keeps engineering tests separate from scientific parity. Current boundaries:
+The [packaged reproduction data](validation/reproduction/rc2-20261030/README.md)
+retain the exact inputs, raw SHAPE outputs, production-path results, execution
+source identities, and replay instructions. The numerical implementation and
+reference coordinates are unchanged in this stable software release:
 
-- automated unit, validation, coverage, and build checks test the code but do
-  not by themselves establish SHAPE parity;
-- completed direct-parity evidence belongs to an earlier candidate and cannot
-  be transferred silently to this lineage;
-- final metamorphic, external chemical holdout, browser, and independent-user
-  campaigns remain incomplete or unexecuted for this candidate;
-- the version-specific [software and reproduction archive](https://doi.org/10.5281/zenodo.23806806)
-  preserves the `v1.6.0-rc.2` candidate and its bounded evidence; archival
-  availability does not establish universal scientific validity.
+- 952 same-CN comparisons were evaluated twice; 943 agree within SHAPE's
+  five-decimal rounding interval, and nine differ by up to 0.00109 CShM without
+  changing reference orderings;
+- 18 additional geometries give 172 base fits under six representations;
+  these repetitions do not increase the number of independent geometries;
+- five higher-CN references give 15 base geometries and 45 fits compared with
+  new fixed-pairing SHAPE controls; those controls are attainable comparisons,
+  not global-optimum certificates;
+- a deposited CuO6 sphere (CCDC 1429506) exercises donor selection, alternative
+  overlays, radius restoration, and native CSV/HTML exports.
+
+Software tests, coverage checks, and builds assess implementation behavior.
+The broader [scientific validation protocol](validation/protocol.md), including
+external chemical holdouts, comprehensive browser qualification, and independent
+users, remains incomplete. Stable software status does not establish universal
+chemical validity, global convergence, or unrestricted high-CN accuracy.
 
 <details>
 <summary><strong>Historical v1.5 exploratory SHAPE comparisons (not release-candidate qualification)</strong></summary>
@@ -344,15 +351,16 @@ npm run build
 
 ## Performance
 
-No runtime or memory benchmark is currently frozen for `1.6.0-rc.2`.
-Performance depends on coordination number, selected mode, browser, and
-hardware; quantitative claims will be added only from a version-bound protocol.
-
+The retained high-CN campaign measured 45 serial fits on an Intel Core Ultra 9
+185H workstation with Node.js 24.19.0 and Windows 11 Pro: median 0.314 s and
+maximum 22.75 s. These observations cover the supplied cases and are not a
+complete browser-ranking benchmark. Timing depends on geometry, coordination
+number, selected mode, browser, and hardware.
 ### Browser Compatibility
 
 The build targets current mainstream browser families through `browserslist`,
 but the frozen cross-browser qualification campaign has not yet been executed
-for this release candidate. Until that campaign passes, compatibility is a
+for this release. Until that campaign passes, compatibility is a
 target rather than a validated support claim.
 
 | Browser family | Build target | Candidate qualification |
@@ -366,30 +374,28 @@ target rather than a validated support claim.
 
 ## Citation
 
-The version-specific [Zenodo archive](https://doi.org/10.5281/zenodo.23806806)
-contains the **v1.6.0-rc.2 pre-release validation candidate** and its reproduction
-inputs, results, and scripts. It identifies tag `v1.6.0-rc.2` at commit
-`65047f656547dd734e7917803c7d15ee8aecca8d`. State the exact Git commit used
-when analyzing with a later build. This citation update changes metadata only;
-the archived numerical implementation, references, and search remain unchanged.
+The [all-version software archive](https://doi.org/10.5281/zenodo.17448251)
+collects Q-Shape releases. Select the version-specific record and state the exact
+Git commit used. The [rc.2 evaluation archive](https://doi.org/10.5281/zenodo.23806806)
+preserves the original numerical records and their execution-source identities;
+those records are included unchanged with version 1.6.0.
 
-For this archived candidate, cite:
+APA (all-version identifier; specify the version used):
 
-**APA:**
 ```
-Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0-rc.2).
-Zenodo. https://doi.org/10.5281/zenodo.23806806
+Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0).
+Zenodo. https://doi.org/10.5281/zenodo.17448251
 ```
 
-**BibTeX:**
+BibTeX:
 ```bibtex
 @software{qshape2026,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
-  version = {1.6.0-rc.2},
+  version = {1.6.0},
   year = {2026},
-  doi = {10.5281/zenodo.23806806},
-  url = {https://doi.org/10.5281/zenodo.23806806},
+  doi = {10.5281/zenodo.17448251},
+  url = {https://doi.org/10.5281/zenodo.17448251},
   publisher = {Zenodo}
 }
 ```

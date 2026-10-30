@@ -5,10 +5,10 @@
  * Update these values when releasing a new version.
  */
 
-export const APP_VERSION = '1.6.0-rc.2';
+export const APP_VERSION = '1.6.0';
 export const APP_NAME = 'Q-Shape';
 export const APP_FULL_NAME = 'Q-Shape (Quantitative Shape Analyzer)';
-export const RELEASE_STATUS = 'pre-release validation candidate';
+export const RELEASE_STATUS = 'stable software release';
 
 export const formatBuildTimestamp = (timestamp) => {
     if (!timestamp || Number.isNaN(Date.parse(timestamp))) {
@@ -30,9 +30,9 @@ export const CITATION = {
     author: 'Castro Silva Junior, H.',
     year: 2026,
     title: 'Q-Shape - Quantitative Shape Analyzer',
-    doi: '10.5281/zenodo.23806806',
+    doi: '10.5281/zenodo.17448251',
     url: 'https://github.com/HenriqueCSJ/q-shape',
-    archiveStatus: 'version-specific software and reproduction archive available'
+    archiveStatus: 'all-version archive; select the record for this software version'
 };
 
 // Format citation string

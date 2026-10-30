@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 title: "Q-Shape - Quantitative Shape Analyzer"
-message: "Cite the version-specific software and reproduction archive for the Q-Shape 1.6.0-rc.2 validation candidate. The DOI identifies tag v1.6.0-rc.2 at commit 65047f656547dd734e7917803c7d15ee8aecca8d; also state the exact Git commit used for any later build."
+message: "Cite Q-Shape version 1.6.0 and the exact source commit used. The concept DOI collects all archived versions; select the version-specific record for reproducible citation. Bounded numerical evidence and its original source identities are included with the software."
 authors:
   - given-names: Henrique
     family-names: Castro Silva Junior
@@ -8,10 +8,10 @@ authors:
     email: henriquecsj@ufrrj.br
     affiliation: "Universidade Federal Rural do Rio de Janeiro (UFRRJ), Department of Fundamental Chemistry"
 repository-code: "https://github.com/HenriqueCSJ/q-shape"
-url: "https://doi.org/10.5281/zenodo.23806806"
-doi: "10.5281/zenodo.23806806"
+url: "https://doi.org/10.5281/zenodo.17448251"
+doi: "10.5281/zenodo.17448251"
 license: MIT
-version: "1.6.0-rc.2"
+version: "1.6.0"
 keywords:
   - "coordination chemistry"
   - "continuous shape measures"
@@ -22,12 +22,12 @@ keywords:
 preferred-citation:
   type: software
   title: "Q-Shape - Quantitative Shape Analyzer"
-  version: "1.6.0-rc.2"
+  version: "1.6.0"
   year: 2026
   authors:
     - given-names: Henrique
       family-names: Castro Silva Junior
       orcid: "https://orcid.org/0000-0003-1453-7274"
-  doi: "10.5281/zenodo.23806806"
-  url: "https://doi.org/10.5281/zenodo.23806806"
+  doi: "10.5281/zenodo.17448251"
+  url: "https://doi.org/10.5281/zenodo.17448251"
   repository-code: "https://github.com/HenriqueCSJ/q-shape"

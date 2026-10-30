@@ -7,10 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-30
+
+Stable software release of the corrected rc.2 numerical implementation.
+
+- Keep nonnegative-scale, mirror-equivalent, center-fixed CShM comparison and
+  the four corrected Johnson reference definitions.
+- Include the numerical reproduction data and deposited-structure browser example.
+- Align application, package, archive and citation metadata with version 1.6.0.
+- Link the all-version Zenodo identifier without assigning the rc.2 DOI to a new version.
+- Update documentation with the completed bounded evaluation and its limits.
+
+Numerical algorithms, references and raw evaluation records are unchanged from
+rc.2. Broader external-holdout, cross-browser and independent-user scientific
+qualification remains incomplete; higher-CN behavior remains provisional beyond
+the documented cases.
+
 ## [1.6.0-rc.2] - 2026-10-30
 
 Distinct pre-release candidate; scientific evidence is bound to the exact Git
-commit. No archival DOI is assigned to this candidate.
+commit. Archive DOI: 10.5281/zenodo.23806806.
 
 ### Changed
 

@@ -1,6 +1,6 @@
 # Q-Shape Scientific Documentation
 
-## Quantitative Shape Analyzer for Coordination Geometry
+## Quantitative Shape Analyzer for Coordination Geometry — version 1.6.0
 
 Q-Shape is a web-based tool for analyzing the geometry of coordination complexes using Continuous Shape Measures (CShM). This documentation provides in-depth scientific and algorithmic details for researchers and developers.
 
@@ -193,14 +193,15 @@ $$R = V \cdot U^T \quad \text{where} \quad H = U \Sigma V^T$$
 
 ### Performance
 
-No release-candidate runtime or memory benchmark is currently frozen. Runtime
-depends on coordination number, selected mode, browser, and hardware; benchmark
-claims will be added only from a version-bound protocol.
-
+The retained evaluation includes serial timings for 45 bounded high-CN fits.
+See the [release README](../README.md#performance) and
+[reproduction data](../validation/reproduction/rc2-20261030/README.md) for the
+hardware, exact cases and limitations. These timings are not a complete
+browser-ranking benchmark.
 ### Browser qualification
 
 The build targets current mainstream browser families, but the frozen
-cross-browser campaign for `1.6.0-rc.2` is pending. See the
+cross-browser scientific qualification remains incomplete for `1.6.0`. See the
 [validation protocol](../validation/protocol.md) for the claim boundary.
 
 ---
@@ -210,8 +211,8 @@ cross-browser campaign for `1.6.0-rc.2` is pending. See the
 Q-Shape is being prepared for peer-reviewed publication. Contributions should
 preserve explicit numerical domains, deterministic test fixtures where
 applicable, source-linked reference data, and the separation between
-engineering tests and scientific validation. The current candidate does not
-claim complete provenance, browser qualification, or scientific parity.
+engineering tests and scientific validation. Version 1.6.0 retains bounded numerical evidence; stable software distribution
+does not establish universal chemical validity or complete cross-browser qualification.
 
 ---
 
@@ -221,4 +222,4 @@ Q-Shape is open source software for academic and research use.
 
 ---
 
-*Last updated: August 2026*
+*Last updated: 30 October 2026*

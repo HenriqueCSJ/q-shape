@@ -12,27 +12,29 @@ import {
 } from './appMetadata';
 
 describe('release identity metadata', () => {
-    test('application and package versions identify the same prerelease candidate', () => {
-        expect(APP_VERSION).toBe('1.6.0-rc.2');
+    test('application package and archive metadata identify the same stable version', () => {
+        expect(APP_VERSION).toBe('1.6.0');
         expect(packageMetadata.version).toBe(APP_VERSION);
         expect(zenodoMetadata.version).toBe(APP_VERSION);
-        expect(zenodoMetadata.description).toContain('pre-release validation candidate');
+        expect(zenodoMetadata.description).toContain('stable software release');
         expect(zenodoMetadata.description).not.toContain('quality metrics');
-        expect(RELEASE_STATUS).toBe('pre-release validation candidate');
+        expect(RELEASE_STATUS).toBe('stable software release');
         expect(APP_BUILD_SHA).toBe('unavailable-local-build');
         expect(BUILD_DATE).toBe('local development');
     });
 
-    test('the candidate cites its version-specific software and reproduction archive', () => {
-        expect(CITATION.doi).toBe('10.5281/zenodo.23806806');
+    test('the stable version links the all-version archive without mislabelling the rc.2 DOI', () => {
+        expect(CITATION.doi).toBe('10.5281/zenodo.17448251');
         expect(CITATION.url).toBe('https://github.com/HenriqueCSJ/q-shape');
-        expect(getCitationString()).toContain('version-specific software and reproduction archive available');
-        expect(getCitationString()).toContain('DOI: 10.5281/zenodo.23806806');
+        expect(getCitationString()).toContain('all-version archive; select the record for this software version');
+        expect(getCitationString()).toContain('DOI: 10.5281/zenodo.17448251');
         expect(getCitationString()).not.toContain('pending');
+        expect(getCitationString()).toContain('(v1.6.0; stable software release;');
+        expect(getCitationString()).not.toContain('10.5281/zenodo.23806806');
         expect(getCitationString()).not.toContain('10.5281/zenodo.18209621');
         expect(getCitationLink()).toEqual({
-            href: 'https://doi.org/10.5281/zenodo.23806806',
-            label: 'DOI: 10.5281/zenodo.23806806'
+            href: 'https://doi.org/10.5281/zenodo.17448251',
+            label: 'DOI: 10.5281/zenodo.17448251'
         });
     });
 
