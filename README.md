@@ -5,8 +5,8 @@
 ![Q-Shape Logo](https://img.shields.io/badge/Q--Shape-Molecular%20Geometry%20Analysis-blue?style=for-the-badge&logo=react&logoColor=white)
 
 [![Candidate](https://img.shields.io/badge/candidate-1.6.0--rc.2-orange.svg?style=flat-square)](validation/protocol.md)
-[![Archived release](https://img.shields.io/badge/archived%20release-1.5.0-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.5.0)
-[![Archived v1.5.0 DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18209621.svg)](https://doi.org/10.5281/zenodo.18209621)
+[![Archived candidate](https://img.shields.io/badge/archived%20candidate-1.6.0--rc.2-blue.svg?style=flat-square)](https://github.com/HenriqueCSJ/q-shape/releases/tag/v1.6.0-rc.2)
+[![Archived v1.6.0-rc.2 DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23806806.svg)](https://doi.org/10.5281/zenodo.23806806)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://choosealicense.com/licenses/mit/)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&style=flat-square&up_color=green&up_message=online&url=https%3A%2F%2Fhenriquecsj.github.io%2Fq-shape)](https://henriquecsj.github.io/q-shape)
 [![Tests](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml/badge.svg)](https://github.com/HenriqueCSJ/q-shape/actions/workflows/test.yml)
@@ -145,8 +145,9 @@ keeps engineering tests separate from scientific parity. Current boundaries:
   be transferred silently to this lineage;
 - final metamorphic, external chemical holdout, browser, and independent-user
   campaigns remain incomplete or unexecuted for this candidate;
-- a final archival DOI will be minted only after the release identity and its
-  required validation evidence are fixed.
+- the version-specific [software and reproduction archive](https://doi.org/10.5281/zenodo.23806806)
+  preserves the `v1.6.0-rc.2` candidate and its bounded evidence; archival
+  availability does not establish universal scientific validity.
 
 <details>
 <summary><strong>Historical v1.5 exploratory SHAPE comparisons (not release-candidate qualification)</strong></summary>
@@ -365,17 +366,19 @@ target rather than a validated support claim.
 
 ## Citation
 
-The DOI below identifies the archived **v1.5.0** release only. It must not be
-used to identify `1.6.0-rc.2`. Until the final candidate receives its own
-persistent archive, cite the repository, the displayed candidate version, and
-the exact Git commit used.
+The version-specific [Zenodo archive](https://doi.org/10.5281/zenodo.23806806)
+contains the **v1.6.0-rc.2 pre-release validation candidate** and its reproduction
+inputs, results, and scripts. It identifies tag `v1.6.0-rc.2` at commit
+`65047f656547dd734e7917803c7d15ee8aecca8d`. State the exact Git commit used
+when analyzing with a later build. This citation update changes metadata only;
+the archived numerical implementation, references, and search remain unchanged.
 
-For the archived v1.5.0 release, cite:
+For this archived candidate, cite:
 
 **APA:**
 ```
-Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.5.0).
-Zenodo. https://doi.org/10.5281/zenodo.18209621
+Castro Silva Junior, H. (2026). Q-Shape - Quantitative Shape Analyzer (v1.6.0-rc.2).
+Zenodo. https://doi.org/10.5281/zenodo.23806806
 ```
 
 **BibTeX:**
@@ -383,10 +386,10 @@ Zenodo. https://doi.org/10.5281/zenodo.18209621
 @software{qshape2026,
   author = {Castro Silva Junior, Henrique},
   title = {Q-Shape - Quantitative Shape Analyzer},
-  version = {1.5.0},
+  version = {1.6.0-rc.2},
   year = {2026},
-  doi = {10.5281/zenodo.18209621},
-  url = {https://doi.org/10.5281/zenodo.18209621},
+  doi = {10.5281/zenodo.23806806},
+  url = {https://doi.org/10.5281/zenodo.23806806},
   publisher = {Zenodo}
 }
 ```

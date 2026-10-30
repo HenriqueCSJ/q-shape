@@ -23,14 +23,16 @@ describe('release identity metadata', () => {
         expect(BUILD_DATE).toBe('local development');
     });
 
-    test('the candidate does not claim the archival DOI of v1.5.0', () => {
-        expect(CITATION.doi).toBeNull();
+    test('the candidate cites its version-specific software and reproduction archive', () => {
+        expect(CITATION.doi).toBe('10.5281/zenodo.23806806');
         expect(CITATION.url).toBe('https://github.com/HenriqueCSJ/q-shape');
-        expect(getCitationString()).toContain('archival DOI pending for this candidate');
+        expect(getCitationString()).toContain('version-specific software and reproduction archive available');
+        expect(getCitationString()).toContain('DOI: 10.5281/zenodo.23806806');
+        expect(getCitationString()).not.toContain('pending');
         expect(getCitationString()).not.toContain('10.5281/zenodo.18209621');
         expect(getCitationLink()).toEqual({
-            href: 'https://github.com/HenriqueCSJ/q-shape',
-            label: 'Source repository'
+            href: 'https://doi.org/10.5281/zenodo.23806806',
+            label: 'DOI: 10.5281/zenodo.23806806'
         });
     });
 

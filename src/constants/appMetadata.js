@@ -30,15 +30,16 @@ export const CITATION = {
     author: 'Castro Silva Junior, H.',
     year: 2026,
     title: 'Q-Shape - Quantitative Shape Analyzer',
-    doi: null,
+    doi: '10.5281/zenodo.23806806',
     url: 'https://github.com/HenriqueCSJ/q-shape',
-    archiveStatus: 'archival DOI pending for this candidate'
+    archiveStatus: 'version-specific software and reproduction archive available'
 };
 
 // Format citation string
 export const getCitationString = () =>
     `${CITATION.author} (${CITATION.year}). ${CITATION.title} ` +
-    `(v${APP_VERSION}; ${RELEASE_STATUS}; ${CITATION.archiveStatus}).`;
+    `(v${APP_VERSION}; ${RELEASE_STATUS}; ${CITATION.archiveStatus}). ` +
+    `DOI: ${CITATION.doi}.`;
 
 const normalizedDoi = () => {
     if (!CITATION.doi) return null;
